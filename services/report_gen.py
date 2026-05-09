@@ -50,6 +50,7 @@ class ReportGenerator:
 
     shared-libraries Orchestrator를 활용하여
     의료적으로 검증된 안과 진단 보고서를 생성합니다.
+    Week 3: RAG(Retrieval-Augmented Generation) 통합으로 정확도 향상
     """
 
     async def generate(
@@ -57,22 +58,46 @@ class ReportGenerator:
         exam: EyeExam,
         strategy: str = "consensus",
         additional_context: str | None = None,
+        db=None,                           # RAG 활성화 시 DB 세션 전달
+        use_rag: bool = True,              # RAG 컨텍스트 활용 여부
     ) -> dict[str, Any]:
         """
-        검사 기록 기반 진단 보고서 생성
+        검사 기록 기반 진단 보고서 생성 (RAG 통합)
 
         Args:
-            exam: EyeExam 모델 인스턴스
-            strategy: Orchestrator 전략 (consensus 권장)
+            exam:               EyeExam 모델 인스턴스
+            strategy:           Orchestrator 전략 (consensus 권장)
             additional_context: 추가 임상 맥락
+            db:                 RAG 활성화 시 AsyncSession 전달
+            use_rag:            RAG 컨텍스트 활용 여부 (기본 True)
 
         Returns:
             dict: diagnosis_code, diagnosis_name, severity, report,
                   treatment_plan, llm_model, iterations, latency_ms,
-                  ontology_passed, confidence_score
+                  ontology_passed, confidence_score, rag_used
         """
         t0 = time.monotonic()
-        task = self._build_task(exam, additional_context)
+
+        # ── RAG 컨텍스트 조회 (지식베이스에서 관련 문서 검색) ──
+        rag_context = ""
+        rag_used    = False
+        if use_rag and db is not None:
+            try:
+                from services.knowledge_base import KnowledgeBase
+                kb          = KnowledgeBase(db)
+                query       = f"{exam.exam_type} {exam.icd_code or ''} {exam.raw_findings or ''}"
+                rag_context = await kb.get_rag_context(
+                    query=query[:300],
+                    top_k=3,
+                    icd_code=exam.icd_code,
+                )
+                rag_used = bool(rag_context)
+                if rag_used:
+                    log.info(f"[RAG] 컨텍스트 활성화 — {len(rag_context)}자")
+            except Exception as e:
+                log.warning(f"[RAG] 컨텍스트 조회 실패 (무시): {e}")
+
+        task = self._build_task(exam, additional_context, rag_context)
 
         log.info(
             f"보고서 생성 시작 | exam={exam.id} | "
@@ -92,11 +117,12 @@ class ReportGenerator:
         parsed = self._parse_report(result.output or "", exam)
 
         parsed.update({
-            "llm_model": self._extract_model(result),
-            "iterations": result.iterations,
-            "latency_ms": latency_ms,
+            "llm_model":       self._extract_model(result),
+            "iterations":      result.iterations,
+            "latency_ms":      latency_ms,
             "ontology_passed": result.passed,
             "confidence_score": 0.85 if result.passed else 0.60,
+            "rag_used":        rag_used,
         })
 
         log.info(
@@ -109,6 +135,7 @@ class ReportGenerator:
         self,
         exam: EyeExam,
         additional_context: str | None,
+        rag_context: str = "",
     ) -> str:
         """Orchestrator에 전달할 작업 설명 문자열 생성"""
         exam_type_names = {
@@ -143,7 +170,10 @@ class ReportGenerator:
         findings = exam.raw_findings or "소견 없음"
         context_block = f"\n추가 임상 정보: {additional_context}" if additional_context else ""
 
-        return f"""안과 전문의로서 다음 검사 결과에 대한 진단 보고서를 작성하세요.
+        rag_block = f"\n\n{rag_context}" if rag_context else ""
+        return f"""안과 전문의로서 다음 검사 결과에 대한 진단 보고서를 작성하세요.{rag_block}
+
+---
 
 검사 종류: {exam_name}
 검사 날짜: {exam.exam_date}
