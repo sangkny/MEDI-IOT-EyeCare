@@ -9,3 +9,7 @@ build/
 .coverage
 *.log
 alembic/versions/*.pyc
+
+# 런타임 업로드·로컬 테스트 이미지 (저장소에 포함하지 않음)
+uploads/
+fundus_*_sklee.jpg
