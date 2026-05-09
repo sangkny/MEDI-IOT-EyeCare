@@ -1,0 +1,6 @@
+# shared-libraries 의존성 (볼륨 마운트된 코드 실행을 위해 필요)
+openai>=1.30.0
+httpx>=0.27.0
+anthropic>=0.28.0
+google-genai>=1.0.0
+python-dotenv>=1.0.0
