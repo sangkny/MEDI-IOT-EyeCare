@@ -125,7 +125,8 @@ class TestWeek4DiabeticFullFlow:
 
         hist = c.get(f"{API_V1}/patients/{code}/history")
         assert hist.status_code == 200
-        assert hist.json().get("patient_code") == code
+        hb = hist.json()
+        assert hb.get("patient", {}).get("patient_code") == code
 
         alerts = c.get(f"{API_V1}/dashboard/alerts")
         assert alerts.status_code == 200
