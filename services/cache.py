@@ -45,12 +45,11 @@ class CacheService:
           medi:embed:f7e8d9c0...
     """
 
-    _client: aioredis.Redis | None = None
-
     def __init__(self) -> None:
         settings = get_settings()
         self._redis_url = settings.redis_url
         self._prefix    = "medi"
+        self._client: aioredis.Redis | None = None  # 인스턴스 변수 (루프 충돌 방지)
         # 통계
         self._hits      = 0
         self._misses    = 0
