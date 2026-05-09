@@ -31,6 +31,9 @@ cryptography==44.0.0               # 환자 데이터 암호화
 python-dateutil==2.9.0
 pytz==2024.2
 
+# ── Vector DB (Week 3) ─────────────────────────────────────
+pgvector==0.4.2            # pgvector Python 클라이언트 (SQLAlchemy 연동)
+
 # ── Testing ────────────────────────────────────────────────
 pytest==9.0.3
 pytest-asyncio==0.25.3

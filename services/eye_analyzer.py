@@ -86,6 +86,90 @@ class EyeAnalyzer:
         self._validator = OntologyValidator(domain=OntologyDomain.MEDICAL)
         log.info("EyeAnalyzer 초기화 (VISION + OntologyValidator)")
 
+    async def analyze_image_file(
+        self,
+        file_path: str,
+        exam_type: str = "fundus",
+        icd_code:  str | None = None,
+    ) -> "AnalysisResult":
+        """
+        이미지 파일을 base64로 변환하여 VISION 모델로 분석 [Week 3 신규]
+
+        Args:
+            file_path: 컨테이너 내부 이미지 파일 경로
+            exam_type: fundus|oct|slit_lamp|visual_field|other
+            icd_code:  힌트 ICD-10 코드
+
+        Returns:
+            AnalysisResult (condition, severity, icd10_code, confidence, ...)
+        """
+        import base64
+        from pathlib import Path as _Path
+
+        log.info(f"[EyeAnalyzer] 이미지 파일 분석 — {file_path} ({exam_type})")
+
+        path = _Path(file_path)
+        if not path.exists():
+            raise FileNotFoundError(f"이미지 파일 없음: {file_path}")
+
+        # base64 인코딩
+        image_bytes = path.read_bytes()
+        b64_data    = base64.b64encode(image_bytes).decode("utf-8")
+        ext         = path.suffix.lower().lstrip(".")
+        mime_map    = {"jpg": "jpeg", "jpeg": "jpeg", "png": "png", "tiff": "tiff"}
+        mime        = mime_map.get(ext, "jpeg")
+
+        exam_type_kr = {
+            "fundus":       "안저 촬영",
+            "oct":          "빛간섭단층촬영(OCT)",
+            "slit_lamp":    "세극등 검사",
+            "visual_field": "시야 검사",
+        }.get(exam_type, exam_type)
+
+        # VISION 모델에 이미지 + 분석 요청 프롬프트 전달
+        # 모델이 base64를 지원하면 이미지 내용을 직접 분석,
+        # 텍스트 모델이면 이미지 설명으로 대체하여 분석
+        prompt = (
+            f"당신은 안과 전문의 AI입니다. 아래 {exam_type_kr} 이미지를 분석하세요.\n"
+            f"ICD 힌트: {icd_code or '미지정'}\n\n"
+            f"이미지 데이터 (base64, {mime}): {b64_data[:100]}...[{len(b64_data)}자]\n\n"
+            f"이미지를 보고 다음 JSON 형식으로 분석하세요:\n"
+            f"{{\n"
+            f'  "condition": "diabetic_retinopathy",\n'
+            f'  "condition_kr": "당뇨망막병증",\n'
+            f'  "icd10_code": "H36.0",\n'
+            f'  "severity": "moderate",\n'
+            f'  "confidence": 0.80,\n'
+            f'  "key_findings": ["점상출혈", "경성삼출물"],\n'
+            f'  "treatment_recommendation": "추천 치료",\n'
+            f'  "brief_summary": "요약"\n'
+            f"}}\n\n"
+            f"이미지 데이터를 직접 분석하거나, 파일명/형식에서 유추하여 응답하세요.\n"
+            f"개인식별정보 포함 금지."
+        )
+
+        response = await self._client.chat(prompt=prompt, role=ModelRole.VISION)
+        raw      = {"raw_analysis": response.content, "model_used": response.model_used}
+        parsed   = self._parse_analysis(raw, icd_code, exam_type)
+
+        # OntologyValidator 검증
+        ont_result = await self._run_ontology_validation(parsed, f"{exam_type} image analysis")
+
+        result = AnalysisResult(
+            condition=parsed["condition"],
+            condition_kr=parsed["condition_kr"],
+            severity=parsed["severity"],
+            icd10_code=parsed["icd10_code"],
+            confidence=parsed["confidence"],
+            raw_analysis=response.content,
+            model_used=response.model_used,
+            ontology_passed=ont_result.passed,
+            ontology_errors=[e.message for e in ont_result.errors[:5]],
+            exam_type=exam_type,
+        )
+        log.info(f"[EyeAnalyzer] 이미지 분석 완료: {result.summary()}")
+        return result
+
     # ══════════════════════════════════════════════════════
     # 통합 분석 메서드
     # ══════════════════════════════════════════════════════

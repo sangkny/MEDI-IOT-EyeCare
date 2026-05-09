@@ -53,8 +53,14 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             await session.close()
 
 
+async def enable_pgvector() -> None:
+    """pgvector 확장 활성화 (Alembic 마이그레이션 전 필요)"""
+    async with engine.begin() as conn:
+        await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+
 async def create_tables() -> None:
     """테이블 생성 (개발 환경 — 운영은 Alembic 사용)"""
-    from models.medical import Patient, EyeExam, Diagnosis  # noqa: F401
+    from models.medical import Patient, EyeExam, Diagnosis, EyeImage  # noqa: F401
+    from models.knowledge import MedicalDocument, DocumentEmbedding, DiagnosisEmbedding  # noqa: F401
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

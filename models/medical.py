@@ -5,6 +5,7 @@ SQLAlchemy ORM 모델 — 안과 의료 도메인
 Patient    : 환자 기본 정보 (PII 암호화 저장)
 EyeExam    : 안과 검사 기록 (OCT, 안저, 시야 검사 등)
 Diagnosis  : AI 진단 결과 (LLM + OntologyValidator 검증)
+EyeImage   : 안과 이미지 파일 (안저사진, OCT 이미지 등) [Week 3 신규]
 """
 import uuid
 from datetime import datetime, date
@@ -104,6 +105,9 @@ class Patient(Base):
 
     # 관계
     exams: Mapped[list["EyeExam"]] = relationship(
+        back_populates="patient", cascade="all, delete-orphan",
+    )
+    images: Mapped[list["EyeImage"]] = relationship(
         back_populates="patient", cascade="all, delete-orphan",
     )
 
@@ -232,3 +236,77 @@ class Diagnosis(Base):
 
     def __repr__(self) -> str:
         return f"<Diagnosis code={self.diagnosis_code} severity={self.severity}>"
+
+
+class ImageTypeEnum(str, enum.Enum):
+    FUNDUS     = "fundus"      # 안저 촬영
+    OCT        = "oct"         # 빛간섭단층촬영
+    SLIT_LAMP  = "slit_lamp"   # 세극등 검사
+    VISUAL_FIELD = "visual_field"  # 시야 검사 스캔
+    OTHER      = "other"
+
+
+class EyeImage(Base):
+    """
+    안과 이미지 파일 저장 [Week 3 신규]
+
+    업로드된 안저사진, OCT 이미지를 저장하고
+    VISION 모델(gemma-4-26b-a4b)로 자동 분석합니다.
+    """
+    __tablename__ = "eye_images"
+
+    id: Mapped[str] = mapped_column(
+        String(36), primary_key=True,
+        default=lambda: str(uuid.uuid4()),
+    )
+    patient_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("patients.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    exam_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("eye_exams.id", ondelete="SET NULL"),
+        nullable=True,
+        comment="연관 검사 기록 (선택적)",
+    )
+    image_type: Mapped[ImageTypeEnum] = mapped_column(
+        SAEnum(ImageTypeEnum), nullable=False,
+    )
+    file_path: Mapped[str] = mapped_column(
+        String(500), nullable=False,
+        comment="컨테이너 내부 파일 경로 (/app/uploads/...)",
+    )
+    file_name: Mapped[str] = mapped_column(
+        String(255), nullable=False,
+    )
+    file_size: Mapped[int] = mapped_column(
+        Integer, nullable=False,
+        comment="파일 크기 (bytes)",
+    )
+    mime_type: Mapped[str] = mapped_column(
+        String(50), nullable=False, default="image/jpeg",
+    )
+    analyzed: Mapped[bool] = mapped_column(Boolean, default=False)
+    analysis_result: Mapped[str | None] = mapped_column(
+        Text, nullable=True,
+        comment="VISION 모델 분석 결과 (JSON 문자열)",
+    )
+    analysis_icd_code: Mapped[str | None] = mapped_column(
+        String(10), nullable=True,
+        comment="분석에서 추출한 ICD-10 코드",
+    )
+    analysis_severity: Mapped[str | None] = mapped_column(
+        String(20), nullable=True,
+    )
+
+    uploaded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(),
+    )
+    analyzed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True,
+    )
+
+    # 관계
+    patient: Mapped["Patient"] = relationship(back_populates="images")
+
+    def __repr__(self) -> str:
+        return f"<EyeImage type={self.image_type} analyzed={self.analyzed}>"

@@ -22,7 +22,8 @@ sys.path.insert(0, "/app/shared-libraries")
 
 # ── ORM 모델 import (autogenerate 감지용) ─────────────────
 from database import Base  # noqa: E402
-import models.medical  # noqa: F401, E402 — 모델 등록
+import models.medical   # noqa: F401, E402 — 의료 모델 등록
+import models.knowledge  # noqa: F401, E402 — 지식베이스 + 벡터 모델 등록
 
 # ── Alembic Config ─────────────────────────────────────────
 config = context.config
