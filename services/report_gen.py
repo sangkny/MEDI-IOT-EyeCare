@@ -113,6 +113,13 @@ class ReportGenerator:
         result = await orch.execute(task)
         latency_ms = (time.monotonic() - t0) * 1000
 
+        try:
+            from services.llm_telemetry import record_from_orchestrator_lore
+
+            await record_from_orchestrator_lore(getattr(result, "lore", None) or [])
+        except Exception as te:
+            log.debug("[telemetry] Orchestrator lore 기록 건너뜀: %s", te)
+
         # 결과에서 구조화된 정보 추출
         parsed = self._parse_report(result.output or "", exam)
 

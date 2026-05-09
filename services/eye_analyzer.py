@@ -18,7 +18,7 @@ from dataclasses import dataclass, field
 from typing import Any
 
 from llm.client import LLMClient
-from llm.base import ModelRole
+from llm.base import LLMResponse, ModelRole
 from ontology.base import OntologyDomain, ValidationResult
 from ontology.validator import OntologyValidator
 
@@ -86,6 +86,16 @@ class EyeAnalyzer:
         self._validator = OntologyValidator(domain=OntologyDomain.MEDICAL)
         log.info("EyeAnalyzer 초기화 (VISION + OntologyValidator)")
 
+    async def _telemetry_chat(self, response: LLMResponse | None) -> None:
+        if response is None:
+            return
+        try:
+            from services.llm_telemetry import record_llm_chat_response
+
+            await record_llm_chat_response(response)
+        except Exception:
+            pass
+
     async def analyze_image_file(
         self,
         file_path: str,
@@ -149,6 +159,7 @@ class EyeAnalyzer:
         )
 
         response = await self._client.chat(prompt=prompt, role=ModelRole.VISION)
+        await self._telemetry_chat(response)
         raw      = {"raw_analysis": response.content, "model_used": response.model_used}
         parsed   = self._parse_analysis(raw, icd_code, exam_type)
 
@@ -287,6 +298,7 @@ severity 선택: normal|mild|moderate|severe|critical
 개인식별정보 포함 금지."""
 
         response = await self._client.chat(prompt=prompt, role=ModelRole.VISION)
+        await self._telemetry_chat(response)
         return {"raw_analysis": response.content, "model_used": response.model_used}
 
     async def analyze_oct_findings(
@@ -316,6 +328,7 @@ severity: normal|mild|moderate|severe|critical
 개인정보 포함 금지."""
 
         response = await self._client.chat(prompt=prompt, role=ModelRole.VISION)
+        await self._telemetry_chat(response)
         return {"raw_analysis": response.content, "model_used": response.model_used}
 
     async def analyze_visual_field(
@@ -349,6 +362,7 @@ severity: normal|mild|moderate|severe|critical
 개인정보 포함 금지."""
 
         response = await self._client.chat(prompt=prompt, role=ModelRole.HEAVY)
+        await self._telemetry_chat(response)
         return {"raw_analysis": response.content, "model_used": response.model_used}
 
     async def _analyze_general(
@@ -380,6 +394,7 @@ severity: normal|mild|moderate|severe|critical
 개인정보 포함 금지."""
 
         response = await self._client.chat(prompt=prompt, role=ModelRole.VISION)
+        await self._telemetry_chat(response)
         return {"raw_analysis": response.content, "model_used": response.model_used}
 
     # ══════════════════════════════════════════════════════

@@ -10,12 +10,12 @@ import logging
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, BackgroundTasks, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
-from models.medical import EyeExam, Diagnosis, ReportStatusEnum
+from models.medical import EyeExam, Diagnosis, DiagnosisSeverityEnum, ReportStatusEnum
 from schemas.medical import (
     DiagnosisRequest, DiagnosisResponse,
     ExamCreate, ExamResponse,
@@ -110,16 +110,6 @@ DiagnosisResponse 반환
     description=_AI_ANALYZE_DESC,
     response_description="생성된 진단 보고서 (OntologyValidator 검증 완료)",
 )
-async def create_diagnosis(
-    req: DiagnosisRequest,
-    background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
-    report_gen: ReportGenerator = Depends(ReportGenerator),
-) -> DiagnosisResponse:
-    """AI 진단 보고서 생성 — `POST /diagnosis/` 와 동일"""
-    return await _run_diagnosis(req, db, report_gen)
-
-
 @router.post(
     "/ai-analyze",
     response_model=DiagnosisResponse,
@@ -130,7 +120,6 @@ async def create_diagnosis(
 )
 async def create_diagnosis(
     req: DiagnosisRequest,
-    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     report_gen: ReportGenerator = Depends(ReportGenerator),
 ) -> DiagnosisResponse:
@@ -161,14 +150,22 @@ async def _run_diagnosis(
             exam=exam,
             strategy=req.strategy,
             additional_context=req.additional_context,
+            db=db,
+            use_rag=True,
         )
+
+        sev_raw = str(result.get("severity") or "mild").lower()
+        try:
+            sev_enum = DiagnosisSeverityEnum(sev_raw)
+        except ValueError:
+            sev_enum = DiagnosisSeverityEnum.MILD
 
         diagnosis = Diagnosis(
             id=str(uuid.uuid4()),
             exam_id=exam.id,
             diagnosis_code=result["diagnosis_code"],
             diagnosis_name=result["diagnosis_name"],
-            severity=result["severity"],
+            severity=sev_enum,
             report=result["report"],
             treatment_plan=result.get("treatment_plan"),
             llm_model=result.get("llm_model"),
@@ -199,16 +196,6 @@ async def _run_diagnosis(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"진단 보고서 생성 실패: {str(e)[:200]}",
         )
-
-
-async def ai_analyze_diagnosis(
-    req: DiagnosisRequest,
-    background_tasks: BackgroundTasks,
-    db: AsyncSession = Depends(get_db),
-    report_gen: ReportGenerator = Depends(ReportGenerator),
-) -> DiagnosisResponse:
-    """AI 진단 보고서 생성 (명시적 경로 `/ai-analyze`)"""
-    return await _run_diagnosis(req, db, report_gen)
 
 
 @router.get(

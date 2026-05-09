@@ -123,6 +123,12 @@ class KnowledgeBase:
         try:
             embed_resp = await self._client.embed(embed_text)
             embedding  = embed_resp.embedding
+            try:
+                from services.llm_telemetry import record_embedding_response
+
+                await record_embedding_response(embed_resp, embed_text)
+            except Exception:
+                pass
 
             emb = DocumentEmbedding(
                 id=str(uuid.uuid4()),
@@ -171,6 +177,12 @@ class KnowledgeBase:
         try:
             embed_resp    = await self._client.embed(query)
             query_vector  = embed_resp.embedding
+            try:
+                from services.llm_telemetry import record_embedding_response
+
+                await record_embedding_response(embed_resp, query)
+            except Exception:
+                pass
         except Exception as e:
             log.error(f"[KB] 쿼리 임베딩 실패: {e}")
             return await self._fallback_text_search(query, top_k, category, icd_code)
