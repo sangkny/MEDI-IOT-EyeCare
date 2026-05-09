@@ -24,7 +24,6 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from config import get_settings
-from database import create_tables
 from api import api_router
 
 logging.basicConfig(
@@ -46,8 +45,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     log.info(f"   환경: {settings.environment}")
     log.info(f"   LLM:  {settings.llm_provider} ({settings.local_base_url})")
 
-    await create_tables()
-    log.info("   DB 테이블 준비 완료")
+    # 테이블 생성은 Alembic이 관리 (alembic upgrade head)
+    # create_tables() 직접 호출 금지
+    log.info("   DB 스키마: Alembic 마이그레이션으로 관리")
 
     yield
 

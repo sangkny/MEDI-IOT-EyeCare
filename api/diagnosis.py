@@ -31,12 +31,27 @@ router = APIRouter()
     response_model=ExamResponse,
     status_code=status.HTTP_201_CREATED,
     summary="검사 기록 등록",
+    response_description="등록된 검사 기록 (AI 분석 전 상태, report_status=pending)",
 )
 async def create_exam(
     data: ExamCreate,
     db: AsyncSession = Depends(get_db),
 ) -> ExamResponse:
-    """안과 검사 기록을 등록합니다."""
+    """
+    안과 검사 기록을 등록합니다.
+
+    등록 후 `POST /diagnosis/ai-analyze`를 호출하면 AI 진단 보고서가 생성됩니다.
+
+    **지원 검사 종류**:
+    | exam_type | 설명 |
+    |-----------|------|
+    | fundus | 안저 촬영 (당뇨망막병증, 녹내장 선별) |
+    | oct | 빛간섭단층촬영 (황반 질환, 시신경 분석) |
+    | visual_field | 시야 검사 (녹내장 진행 모니터링) |
+    | slit_lamp | 세극등 검사 (각막, 수정체, 전방) |
+    | refraction | 굴절 검사 (근시, 난시, 원시 측정) |
+    | iop | 안압 검사 (녹내장 위험 평가) |
+    """
     exam = EyeExam(
         id=str(uuid.uuid4()),
         patient_id=data.patient_id,
@@ -57,21 +72,43 @@ async def create_exam(
     return ExamResponse.model_validate(exam)
 
 
+_AI_ANALYZE_DESC = """
+검사 기록 기반으로 AI 진단 보고서를 생성합니다.
+
+**처리 파이프라인 (CONSENSUS 전략)**:
+```
+검사 소견 입력
+    ↓
+PlannerAgent (gemma-4-e4b)     ← 진단 작업 계획 수립
+    ↓
+GeneratorAgent (gemma-4-e4b)   ← 초안 보고서 생성
+    ↓
+ReviewerAgent (gemma-4-26b-a4b) + OntologyValidator (MEDICAL)
+    ↓ PASS → 보고서 확정
+    ↓ FAIL → FixerAgent → 재검토 (최대 2회)
+    ↓
+DiagnosisResponse 반환
+```
+
+**예상 처리 시간**: 1~3분 (CONSENSUS 전략, LM Studio 기준)
+
+**OntologyValidator 검증 항목**:
+- Semantic: 의학 용어 정합성
+- Structural: 보고서 구조 완결성
+- Constraint: PII 미포함 여부
+- Dependency: ICD 코드 ↔ 진단명 일치
+
+> **주의**: `ontology_passed=false`인 경우 보고서가 반환되더라도
+> 의사의 추가 검토가 필요합니다.
+"""
+
 @router.post(
     "/",
     response_model=DiagnosisResponse,
     status_code=status.HTTP_201_CREATED,
     summary="AI 진단 보고서 생성",
-    description="""
-    shared-libraries Orchestrator(CONSENSUS 전략)를 사용하여
-    안과 AI 진단 보고서를 생성합니다.
-
-    - FAST 모델: 초안 생성 (gemma-4-e4b)
-    - HEAVY 모델: 의료 정확성 검토 (gemma-4-26b-a4b)
-    - OntologyValidator: MEDICAL 도메인 규칙 검증
-
-    처리 시간: 약 1~3분 (CONSENSUS 전략)
-    """,
+    description=_AI_ANALYZE_DESC,
+    response_description="생성된 진단 보고서 (OntologyValidator 검증 완료)",
 )
 async def create_diagnosis(
     req: DiagnosisRequest,
@@ -79,11 +116,34 @@ async def create_diagnosis(
     db: AsyncSession = Depends(get_db),
     report_gen: ReportGenerator = Depends(ReportGenerator),
 ) -> DiagnosisResponse:
-    """
-    검사 기록 기반 AI 진단 보고서를 생성합니다.
-    CONSENSUS 전략으로 FAST + HEAVY 모델이 동시에 검증합니다.
-    """
-    # 검사 기록 조회
+    """AI 진단 보고서 생성 — `POST /diagnosis/` 와 동일"""
+    return await _run_diagnosis(req, db, report_gen)
+
+
+@router.post(
+    "/ai-analyze",
+    response_model=DiagnosisResponse,
+    status_code=status.HTTP_201_CREATED,
+    summary="AI 진단 보고서 생성 (명시적 경로)",
+    description=_AI_ANALYZE_DESC,
+    response_description="생성된 진단 보고서 (OntologyValidator 검증 완료)",
+)
+async def create_diagnosis(
+    req: DiagnosisRequest,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    report_gen: ReportGenerator = Depends(ReportGenerator),
+) -> DiagnosisResponse:
+    """AI 진단 보고서 생성 — `POST /diagnosis/ai-analyze` 와 동일"""
+    return await _run_diagnosis(req, db, report_gen)
+
+
+async def _run_diagnosis(
+    req: DiagnosisRequest,
+    db: AsyncSession,
+    report_gen: ReportGenerator,
+) -> DiagnosisResponse:
+    """AI 진단 보고서 생성 공통 로직"""
     exam = await db.scalar(
         select(EyeExam).where(EyeExam.id == req.exam_id)
     )
@@ -93,7 +153,6 @@ async def create_diagnosis(
             detail=f"검사 기록을 찾을 수 없습니다: {req.exam_id}",
         )
 
-    # 진단 보고서 생성 (LLM 호출)
     exam.report_status = ReportStatusEnum.GENERATING
     await db.flush()
 
@@ -140,6 +199,16 @@ async def create_diagnosis(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"진단 보고서 생성 실패: {str(e)[:200]}",
         )
+
+
+async def ai_analyze_diagnosis(
+    req: DiagnosisRequest,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    report_gen: ReportGenerator = Depends(ReportGenerator),
+) -> DiagnosisResponse:
+    """AI 진단 보고서 생성 (명시적 경로 `/ai-analyze`)"""
+    return await _run_diagnosis(req, db, report_gen)
 
 
 @router.get(

@@ -13,7 +13,7 @@ import logging
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -38,12 +38,20 @@ def _mask_name(name: str | None) -> str | None:
     response_model=PatientResponse,
     status_code=status.HTTP_201_CREATED,
     summary="환자 등록",
+    response_description="등록된 환자 정보 (이름은 마스킹 처리)",
 )
 async def create_patient(
     data: PatientCreate,
     db: AsyncSession = Depends(get_db),
 ) -> PatientResponse:
-    """환자를 등록합니다. PII(이름)는 암호화하여 저장됩니다."""
+    """
+    환자를 등록합니다.
+
+    - `patient_code`는 병원 내부 번호로 **고유값**이어야 합니다
+    - `name`은 AES-256으로 암호화하여 저장됩니다
+    - 응답의 `name_masked`는 첫 글자만 노출 (예: 홍길동 → 홍**)
+    - `primary_diagnosis_code`는 ICD-10 형식 검증 (예: `H36.0`)
+    """
     # 중복 환자 코드 확인
     existing = await db.scalar(
         select(Patient).where(Patient.patient_code == data.patient_code)
@@ -86,12 +94,21 @@ async def create_patient(
     "/{patient_id}",
     response_model=PatientResponse,
     summary="환자 조회",
+    response_description="환자 상세 정보 + 검사 횟수",
 )
 async def get_patient(
-    patient_id: str,
+    patient_id: str = Path(
+        description="환자 UUID 또는 patient_code (예: P123456)",
+        examples=["P123456"],
+    ),
     db: AsyncSession = Depends(get_db),
 ) -> PatientResponse:
-    """UUID 또는 patient_code로 환자를 조회합니다."""
+    """
+    UUID 또는 `patient_code`로 환자를 조회합니다.
+
+    - `patient_id` 파라미터에 UUID 또는 `P123456` 형식 모두 허용
+    - `exam_count`: 해당 환자의 전체 검사 기록 수
+    """
     patient = await db.scalar(
         select(Patient)
         .where(

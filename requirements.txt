@@ -8,7 +8,8 @@ python-multipart==0.0.12   # 파일 업로드 (안저 이미지)
 
 # ── Database ───────────────────────────────────────────────
 sqlalchemy==2.0.36
-asyncpg==0.30.0            # 비동기 PostgreSQL 드라이버
+asyncpg==0.30.0            # 비동기 PostgreSQL 드라이버 (런타임)
+psycopg2-binary==2.9.12    # 동기 PostgreSQL 드라이버 (Alembic 마이그레이션용)
 alembic==1.14.0            # DB 마이그레이션
 
 # ── Validation & Settings ──────────────────────────────────

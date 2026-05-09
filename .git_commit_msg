@@ -1,0 +1,8 @@
+feat: Week 2 Day 2 - Alembic migration + API documentation
+
+- alembic/ init + first migration (patients/eye_exams/diagnoses)
+- ENUM 3 types + 3 indexes + Foreign Key CASCADE
+- 13 endpoints with description/example added
+- docs/openapi.json saved (39KB)
+- /diagnosis/ai-analyze explicit path added
+- psycopg2-binary added to requirements.txt
