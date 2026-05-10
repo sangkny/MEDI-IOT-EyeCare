@@ -14,6 +14,7 @@ MEDI-IOT EyeCare — FastAPI 엔트리포인트
 실행:
   uvicorn main:app --host 0.0.0.0 --port 8000 --reload
 """
+import asyncio
 import logging
 
 from contextlib import asynccontextmanager
@@ -25,6 +26,8 @@ from fastapi.responses import JSONResponse
 
 from config import get_settings
 from api import api_router
+from events import DEFAULT_EVENTS_CHANNEL, EventBus
+from services.platform_event_handlers import medi_incoming_dispatch
 
 logging.basicConfig(
     level=logging.INFO,
@@ -49,7 +52,36 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     # create_tables() 직접 호출 금지
     log.info("   DB 스키마: Alembic 마이그레이션으로 관리")
 
+    subscriber_stop = asyncio.Event()
+    redis_url = (settings.redis_url or "").strip()
+
+    async def run_event_subscriber() -> None:
+        await EventBus(redis_url).subscribe(
+            DEFAULT_EVENTS_CHANNEL,
+            medi_incoming_dispatch,
+            stop_event=subscriber_stop,
+        )
+
+    sub_task: asyncio.Task[None] | None = None
+    if redis_url:
+        sub_task = asyncio.create_task(
+            run_event_subscriber(),
+            name="medi-platform-events-sub",
+        )
+        log.info("   Redis 이벤트 구독: channel=%s", DEFAULT_EVENTS_CHANNEL)
+    else:
+        log.warning("   redis_url 미설정 — 플랫폼 간 이벤트 구독 생략")
+
     yield
+
+    subscriber_stop.set()
+    if sub_task and not sub_task.done():
+        try:
+            await asyncio.wait_for(sub_task, timeout=5.0)
+        except asyncio.TimeoutError:
+            sub_task.cancel()
+        except Exception:
+            log.exception("이벤트 구독 태스크 종료 오류")
 
     log.info(f"👋 {settings.service_name} 종료")
 

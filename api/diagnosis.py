@@ -6,6 +6,7 @@ POST /api/v1/diagnosis          — AI 진단 보고서 생성
 GET  /api/v1/diagnosis/{id}     — 진단 결과 조회
 POST /api/v1/diagnosis/exam     — 검사 기록 등록
 """
+import asyncio
 import logging
 import uuid
 from datetime import datetime, timezone
@@ -14,7 +15,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from config import get_settings
 from database import get_db
+from events import EVENT_MEDICAL_DIAGNOSIS_COMPLETED, publish_platform_event
 from models.medical import EyeExam, Diagnosis, DiagnosisSeverityEnum, ReportStatusEnum
 from schemas.medical import (
     DiagnosisRequest, DiagnosisResponse,
@@ -26,6 +29,25 @@ log = logging.getLogger("api.diagnosis")
 router = APIRouter()
 
 
+async def _emit_medical_diagnosis_completed(
+    *,
+    redis_url: str,
+    diagnosis_id: str,
+    exam_id: str,
+    diagnosis_code: str,
+) -> None:
+    try:
+        await publish_platform_event(
+            redis_url,
+            EVENT_MEDICAL_DIAGNOSIS_COMPLETED,
+            {
+                "diagnosis_id":    diagnosis_id,
+                "exam_id":         exam_id,
+                "diagnosis_code":  diagnosis_code,
+            },
+        )
+    except Exception as e:
+        log.warning("Redis 이벤트 medical.diagnosis.completed 발행 스킵: %s", e)
 @router.post(
     "/exam",
     response_model=ExamResponse,
@@ -186,6 +208,18 @@ async def _run_diagnosis(
             f"iter={diagnosis.llm_iterations} | "
             f"{diagnosis.llm_latency_ms:.0f}ms"
         )
+
+        redis_url = (get_settings().redis_url or "").strip()
+        if redis_url:
+            asyncio.create_task(
+                _emit_medical_diagnosis_completed(
+                    redis_url=redis_url,
+                    diagnosis_id=diagnosis.id,
+                    exam_id=exam.id,
+                    diagnosis_code=diagnosis.diagnosis_code,
+                ),
+            )
+
         return DiagnosisResponse.model_validate(diagnosis)
 
     except Exception as e:
