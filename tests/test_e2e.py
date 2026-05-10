@@ -21,7 +21,21 @@ from datetime import date
 
 BASE_URL = "http://localhost:8000"
 API_V1 = f"{BASE_URL}/api/v1"
-TIMEOUT = httpx.Timeout(300.0)   # AI 진단 최대 5분 대기
+TIMEOUT = httpx.Timeout(300.0)   # 일반 API
+# CONSENSUS AI 진단은 로컬 LLM(LM Studio)에서 5분 이상 걸릴 수 있음
+AI_ANALYZE_TIMEOUT = httpx.Timeout(900.0, connect=30.0)
+
+
+def doctor_auth_headers() -> dict[str, str]:
+    """Week 7 — AI 진단은 doctor JWT 필요."""
+    r = httpx.post(
+        f"{API_V1}/auth/token",
+        data={"username": "doctor", "password": "doc123"},
+        timeout=60.0,
+    )
+    assert r.status_code == 200, r.text
+    token = r.json()["access_token"]
+    return {"Authorization": f"Bearer {token}"}
 
 
 # ════════════════════════════════════════════════════════════
@@ -358,15 +372,14 @@ class TestAIDiagnosis:
 
         r = httpx.post(
             f"{API_V1}/diagnosis/ai-analyze",
+            headers=doctor_auth_headers(),
             json={
                 "exam_id": exam_id,
                 "additional_context": "환자 HbA1c 8.2%, 당뇨병 진단 12년차, 인슐린 치료 중",
                 "strategy": "consensus",
             },
-            timeout=TIMEOUT,
+            timeout=AI_ANALYZE_TIMEOUT,
         )
-
-        print(f"  POST /diagnosis/ai-analyze → {r.status_code}")
 
         assert r.status_code == 201, f"AI 진단 실패: {r.text[:300]}"
         body = r.json()

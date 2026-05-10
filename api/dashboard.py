@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
+from auth.dependencies import require_role
 from schemas.dashboard import (
     DashboardStatsResponse,
     DashboardAlertsResponse,
@@ -48,6 +49,7 @@ _STATS_DESC = """
 )
 async def dashboard_stats(
     db: AsyncSession = Depends(get_db),
+    _: dict = Depends(require_role("admin")),
 ) -> DashboardStatsResponse:
     """관리 통계 KPI."""
     return await load_dashboard_stats(db)
@@ -69,6 +71,7 @@ _ALERTS_DESC = """
 )
 async def dashboard_alerts(
     db: AsyncSession = Depends(get_db),
+    _: dict = Depends(require_role("admin")),
 ) -> DashboardAlertsResponse:
     """긴급 환자 + OntologyValidator 미통과 환자 목록."""
     return await load_dashboard_alerts(db)
@@ -88,5 +91,7 @@ Redis에 누적된 **금일 LLM 호출 통계**(UTC 날짜 기준 버킷)를 반
     summary="LLM 사용량",
     description=_LLM_DESC,
 )
-async def dashboard_llm_usage() -> DashboardLLMUsageResponse:
+async def dashboard_llm_usage(
+    _: dict = Depends(require_role("admin")),
+) -> DashboardLLMUsageResponse:
     return await load_llm_dashboard()

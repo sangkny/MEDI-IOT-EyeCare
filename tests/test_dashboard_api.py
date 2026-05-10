@@ -20,11 +20,25 @@ API_V1 = f"{BASE_URL}/api/v1"
 TIMEOUT = httpx.Timeout(30.0)
 
 
+def _admin_headers() -> dict[str, str]:
+    r = httpx.post(
+        f"{API_V1}/auth/token",
+        data={"username": "admin", "password": "admin123"},
+        timeout=TIMEOUT,
+    )
+    assert r.status_code == 200, r.text
+    return {"Authorization": f"Bearer {r.json()['access_token']}"}
+
+
 class TestDashboardAPI:
     """GET /api/v1/dashboard/* 응답 스키마 스모크 검증."""
 
     def test_dashboard_stats_structure(self):
-        r = httpx.get(f"{API_V1}/dashboard/stats", timeout=TIMEOUT)
+        r = httpx.get(
+            f"{API_V1}/dashboard/stats",
+            timeout=TIMEOUT,
+            headers=_admin_headers(),
+        )
         assert r.status_code == 200
         body = r.json()
         assert "exams_today" in body
@@ -35,7 +49,11 @@ class TestDashboardAPI:
         assert "matched_pairs" in agr
 
     def test_dashboard_alerts_structure(self):
-        r = httpx.get(f"{API_V1}/dashboard/alerts", timeout=TIMEOUT)
+        r = httpx.get(
+            f"{API_V1}/dashboard/alerts",
+            timeout=TIMEOUT,
+            headers=_admin_headers(),
+        )
         assert r.status_code == 200
         body = r.json()
         assert "generated_at" in body
@@ -43,7 +61,11 @@ class TestDashboardAPI:
         assert isinstance(body["ontology_validator_warnings"], list)
 
     def test_dashboard_llm_usage_structure(self):
-        r = httpx.get(f"{API_V1}/dashboard/llm-usage", timeout=TIMEOUT)
+        r = httpx.get(
+            f"{API_V1}/dashboard/llm-usage",
+            timeout=TIMEOUT,
+            headers=_admin_headers(),
+        )
         assert r.status_code == 200
         body = r.json()
         assert "calls_today" in body
