@@ -34,6 +34,9 @@ pytz==2024.2
 # ── Vector DB (Week 3) ─────────────────────────────────────
 pgvector==0.4.2            # pgvector Python 클라이언트 (SQLAlchemy 연동)
 
+# ── Imaging (Phase 2 W7 preprocessing) ───────────────────
+pillow>=10.4,<12
+
 # ── Testing ────────────────────────────────────────────────
 pytest==8.3.4
 pytest-asyncio==0.25.3
