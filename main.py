@@ -29,10 +29,8 @@ from api import api_router
 from events import DEFAULT_EVENTS_CHANNEL, EventBus
 from services.platform_event_handlers import medi_incoming_dispatch
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s %(levelname)-8s %(name)s — %(message)s",
-)
+from observability.fastapi_install import install_observability
+
 log = logging.getLogger("main")
 settings = get_settings()
 
@@ -113,6 +111,8 @@ app = FastAPI(
     docs_url="/docs" if settings.is_development else None,
     redoc_url="/redoc" if settings.is_development else None,
 )
+
+install_observability(app, settings.service_name)
 
 # ── CORS ──────────────────────────────────────────────────
 app.add_middleware(
