@@ -61,3 +61,19 @@ def test_dashboard_stats_admin_ok(client_api: TestClient) -> None:
     )
     assert r.status_code == 200
     assert "exams_today" in r.json()
+
+
+def test_oauth_google_mock_and_refresh(client_api: TestClient) -> None:
+    r = client_api.post(
+        "/api/v1/auth/oauth/google",
+        json={"code": "mock_hello"},
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert "refresh_token" in body
+    ref = client_api.post(
+        "/api/v1/auth/refresh",
+        json={"refresh_token": body["refresh_token"]},
+    )
+    assert ref.status_code == 200
+    assert ref.json().get("token_type") == "bearer"

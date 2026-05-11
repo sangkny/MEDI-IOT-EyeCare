@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from config import get_settings
 from database import get_db
 from events import EVENT_MEDICAL_DIAGNOSIS_COMPLETED, publish_platform_event
-from auth.dependencies import require_role
+from auth.policy import policy_require
 from models.medical import EyeExam, Diagnosis, DiagnosisSeverityEnum, ReportStatusEnum
 from schemas.medical import (
     DiagnosisRequest, DiagnosisResponse,
@@ -145,7 +145,7 @@ async def create_diagnosis(
     req: DiagnosisRequest,
     db: AsyncSession = Depends(get_db),
     report_gen: ReportGenerator = Depends(ReportGenerator),
-    _: dict = Depends(require_role("doctor", "admin")),
+    _: dict = Depends(policy_require("medi-iot", "ai_analyze")),
 ) -> DiagnosisResponse:
     """AI 진단 보고서 생성 — `POST /diagnosis/ai-analyze` 와 동일"""
     return await _run_diagnosis(req, db, report_gen)
