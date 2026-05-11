@@ -26,6 +26,10 @@ from agents.context_chunking import (
     chunking_metrics_snapshot,
 )
 from agents.orchestrator import Orchestrator, OrchestraStrategy
+from observability.prom_metrics import (
+    inc_chunking_counter,
+    observe_chunking_snapshot,
+)
 from ontology.base import OntologyDomain
 from models.medical import EyeExam, ExamTypeEnum
 
@@ -147,19 +151,25 @@ class ReportGenerator:
                 if not _analysis.fits_context
                 else []
             )
-            log.info(
-                "medi_diagnosis_context",
-                extra=chunking_metrics_snapshot(
-                    _analysis,
-                    _chunks,
-                    extra={
-                        "flow": "medi_diagnosis",
-                        "exam_id": str(exam.id),
-                        "exam_type": str(getattr(exam, "exam_type", "") or ""),
-                        "strategy": strategy,
-                        "rag_used": rag_used,
-                    },
-                ),
+            _snap = chunking_metrics_snapshot(
+                _analysis,
+                _chunks,
+                extra={
+                    "flow": "medi_diagnosis",
+                    "exam_id": str(exam.id),
+                    "exam_type": str(getattr(exam, "exam_type", "") or ""),
+                    "strategy": strategy,
+                    "rag_used": rag_used,
+                },
+            )
+            log.info("medi_diagnosis_context", extra=_snap)
+            # Step 4 — Prometheus 텍스트 포맷 export (best-effort, 거동 영향 0)
+            observe_chunking_snapshot(
+                _snap,
+                service="medi",
+                flow="medi_diagnosis",
+                strategy=strategy,
+                domain="medical",
             )
         except Exception as _ctxe:
             log.debug("[chunking_metrics] 관측 한 줄 로깅 실패(무시): %s", _ctxe)
