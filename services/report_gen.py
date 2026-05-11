@@ -8,18 +8,44 @@ ReportGenerator — shared-libraries Orchestrator 기반 진단 보고서 생성
 - ReviewerAgent: 의료 정확성 + OntologyValidator 검증 (HEAVY — gemma-4-26b-a4b)
 - FixerAgent: 검증 실패 시 수정 (FAST)
 - Circuit Breaker: 최대 2회 반복 후 현재 최선 결과 반환
+
+관측(Phase 2 Month 3 — book §16.10): Orchestrator 진입 직전에 ``analyze_prompt_for_model`` +
+``chunking_metrics_snapshot`` 로 입력 토큰 추정·청크 권장값을 한 줄 구조화 로그로 흘린다.
+거동 변경은 없으며, 이 로그는 Prometheus exporter (§16.12.중기) 의 입력이 된다.
 """
 import json
 import logging
+import os
 import re
 import time
 from typing import Any
 
+from agents.context_chunking import (
+    analyze_prompt_for_model,
+    chunk_prompt_for_model,
+    chunking_metrics_snapshot,
+)
 from agents.orchestrator import Orchestrator, OrchestraStrategy
 from ontology.base import OntologyDomain
 from models.medical import EyeExam, ExamTypeEnum
 
 log = logging.getLogger("services.report_gen")
+
+
+def _dominant_model_label(strategy: OrchestraStrategy) -> str:
+    """
+    전략별로 컨텍스트가 더 빠듯한 쪽 모델 라벨을 돌려준다.
+
+    - CONSENSUS / DEBATE: HEAVY 모델 (Reviewer 가 같은 task 를 추가로 받는다 → 더 빠른 한도 도달)
+    - 그 외: FAST 모델
+
+    env 우선순위는 shared-libraries 의 ``llm/providers/local.py`` 와 동일하게
+    ``LOCAL_HEAVY_MODEL`` / ``LOCAL_FAST_MODEL`` 을 본다.
+    """
+    s = str(strategy.value if hasattr(strategy, "value") else strategy).lower()
+    if s in {"consensus", "debate"}:
+        return os.getenv("LOCAL_HEAVY_MODEL", "google/gemma-4-26b-a4b")
+    return os.getenv("LOCAL_FAST_MODEL", "google/gemma-4-e4b")
 
 # ICD 코드 → 진단명 매핑 (안과 주요 코드)
 ICD_DIAGNOSIS_MAP: dict[str, str] = {
@@ -109,6 +135,34 @@ class ReportGenerator:
             strategy=OrchestraStrategy(strategy),
             max_iterations=2,
         )
+
+        # ── 컨텍스트 청킹 메트릭 관측 (book §16.10.3 / §16.10.4) ────────────────
+        # 거동은 바꾸지 않고, 한 번의 호출에 대해 ``chunking_*`` 표준 11종 키를 한 줄 로그로 흘린다.
+        # 호출자 메타데이터(exam_id, strategy, rag_used)는 ``extra`` 로 병합한다.
+        try:
+            _model_label = _dominant_model_label(orch.strategy)
+            _analysis = analyze_prompt_for_model(task, model=_model_label)
+            _chunks = (
+                chunk_prompt_for_model(task, model=_model_label)
+                if not _analysis.fits_context
+                else []
+            )
+            log.info(
+                "medi_diagnosis_context",
+                extra=chunking_metrics_snapshot(
+                    _analysis,
+                    _chunks,
+                    extra={
+                        "flow": "medi_diagnosis",
+                        "exam_id": str(exam.id),
+                        "exam_type": str(getattr(exam, "exam_type", "") or ""),
+                        "strategy": strategy,
+                        "rag_used": rag_used,
+                    },
+                ),
+            )
+        except Exception as _ctxe:
+            log.debug("[chunking_metrics] 관측 한 줄 로깅 실패(무시): %s", _ctxe)
 
         result = await orch.execute(task)
         latency_ms = (time.monotonic() - t0) * 1000
