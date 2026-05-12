@@ -100,7 +100,9 @@ class AnalysisResponse(BaseModel):
 # ════════════════════════════════════════════════════════════
 
 def _get_upload_dir(settings: Settings) -> Path:
-    upload_dir = Path("/app/uploads")
+    """레거시 helper — local 백엔드에서만 의미 있음. ``UPLOAD_DIR`` env 존중."""
+    import os
+    upload_dir = Path(os.getenv("UPLOAD_DIR", "/app/uploads"))
     upload_dir.mkdir(parents=True, exist_ok=True)
     return upload_dir
 
@@ -109,18 +111,24 @@ async def _save_upload(
     file: UploadFile,
     patient_id: str,
     settings: Settings,
-) -> tuple[Path, int]:
-    """업로드 파일 저장 → (저장 경로, 파일 크기)"""
-    patient_dir = _get_upload_dir(settings) / patient_id
-    patient_dir.mkdir(parents=True, exist_ok=True)
+) -> tuple[str, int]:
+    """업로드 파일 저장 → (저장 경로 문자열, 파일 크기).
 
-    ext      = Path(file.filename or "upload.jpg").suffix or ".jpg"
-    filename = f"{uuid.uuid4().hex}{ext}"
-    path     = patient_dir / filename
+    D R2 Day 3 — ``services.image_storage.get_image_storage`` 가 env 토글
+    (``STORAGE_BACKEND=local|s3``) 에 따라 backend 를 선택. local 동작은
+    기존과 동일 (디스크 ``/app/uploads/{patient_id}/<uuid>.jpg``).
+    S3 인 경우 ``s3://bucket/medi/{patient_id}/<uuid>.jpg`` 문자열을 반환.
+    """
+    from services.image_storage import get_image_storage
 
     content = await file.read()
-    path.write_bytes(content)
-    return path, len(content)
+    storage = get_image_storage()
+    file_path = await storage.save(
+        content,
+        patient_id=patient_id,
+        filename_hint=file.filename or "upload.jpg",
+    )
+    return file_path, len(content)
 
 
 # ════════════════════════════════════════════════════════════
@@ -187,25 +195,28 @@ async def upload_image(
             detail=f"유효하지 않은 image_type: {image_type}",
         )
 
-    # 파일 저장
+    # 파일 저장 (storage backend: local|s3)
     file_path, file_size = await _save_upload(file, patient_id, settings)
 
-    # 파일 크기 제한 (20MB)
+    # 파일 크기 제한 (20MB) — 초과 시 storage 백엔드의 delete 사용
     if file_size > MAX_FILE_MB * 1024 * 1024:
-        file_path.unlink(missing_ok=True)
+        from services.image_storage import get_image_storage
+        try:
+            await get_image_storage().delete(file_path)
+        except Exception:
+            pass
         raise HTTPException(
             status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
             detail=f"파일 크기 초과: {file_size // 1024 // 1024}MB > {MAX_FILE_MB}MB",
         )
 
-    # DB 저장
     image = EyeImage(
         id=str(uuid.uuid4()),
         patient_id=patient_id,
         exam_id=exam_id,
         image_type=img_type_enum,
-        file_path=str(file_path),
-        file_name=file.filename or file_path.name,
+        file_path=file_path,
+        file_name=file.filename or Path(file_path).name,
         file_size=file_size,
         mime_type=mime,
     )
@@ -312,7 +323,8 @@ async def analyze_image(
             detail=f"이미지를 찾을 수 없습니다: {image_id}",
         )
 
-    if not Path(image.file_path).exists():
+    # local backend 일 때만 존재성 사전 검증 (s3 는 HEAD 비용 회피)
+    if not image.file_path.startswith("s3://") and not Path(image.file_path).exists():
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail="이미지 파일이 서버에 없습니다.",
@@ -394,4 +406,21 @@ async def _run_image_analysis(
         image.analysis_result = json.dumps({"error": str(e)[:200]})
 
     await db.flush()
+
+    # D R2 Day 4 — CONSENSUS + 임계값 통과 시 자동 promote (best-effort)
+    try:
+        from services.auto_promote import try_auto_promote_for_image
+        ap_result = await try_auto_promote_for_image(db, image)
+        if ap_result.get("outcome") == "promoted":
+            log.info(
+                "자동 승격: image=%s diag=%s review=%s",
+                image.id[:8],
+                ap_result.get("diagnosis_id", "?")[:8],
+                ap_result.get("review_id", "?")[:8],
+            )
+        else:
+            log.debug("자동 승격 skip: %s", ap_result.get("reason"))
+    except Exception as ap_exc:
+        log.warning("자동 승격 실패(무시): %s", ap_exc)
+
     return image
