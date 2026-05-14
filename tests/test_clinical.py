@@ -277,6 +277,35 @@ def test_promote_exam_patient_mismatch_returns_400(client: httpx.Client) -> None
 # ── 4. Review Queue + 결정 ─────────────────────────────────
 
 
+def test_review_single_get_returns_review(client: httpx.Client) -> None:
+    """E R3-Day 2 — 새 단건 조회 라우트 (모바일 리뷰 상세 화면용)."""
+    _p, exam_id, img_id = _seed_patient_image()
+    promote = client.post(
+        "/api/v1/clinical/diagnoses/promote",
+        json={"image_id": img_id, "exam_id": exam_id},
+        headers=_headers(client, "doctor"),
+    )
+    review_id = promote.json()["review_id"]
+
+    r = client.get(
+        f"/api/v1/clinical/reviews/{review_id}",
+        headers=_headers(client),
+    )
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["id"] == review_id
+    assert body["status"] == "pending_review"
+    assert "diagnosis_id" in body
+
+
+def test_review_single_get_404_for_unknown(client: httpx.Client) -> None:
+    r = client.get(
+        f"/api/v1/clinical/reviews/{uuid.uuid4()}",
+        headers=_headers(client),
+    )
+    assert r.status_code == 404
+
+
 def test_review_queue_lists_pending(client: httpx.Client) -> None:
     _p, exam_id, img_id = _seed_patient_image()
     promote = client.post(

@@ -283,6 +283,22 @@ async def list_reviews(
     return ReviewQueueResponse(reviews=reviews, total=int(total))
 
 
+@router.get(
+    "/reviews/{review_id}",
+    response_model=ReviewOut,
+    summary="의사 검토 단건 조회",
+)
+async def get_review(
+    review_id: str,
+    db: AsyncSession = Depends(get_db),
+    _user: dict = Depends(current_user_strict),
+) -> ReviewOut:
+    review = await db.get(DiagnosisReview, review_id)
+    if not review:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="검토 없음")
+    return ReviewOut.model_validate(review)
+
+
 @router.post(
     "/reviews/{review_id}/decide",
     response_model=ReviewOut,
