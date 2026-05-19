@@ -96,4 +96,4 @@ jobs:
           pytest shared-libraries/ontology/tests/test_validator.py::TestMedicalValidator::test_valid_patient_passes -q
 
       - name: Pytest (ONNX / LM Studio E2E excluded)
-        run: bash scripts/ci-pytest.sh
+        run: sed -i 's/\r$//' scripts/ci-pytest.sh && bash scripts/ci-pytest.sh
