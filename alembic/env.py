@@ -15,10 +15,11 @@ from logging.config import fileConfig
 from sqlalchemy import engine_from_config, pool
 from alembic import context
 
-# ── Python 경로에 /app 추가 ────────────────────────────────
-# docker exec 시 /app이 PYTHONPATH에 없을 수 있으므로 명시적 추가
-sys.path.insert(0, "/app")
-sys.path.insert(0, "/app/shared-libraries")
+# ── Python 경로 (Docker /app · GitHub Actions workspace 공통) ──
+_repo_root = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+for _p in (_repo_root, os.path.join(_repo_root, "shared-libraries"), "/app", "/app/shared-libraries"):
+    if _p not in sys.path:
+        sys.path.insert(0, _p)
 
 # ── ORM 모델 import (autogenerate 감지용) ─────────────────
 from database import Base  # noqa: E402

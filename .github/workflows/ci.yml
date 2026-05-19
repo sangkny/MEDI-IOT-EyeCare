@@ -14,7 +14,8 @@ jobs:
 
     services:
       postgres:
-        image: postgres:16-alpine
+        # dev compose 와 동일 — Vector(768) 마이그레이션에 pgvector 필요
+        image: pgvector/pgvector:pg16
         env:
           POSTGRES_USER: dev
           POSTGRES_PASSWORD: dev
@@ -66,7 +67,16 @@ jobs:
           pip install -r requirements.txt
 
       - name: Database migrate
-        run: python -m alembic upgrade head
+        run: |
+          python <<'PY'
+          import os
+          import psycopg2
+          conn = psycopg2.connect(os.environ["DATABASE_URL"])
+          conn.autocommit = True
+          conn.cursor().execute("CREATE EXTENSION IF NOT EXISTS vector")
+          conn.close()
+          PY
+          python -m alembic upgrade head
 
       - name: Start API (background)
         run: |
