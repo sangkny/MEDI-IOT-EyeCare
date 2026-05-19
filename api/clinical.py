@@ -8,6 +8,7 @@
     POST /clinical/diagnoses/promote     — EyeImage 분석 → Diagnosis 승격 (doctor)
     POST /clinical/reviews/{review_id}/decide  — 의사 검토 결정 (doctor)
     GET  /clinical/reviews?status=...    — 검토 대기 큐
+    GET  /clinical/fhir/...              — FHIR R4 export (D4, application/fhir+json)
 
 의도:
     1. **임상 연구 (Clinical Study)** 는 Messidor-2 같은 외부 공개 데이터셋 또는
@@ -50,8 +51,11 @@ from schemas.clinical import (
     StudyOut,
 )
 
+from .fhir import router as fhir_router
+
 log = logging.getLogger("api.clinical")
 router = APIRouter()
+router.include_router(fhir_router, prefix="/fhir", tags=["fhir"])
 
 
 # ── Studies ────────────────────────────────────────────────

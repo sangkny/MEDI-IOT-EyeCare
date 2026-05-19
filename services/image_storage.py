@@ -15,11 +15,33 @@
 """
 from __future__ import annotations
 
+import logging
 import os
 import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
+
+log = logging.getLogger("services.image_storage")
+
+_STORAGE_OPS = None
+
+
+def _inc_storage_op(backend: str, operation: str = "save") -> None:
+    """``medi_storage_operations_total{backend,operation}`` (D R3 D5, best-effort)."""
+    global _STORAGE_OPS
+    try:
+        from prometheus_client import Counter
+
+        if _STORAGE_OPS is None:
+            _STORAGE_OPS = Counter(
+                "medi_storage_operations_total",
+                "MEDI image storage operations",
+                ["backend", "operation"],
+            )
+        _STORAGE_OPS.labels(backend=backend, operation=operation).inc()
+    except Exception:
+        pass
 
 
 # ── 공통 인터페이스 ────────────────────────────────────────
@@ -59,6 +81,7 @@ class LocalImageStorage:
         name = f"{uuid.uuid4().hex}{ext}"
         path = patient_dir / name
         path.write_bytes(data)
+        _inc_storage_op(self.backend_id, "save")
         return str(path)
 
     async def read(self, file_path: str) -> bytes:
@@ -90,7 +113,11 @@ class S3ImageStorage:
                 "STORAGE_BACKEND=s3 인데 boto3 가 설치되어 있지 않습니다. "
                 "`pip install boto3` 또는 STORAGE_BACKEND=local 로 전환하세요."
             ) from exc
-        return boto3.client("s3", region_name=self.region)
+        endpoint = (os.getenv("AWS_ENDPOINT_URL") or "").strip() or None
+        kwargs: dict[str, Any] = {"region_name": self.region}
+        if endpoint:
+            kwargs["endpoint_url"] = endpoint
+        return boto3.client("s3", **kwargs)
 
     async def save(
         self, data: bytes, *, patient_id: str, filename_hint: str
@@ -98,6 +125,7 @@ class S3ImageStorage:
         key = self._key_for(patient_id=patient_id, filename_hint=filename_hint)
         cli = self._client()
         cli.put_object(Bucket=self.bucket, Key=key, Body=data)
+        _inc_storage_op(self.backend_id, "save")
         return f"s3://{self.bucket}/{key}"
 
     async def read(self, file_path: str) -> bytes:

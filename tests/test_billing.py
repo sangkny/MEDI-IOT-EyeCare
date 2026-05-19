@@ -304,19 +304,20 @@ def test_admin_stats_returns_4_plan_distribution(client: httpx.Client) -> None:
     assert body["total_monthly_revenue_usd"] >= 0
 
 
-# ── 7. Stripe status (disabled by default) ────────────
+# ── 7. Stripe status (compose 기본 OFF; D R3 D1 실연동 시 enabled) ──
 
 
-def test_stripe_status_disabled_lists_supported_events(client: httpx.Client) -> None:
+def test_stripe_status_lists_supported_events(client: httpx.Client) -> None:
     r = client.get("/api/v1/billing/stripe/status")
     assert r.status_code == 200, r.text
     body = r.json()
-    assert body["enabled"] is False
+    assert isinstance(body["enabled"], bool)
     assert "invoice.paid" in body["supported_events"]
     assert "charge.refunded" in body["supported_events"]
 
 
-def test_stripe_checkout_disabled_returns_503(client: httpx.Client) -> None:
+def test_stripe_checkout_respects_enabled_toggle(client: httpx.Client) -> None:
+    status = client.get("/api/v1/billing/stripe/status").json()
     r = client.post(
         "/api/v1/billing/stripe/checkout",
         headers=_headers(client, "doctor"),
@@ -326,13 +327,20 @@ def test_stripe_checkout_disabled_returns_503(client: httpx.Client) -> None:
             "cancel_url": "https://example.com/no",
         },
     )
-    assert r.status_code == 503, r.text
+    if not status.get("enabled"):
+        assert r.status_code == 503, r.text
+    else:
+        assert r.status_code in {200, 400, 404}, r.text
 
 
-def test_stripe_portal_disabled_returns_503(client: httpx.Client) -> None:
+def test_stripe_portal_respects_enabled_toggle(client: httpx.Client) -> None:
+    status = client.get("/api/v1/billing/stripe/status").json()
     r = client.post(
         "/api/v1/billing/stripe/portal",
         headers=_headers(client, "doctor"),
         json={"return_url": "https://example.com/back"},
     )
-    assert r.status_code == 503, r.text
+    if not status.get("enabled"):
+        assert r.status_code == 503, r.text
+    else:
+        assert r.status_code in {200, 404}, r.text

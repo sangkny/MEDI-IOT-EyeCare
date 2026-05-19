@@ -394,6 +394,7 @@ async def _run_image_analysis(
             "confidence":      result.confidence,
             "raw_analysis":    result.raw_analysis[:500],
             "ontology_passed": result.ontology_passed,
+            "model_used":      result.model_used,
         }, ensure_ascii=False)
 
         log.info(

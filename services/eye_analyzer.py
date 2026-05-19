@@ -21,6 +21,7 @@ from llm.client import LLMClient
 from llm.base import LLMResponse, ModelRole
 from ontology.base import OntologyDomain, ValidationResult
 from ontology.validator import OntologyValidator
+from services.vision_router import VisionRouter, load_vision_config
 
 log = logging.getLogger("services.eye_analyzer")
 
@@ -83,8 +84,14 @@ class EyeAnalyzer:
 
     def __init__(self) -> None:
         self._client    = LLMClient()
+        self._router    = VisionRouter(load_vision_config(), self._client)
         self._validator = OntologyValidator(domain=OntologyDomain.MEDICAL)
-        log.info("EyeAnalyzer 초기화 (VISION + OntologyValidator)")
+        cfg = self._router.config
+        log.info(
+            "EyeAnalyzer 초기화 (VISION mode=%s models=%s)",
+            cfg.mode,
+            cfg.model_ids,
+        )
 
     async def _telemetry_chat(self, response: LLMResponse | None) -> None:
         if response is None:
@@ -158,10 +165,12 @@ class EyeAnalyzer:
             f"개인식별정보 포함 금지."
         )
 
-        response = await self._client.chat(prompt=prompt, role=ModelRole.VISION)
-        await self._telemetry_chat(response)
-        raw      = {"raw_analysis": response.content, "model_used": response.model_used}
-        parsed   = self._parse_analysis(raw, icd_code, exam_type)
+        bundle = await self._vision_text(
+            prompt, exam_type=exam_type, icd_code=icd_code
+        )
+        parsed = bundle.get("parsed") or self._parse_analysis(
+            bundle, icd_code, exam_type
+        )
 
         # OntologyValidator 검증
         ont_result = await self._run_ontology_validation(parsed, f"{exam_type} image analysis")
@@ -172,8 +181,8 @@ class EyeAnalyzer:
             severity=parsed["severity"],
             icd10_code=parsed["icd10_code"],
             confidence=parsed["confidence"],
-            raw_analysis=response.content,
-            model_used=response.model_used,
+            raw_analysis=bundle["raw_analysis"],
+            model_used=bundle["model_used"],
             ontology_passed=ont_result.passed,
             ontology_errors=[e.message for e in ont_result.errors[:5]],
             exam_type=exam_type,
@@ -214,8 +223,8 @@ class EyeAnalyzer:
             findings_text, exam_type, icd_code, iop_left, iop_right, additional_context
         )
 
-        # 2. 구조화 파싱
-        parsed = self._parse_analysis(raw, icd_code, exam_type)
+        # 2. 구조화 파싱 (consensus 시 router 가 parsed 포함)
+        parsed = raw.get("parsed") or self._parse_analysis(raw, icd_code, exam_type)
 
         # 3. OntologyValidator 검증
         ont_result = await self._run_ontology_validation(parsed, findings_text)
@@ -239,6 +248,24 @@ class EyeAnalyzer:
     # ══════════════════════════════════════════════════════
     # 검사 타입별 분석
     # ══════════════════════════════════════════════════════
+
+    async def _vision_text(
+        self,
+        prompt: str,
+        *,
+        exam_type: str,
+        icd_code: str | None = None,
+        role: ModelRole = ModelRole.VISION,
+    ) -> dict[str, Any]:
+        """VISION 라우터(single|consensus)로 프롬프트 분석."""
+        return await self._router.run_with_parser(
+            prompt,
+            self._parse_analysis,
+            role=role,
+            hint_icd=icd_code,
+            exam_type=exam_type,
+            telemetry_cb=self._telemetry_chat,
+        )
 
     async def _dispatch_analysis(
         self,
@@ -297,9 +324,7 @@ class EyeAnalyzer:
 severity 선택: normal|mild|moderate|severe|critical
 개인식별정보 포함 금지."""
 
-        response = await self._client.chat(prompt=prompt, role=ModelRole.VISION)
-        await self._telemetry_chat(response)
-        return {"raw_analysis": response.content, "model_used": response.model_used}
+        return await self._vision_text(prompt, exam_type="fundus", icd_code=icd_code)
 
     async def analyze_oct_findings(
         self,
@@ -327,9 +352,7 @@ severity 선택: normal|mild|moderate|severe|critical
 severity: normal|mild|moderate|severe|critical
 개인정보 포함 금지."""
 
-        response = await self._client.chat(prompt=prompt, role=ModelRole.VISION)
-        await self._telemetry_chat(response)
-        return {"raw_analysis": response.content, "model_used": response.model_used}
+        return await self._vision_text(prompt, exam_type="oct", icd_code=icd_code)
 
     async def analyze_visual_field(
         self,
@@ -393,9 +416,9 @@ severity: normal|mild|moderate|severe|critical
 
 개인정보 포함 금지."""
 
-        response = await self._client.chat(prompt=prompt, role=ModelRole.VISION)
-        await self._telemetry_chat(response)
-        return {"raw_analysis": response.content, "model_used": response.model_used}
+        return await self._vision_text(
+            prompt, exam_type=exam_type, icd_code=icd_code
+        )
 
     # ══════════════════════════════════════════════════════
     # 결과 파싱
