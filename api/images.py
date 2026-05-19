@@ -27,9 +27,15 @@ from models.medical import EyeImage, Patient, ImageTypeEnum
 log = logging.getLogger("api.images")
 router = APIRouter()
 
-# 허용 이미지 타입
-ALLOWED_MIME = {"image/jpeg", "image/png", "image/tiff", "image/bmp"}
-MAX_FILE_MB  = 20
+from services.fundus_image_formats import (
+    ALLOWED_MIME_TYPES,
+    MAX_FUNDUS_BYTES,
+    normalize_for_cnn,
+    validate_fundus_upload,
+)
+
+ALLOWED_MIME = ALLOWED_MIME_TYPES
+MAX_FILE_MB = MAX_FUNDUS_BYTES // (1024 * 1024)
 
 
 # ════════════════════════════════════════════════════════════
@@ -107,28 +113,29 @@ def _get_upload_dir(settings: Settings) -> Path:
     return upload_dir
 
 
+async def _save_bytes(
+    content: bytes,
+    patient_id: str,
+    filename_hint: str,
+) -> tuple[str, int]:
+    from services.image_storage import get_image_storage
+
+    storage = get_image_storage()
+    file_path = await storage.save(
+        content,
+        patient_id=patient_id,
+        filename_hint=filename_hint,
+    )
+    return file_path, len(content)
+
+
 async def _save_upload(
     file: UploadFile,
     patient_id: str,
     settings: Settings,
 ) -> tuple[str, int]:
-    """업로드 파일 저장 → (저장 경로 문자열, 파일 크기).
-
-    D R2 Day 3 — ``services.image_storage.get_image_storage`` 가 env 토글
-    (``STORAGE_BACKEND=local|s3``) 에 따라 backend 를 선택. local 동작은
-    기존과 동일 (디스크 ``/app/uploads/{patient_id}/<uuid>.jpg``).
-    S3 인 경우 ``s3://bucket/medi/{patient_id}/<uuid>.jpg`` 문자열을 반환.
-    """
-    from services.image_storage import get_image_storage
-
     content = await file.read()
-    storage = get_image_storage()
-    file_path = await storage.save(
-        content,
-        patient_id=patient_id,
-        filename_hint=file.filename or "upload.jpg",
-    )
-    return file_path, len(content)
+    return await _save_bytes(content, patient_id, file.filename or "upload.jpg")
 
 
 # ════════════════════════════════════════════════════════════
@@ -143,7 +150,7 @@ async def _save_upload(
     description="""
 안과 이미지(안저사진, OCT 등)를 업로드합니다.
 
-**지원 형식**: JPEG, PNG, TIFF, BMP (최대 20MB)
+**지원 형식**: JPEG, PNG, TIFF, BMP, WebP, HEIC (최대 20MB)
 
 **image_type 선택**:
 | 값 | 설명 |
@@ -158,7 +165,7 @@ async def _save_upload(
     """,
 )
 async def upload_image(
-    file:         UploadFile = File(..., description="이미지 파일 (JPEG/PNG/TIFF)"),
+    file:         UploadFile = File(..., description="이미지 (JPEG/PNG/TIFF/BMP/WebP/HEIC)"),
     patient_id:   str        = Form(..., description="환자 UUID"),
     image_type:   str        = Form("fundus", description="이미지 종류"),
     exam_id:      str | None = Form(None, description="연관 검사 UUID (선택)"),
@@ -178,12 +185,24 @@ async def upload_image(
             detail=f"환자를 찾을 수 없습니다: {patient_id}",
         )
 
-    # MIME 타입 검증
-    mime = file.content_type or "image/jpeg"
-    if mime not in ALLOWED_MIME:
+    raw_content = await file.read()
+    try:
+        mime, _fmt = validate_fundus_upload(
+            raw_content,
+            filename=file.filename,
+            content_type=file.content_type,
+        )
+    except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            detail=f"지원하지 않는 이미지 형식: {mime}. 허용: {ALLOWED_MIME}",
+            detail=str(exc),
+        ) from exc
+    raw_content = normalize_for_cnn(raw_content)
+
+    if len(raw_content) > MAX_FUNDUS_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"파일 크기 초과 (max {MAX_FILE_MB}MB)",
         )
 
     # image_type 검증
@@ -195,20 +214,9 @@ async def upload_image(
             detail=f"유효하지 않은 image_type: {image_type}",
         )
 
-    # 파일 저장 (storage backend: local|s3)
-    file_path, file_size = await _save_upload(file, patient_id, settings)
-
-    # 파일 크기 제한 (20MB) — 초과 시 storage 백엔드의 delete 사용
-    if file_size > MAX_FILE_MB * 1024 * 1024:
-        from services.image_storage import get_image_storage
-        try:
-            await get_image_storage().delete(file_path)
-        except Exception:
-            pass
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"파일 크기 초과: {file_size // 1024 // 1024}MB > {MAX_FILE_MB}MB",
-        )
+    file_path, file_size = await _save_bytes(
+        raw_content, patient_id, file.filename or "upload.jpg"
+    )
 
     image = EyeImage(
         id=str(uuid.uuid4()),

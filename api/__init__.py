@@ -10,6 +10,8 @@ from .images import router as images_router
 from .ontology import router as ontology_router
 from .patients import router as patients_router
 from .stripe import router as stripe_router
+from .lab import router as lab_router
+from .iot import router as iot_router
 
 api_router = APIRouter()
 api_router.include_router(auth_router, prefix="/auth", tags=["auth"])
@@ -22,3 +24,5 @@ api_router.include_router(ontology_router, prefix="/ontology", tags=["ontology"]
 api_router.include_router(clinical_router, prefix="/clinical", tags=["clinical"])
 api_router.include_router(billing_router, prefix="/billing", tags=["billing"])
 api_router.include_router(stripe_router, prefix="/billing/stripe", tags=["stripe"])
+api_router.include_router(lab_router, prefix="/lab", tags=["lab"])
+api_router.include_router(iot_router, prefix="/iot", tags=["iot"])

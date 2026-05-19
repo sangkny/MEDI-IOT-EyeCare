@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>MEDI Fundus Lab — 안저 CNN+LLM 테스트</title>
+  <style>
+    :root { --bg:#0f1419; --card:#1a2332; --accent:#3b82f6; --text:#e7ecf3; --muted:#94a3b8; }
+    * { box-sizing: border-box; }
+    body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 1.5rem; }
+    h1 { font-size: 1.35rem; margin: 0 0 0.25rem; }
+    .sub { color: var(--muted); font-size: 0.9rem; margin-bottom: 1.25rem; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; max-width: 1100px; }
+    @media (max-width: 800px) { .grid { grid-template-columns: 1fr; } }
+    .card { background: var(--card); border-radius: 10px; padding: 1rem 1.25rem; }
+    label { display: block; font-size: 0.8rem; color: var(--muted); margin: 0.6rem 0 0.25rem; }
+    input, select, textarea { width: 100%; padding: 0.5rem; border-radius: 6px; border: 1px solid #334155; background: #0f172a; color: var(--text); }
+    input[type=file] { padding: 0.35rem; }
+    button { margin-top: 1rem; background: var(--accent); color: #fff; border: none; padding: 0.65rem 1.2rem; border-radius: 8px; cursor: pointer; font-weight: 600; }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    #preview { max-width: 100%; max-height: 280px; margin-top: 0.75rem; border-radius: 8px; display: none; }
+    pre { background: #0f172a; padding: 0.75rem; border-radius: 8px; overflow: auto; font-size: 0.75rem; max-height: 420px; white-space: pre-wrap; }
+    .formats { font-size: 0.8rem; color: var(--muted); }
+    .badge { display: inline-block; background: #334155; padding: 0.15rem 0.5rem; border-radius: 4px; margin: 0.1rem; font-size: 0.75rem; }
+    .err { color: #f87171; }
+    .ok { color: #4ade80; }
+  </style>
+</head>
+<body>
+  <h1>MEDI Fundus Lab</h1>
+  <p class="sub">안저 사진 업로드 → CNN DR 등급 · LLM 설명 · (선택) 병원·MEDI-EYE 추천</p>
+  <p class="formats">
+    지원 포맷:
+    <span class="badge">JPEG</span><span class="badge">PNG</span><span class="badge">TIFF</span>
+    <span class="badge">BMP</span><span class="badge">WebP</span><span class="badge">HEIC*</span>
+  </p>
+
+  <div class="grid">
+    <div class="card">
+      <form id="form">
+        <label>안저 이미지</label>
+        <input type="file" id="file" accept=".jpg,.jpeg,.png,.tif,.tiff,.bmp,.webp,.heic,.heif,image/*" required />
+
+        <label>분석 모드</label>
+        <select id="mode">
+          <option value="explain">explain (CNN + LLM)</option>
+          <option value="comprehensive" selected>comprehensive (+ 병원 + MEDI-EYE)</option>
+        </select>
+
+        <label>언어</label>
+        <select id="lang">
+          <option value="ko">한국어</option>
+          <option value="en">English</option>
+        </select>
+
+        <label>환자 ID (선택)</label>
+        <input type="text" id="patient_id" placeholder="P123456" />
+
+        <label>위도 / 경도 (병원 추천)</label>
+        <div style="display:flex;gap:0.5rem">
+          <input type="number" id="lat" step="any" value="37.5665" placeholder="lat" />
+          <input type="number" id="lng" step="any" value="126.9780" placeholder="lng" />
+        </div>
+
+        <label>API Base URL</label>
+        <input type="text" id="base" value="" placeholder="비우면 현재 호스트" />
+
+        <label>Bearer Token (선택 — Lab open 시 불필요)</label>
+        <input type="password" id="token" placeholder="JWT" autocomplete="off" />
+
+        <button type="submit" id="btn">분석 실행</button>
+      </form>
+      <img id="preview" alt="preview" />
+    </div>
+
+    <div class="card">
+      <label>결과</label>
+      <div id="status" class="sub"></div>
+      <pre id="out">이미지를 선택하고 「분석 실행」을 누르세요.</pre>
+    </div>
+  </div>
+
+  <script>
+    const fileInput = document.getElementById('file');
+    const preview = document.getElementById('preview');
+    const out = document.getElementById('out');
+    const status = document.getElementById('status');
+    const btn = document.getElementById('btn');
+
+    fileInput.addEventListener('change', () => {
+      const f = fileInput.files[0];
+      if (!f) { preview.style.display = 'none'; return; }
+      preview.src = URL.createObjectURL(f);
+      preview.style.display = 'block';
+    });
+
+    function apiBase() {
+      const b = document.getElementById('base').value.trim();
+      return b || window.location.origin;
+    }
+
+    document.getElementById('form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const f = fileInput.files[0];
+      if (!f) return;
+      btn.disabled = true;
+      status.textContent = '업로드·분석 중…';
+      status.className = 'sub';
+      out.textContent = '';
+
+      const fd = new FormData();
+      fd.append('file', f);
+      fd.append('lang', document.getElementById('lang').value);
+      const pid = document.getElementById('patient_id').value.trim();
+      if (pid) fd.append('patient_id', pid);
+      fd.append('lat', document.getElementById('lat').value);
+      fd.append('lng', document.getElementById('lng').value);
+
+      const mode = document.getElementById('mode').value;
+      const url = `${apiBase()}/api/v1/lab/fundus/${mode}`;
+
+      const headers = {};
+      const tok = document.getElementById('token').value.trim();
+      if (tok) headers['Authorization'] = `Bearer ${tok}`;
+
+      try {
+        const res = await fetch(url, { method: 'POST', body: fd, headers });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || res.statusText);
+        status.innerHTML = `<span class="ok">완료</span> DR grade ${data.dr_grade} · conf ${(data.confidence*100).toFixed(0)}%`;
+        out.textContent = JSON.stringify(data, null, 2);
+      } catch (err) {
+        status.innerHTML = `<span class="err">오류</span>`;
+        out.textContent = String(err.message || err);
+      } finally {
+        btn.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
