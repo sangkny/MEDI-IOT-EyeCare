@@ -25,4 +25,4 @@ datasets/
 *.csv
 wandb/
 reports/
-.github/workflows/
+# CI workflow 는 추적 (.github/workflows/ci.yml) — Appendix F cicd-guide.md

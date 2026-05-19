@@ -1,0 +1,94 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: dev
+          POSTGRES_PASSWORD: dev
+          POSTGRES_DB: mediiot
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      PYTHONPATH: ${{ github.workspace }}/shared-libraries:${{ github.workspace }}
+      DATABASE_URL: postgresql://dev:dev@localhost:5432/mediiot
+      REDIS_URL: redis://localhost:6379
+      JWT_SECRET_KEY: ci-github-actions-not-for-prod
+      MEDI_STRIPE_ENABLED: "0"
+      MEDI_STRIPE_SKIP_SIG_VERIFY: "1"
+      LLM_PROVIDER: local
+      MEDI_FUNDUS_LAB_OPEN: "1"
+      MEDI_INFERENCE_BACKEND: llm
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: shared-libraries
+        run: |
+          git clone --depth 1 https://github.com/sangkny/shared-libraries.git shared-libraries
+          pip install --upgrade pip
+          pip install -r shared-libraries/requirements.txt
+          pip install -e ./shared-libraries
+
+      - name: MEDI dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Database migrate
+        run: python -m alembic upgrade head
+
+      - name: Start API (background)
+        run: |
+          nohup python -m uvicorn main:app --host 127.0.0.1 --port 8000 &
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:8000/health >/dev/null; then
+              echo "API ready"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "API failed to start"
+          exit 1
+
+      - name: Medical ontology smoke
+        run: |
+          pytest shared-libraries/ontology/tests/test_validator.py::TestMedicalValidator::test_valid_patient_passes -q
+
+      - name: Pytest (ONNX / long E2E excluded)
+        run: |
+          python -m pytest tests/ -q \
+            --ignore=tests/test_retinal_cnn.py \
+            --ignore=tests/test_inference_router.py \
+            --ignore=tests/test_e2e_week4_full_flow.py \
+            -x --tb=short
