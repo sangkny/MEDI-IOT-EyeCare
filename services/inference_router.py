@@ -24,6 +24,7 @@ from services.retinal_cnn import (
     dr_prediction_to_parsed,
     preprocess_fundus_bytes,
     resolve_cnn_arch,
+    resolve_preprocess_mode,
 )
 
 log = logging.getLogger("services.inference_router")
@@ -140,6 +141,10 @@ class CnnRetinalBackend:
         except (TypeError, ValueError):
             return DEFAULT_IMAGE_SIZE
 
+    def _preprocess_mode(self) -> str:
+        meta = self._load_meta()
+        return resolve_preprocess_mode(str(meta.get("preprocess") or ""))
+
     def _ensure_onnx(self) -> None:
         if self._onnx_sess is not None:
             return
@@ -195,7 +200,11 @@ class CnnRetinalBackend:
     def _predict_sync(self, image_bytes: bytes) -> Any:
         """DrPrediction 반환."""
         size = self._image_size()
-        tensor = preprocess_fundus_bytes(image_bytes, image_size=size)
+        tensor = preprocess_fundus_bytes(
+            image_bytes,
+            image_size=size,
+            preprocess_mode=self._preprocess_mode(),
+        )
         path = self._config.cnn_model_path
         use_onnx = path.suffix == ".onnx" or path.with_suffix(".onnx").is_file()
 

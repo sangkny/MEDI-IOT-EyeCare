@@ -24,4 +24,5 @@ data/
 datasets/
 *.csv
 wandb/
+reports/
 .github/workflows/

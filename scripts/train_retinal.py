@@ -32,9 +32,12 @@ from services.retinal_cnn import (  # noqa: E402
     DEFAULT_IMAGE_SIZE,
     DR_NUM_CLASSES,
     build_dr_classifier,
+    load_image_tensor_from_path,
     load_manifest_entries,
     resolve_cnn_arch,
+    resolve_preprocess_mode,
 )
+from services.retinal_foundation import maybe_warn_foundation_skip  # noqa: E402
 
 
 def _export_onnx(model, out_path: Path, image_size: int) -> None:
@@ -63,13 +66,21 @@ def _synthetic_loader(n: int, batch_size: int, image_size: int):
     return DataLoader(ds, batch_size=batch_size, shuffle=True)
 
 
-def _manifest_loader(manifest_path: Path, split: str, batch_size: int, image_size: int):
+def _manifest_loader(
+    manifest_path: Path,
+    split: str,
+    batch_size: int,
+    image_size: int,
+    preprocess_mode: str,
+):
     import torch
-    from PIL import Image
     from torch.utils.data import DataLoader, Dataset
 
     entries = load_manifest_entries(manifest_path, split)
-    data_dir = Path(json.loads(manifest_path.read_text())["data_dir"])
+    data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    data_dir = Path(data["data_dir"])
+    if not data_dir.is_absolute():
+        data_dir = manifest_path.parent / data_dir
 
     class _DS(Dataset):
         def __len__(self) -> int:
@@ -79,11 +90,11 @@ def _manifest_loader(manifest_path: Path, split: str, batch_size: int, image_siz
             e = entries[idx]
             path = data_dir / e["path"]
             if path.is_file():
-                img = Image.open(path).convert("RGB")
-                img = img.resize((image_size, image_size))
-                import torchvision.transforms as T
-
-                t = T.ToTensor()(img)
+                t = load_image_tensor_from_path(
+                    path,
+                    image_size=image_size,
+                    preprocess_mode=preprocess_mode,
+                )[0]
             else:
                 t = torch.randn(3, image_size, image_size)
             return t, int(e["dr_grade"])
@@ -102,7 +113,9 @@ def train_and_export(args: argparse.Namespace) -> int:
     pt_path = out_dir / "retinal_v1.pt"
     onnx_path = out_dir / "retinal_v1.onnx"
 
+    maybe_warn_foundation_skip()
     arch_key = resolve_cnn_arch(args.arch)
+    preprocess = resolve_preprocess_mode(args.preprocess)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model, arch_key = build_dr_classifier(arch=arch_key, pretrained=not args.smoke)
     model = model.to(device)
@@ -115,7 +128,9 @@ def train_and_export(args: argparse.Namespace) -> int:
         manifest = Path(args.manifest).expanduser()
         if not manifest.is_absolute():
             manifest = _REPO / manifest
-        loader = _manifest_loader(manifest, args.split, args.batch_size, args.image_size)
+        loader = _manifest_loader(
+            manifest, args.split, args.batch_size, args.image_size, preprocess
+        )
 
     model.train()
     for epoch in range(args.epochs):
@@ -138,6 +153,7 @@ def train_and_export(args: argparse.Namespace) -> int:
             "arch": arch_key,
             "num_classes": DR_NUM_CLASSES,
             "image_size": args.image_size,
+            "preprocess": preprocess,
             "smoke": bool(args.smoke),
         },
         pt_path,
@@ -149,6 +165,7 @@ def train_and_export(args: argparse.Namespace) -> int:
         "arch": arch_key,
         "num_classes": DR_NUM_CLASSES,
         "image_size": args.image_size,
+        "preprocess": preprocess,
         "smoke": bool(args.smoke),
     }
     (out_dir / "retinal_v1.meta.json").write_text(
@@ -171,7 +188,12 @@ def main() -> int:
     p.add_argument(
         "--arch",
         default=DEFAULT_CNN_ARCH,
-        help="efficientnet_b0 | efficientnet_b4 | efficientnet_v2_s",
+        help="efficientnet_b0 | efficientnet_b4 | efficientnet_v2_s | msef_net",
+    )
+    p.add_argument(
+        "--preprocess",
+        default=None,
+        help="none | clahe | ben_graham | both (default: clahe)",
     )
     p.add_argument("--synthetic-samples", type=int, default=64)
     args = p.parse_args()

@@ -1,14 +1,16 @@
-"""Retinal DR CNN — EfficientNet 계열 5-class (D R4-ML).
+"""Retinal DR CNN — EfficientNet / MSEF-Net 5-class (D R4-ML).
 
-문헌·벤치마크 (2024–2025, Messidor / APTOS / EyePACS):
+문헌·벤치마크 (2023–2025):
   - **MSEF-Net** (multi-scale EfficientNet fusion): Messidor-1 ~97.5% acc.
   - **MAFNet**: Messidor-2 QWK ~0.917.
-  - 단일 백본: EfficientNet-B4/B0 + attention 이 DR 분류에서 ResNet/DenseNet 대비 우수한 경우가 많음.
+  - **RETFound** (Nature 2023, MAE): 자기지도 fundus — ``retinal_foundation.py``.
 
-운영 기본값: ``efficientnet_b4`` (B0 대비 표현력↑, torchvision 네이티브).
-학습: ``scripts/train_retinal.py`` · 추론: ``CnnRetinalBackend`` (D3).
+전처리: CLAHE · Ben Graham (APTOS/Kaggle DR 대회 관행).
+운영 기본 백본: ``efficientnet_b4`` · 멀티스케일: ``msef_net``.
 
-환경: ``MEDI_CNN_ARCH`` = ``efficientnet_b0`` | ``efficientnet_b4`` | ``efficientnet_v2_s``
+환경:
+  ``MEDI_CNN_ARCH`` — efficientnet_b0 | efficientnet_b4 | efficientnet_v2_s | msef_net
+  ``MEDI_CNN_PREPROCESS`` — none | clahe | ben_graham | both
 """
 from __future__ import annotations
 
@@ -17,7 +19,9 @@ import json
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
+
+import numpy as np
 
 # import_messidor2 와 동일 매핑
 DR_TO_ICD10: dict[int, str | None] = {
@@ -47,19 +51,27 @@ DR_GRADE_CONDITION: dict[int, tuple[str, str]] = {
 DR_NUM_CLASSES = 5
 DEFAULT_IMAGE_SIZE = 224
 DEFAULT_CNN_ARCH = "efficientnet_b4"
+DEFAULT_PREPROCESS = "clahe"
+
+PreprocessMode = Literal["none", "clahe", "ben_graham", "both"]
 
 ARCH_ALIASES: dict[str, str] = {
     "efficientnet-b0": "efficientnet_b0",
     "efficientnet-b4": "efficientnet_b4",
     "efficientnet-v2-s": "efficientnet_v2_s",
+    "msef-net": "msef_net",
+    "msef_net": "msef_net",
     "b0": "efficientnet_b0",
     "b4": "efficientnet_b4",
     "v2s": "efficientnet_v2_s",
 }
 
 SUPPORTED_CNN_ARCHS: frozenset[str] = frozenset(
-    {"efficientnet_b0", "efficientnet_b4", "efficientnet_v2_s"}
+    {"efficientnet_b0", "efficientnet_b4", "efficientnet_v2_s", "msef_net"}
 )
+
+MSEF_SMALL_DIM = 1280
+MSEF_LARGE_DIM = 1792
 
 
 @dataclass(frozen=True)
@@ -74,6 +86,50 @@ class DrPrediction:
 def resolve_cnn_arch(name: str | None = None) -> str:
     raw = (name or os.getenv("MEDI_CNN_ARCH") or DEFAULT_CNN_ARCH).strip().lower()
     return ARCH_ALIASES.get(raw, raw)
+
+
+def resolve_preprocess_mode(mode: str | None = None) -> PreprocessMode:
+    raw = (mode or os.getenv("MEDI_CNN_PREPROCESS") or DEFAULT_PREPROCESS).strip().lower()
+    if raw in ("none", "clahe", "ben_graham", "both"):
+        return raw  # type: ignore[return-value]
+    return "clahe"
+
+
+def apply_clahe(image: np.ndarray) -> np.ndarray:
+    """LAB L-channel CLAHE (fundus 대비 강화)."""
+    import cv2
+
+    if image.dtype != np.uint8:
+        image = np.clip(image, 0, 255).astype(np.uint8)
+    lab = cv2.cvtColor(image, cv2.COLOR_RGB2LAB)
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    lab[:, :, 0] = clahe.apply(lab[:, :, 0])
+    return cv2.cvtColor(lab, cv2.COLOR_LAB2RGB)
+
+
+def ben_graham_preprocess(image: np.ndarray, sigma_x: float = 10.0) -> np.ndarray:
+    """Ben Graham 정규화 (Kaggle DR 대회 전처리)."""
+    import cv2
+
+    if image.dtype != np.uint8:
+        image = np.clip(image, 0, 255).astype(np.uint8)
+    blurred = cv2.GaussianBlur(image, (0, 0), sigma_x)
+    return cv2.addWeighted(image, 4, blurred, -4, 128)
+
+
+def preprocess_fundus_array(
+    image: np.ndarray,
+    *,
+    mode: PreprocessMode | str | None = None,
+) -> np.ndarray:
+    """RGB uint8 HxWx3 → 전처리된 RGB."""
+    pm = resolve_preprocess_mode(str(mode) if mode else None)
+    out = image
+    if pm in ("clahe", "both"):
+        out = apply_clahe(out)
+    if pm in ("ben_graham", "both"):
+        out = ben_graham_preprocess(out)
+    return out
 
 
 def dr_prediction_from_logits(logits: Any) -> DrPrediction:
@@ -133,6 +189,7 @@ def preprocess_fundus_bytes(
     image_bytes: bytes,
     *,
     image_size: int = DEFAULT_IMAGE_SIZE,
+    preprocess_mode: PreprocessMode | str | None = None,
 ) -> Any:
     """RGB fundus → ``(1,3,H,W)`` float32 tensor (torch)."""
     import torch
@@ -140,28 +197,31 @@ def preprocess_fundus_bytes(
     from torchvision import transforms as T
 
     img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    arr = np.array(img)
+    arr = preprocess_fundus_array(arr, mode=preprocess_mode)
+    img = Image.fromarray(arr)
     img = img.resize((image_size, image_size))
     t = T.ToTensor()(img).unsqueeze(0)
     return t.to(dtype=torch.float32)
 
 
-def build_dr_classifier(
-    *,
-    arch: str | None = None,
-    num_classes: int = DR_NUM_CLASSES,
-    pretrained: bool = False,
-):
-    """EfficientNet 분류 헤드 (torchvision)."""
+def _efficientnet_embed(model: Any, x: Any) -> Any:
+    import torch
+
+    x = model.features(x)
+    x = model.avgpool(x)
+    return torch.flatten(x, 1)
+
+
+def _load_efficientnet_backbone(arch_key: str, *, pretrained: bool):
     import torch
     from torchvision import models
 
-    arch_key = resolve_cnn_arch(arch)
-    if arch_key not in SUPPORTED_CNN_ARCHS:
-        raise ValueError(
-            f"unsupported MEDI_CNN_ARCH={arch_key!r}; "
-            f"choose from {sorted(SUPPORTED_CNN_ARCHS)}"
-        )
-
+    factories = {
+        "efficientnet_b0": models.efficientnet_b0,
+        "efficientnet_b4": models.efficientnet_b4,
+        "efficientnet_v2_s": models.efficientnet_v2_s,
+    }
     weights = None
     if pretrained:
         weight_enums = {
@@ -176,42 +236,107 @@ def build_dr_classifier(
             weights = getattr(getattr(tvm, mod_name), attr)
         except Exception:
             weights = "IMAGENET1K_V1"
+    return factories[arch_key](weights=weights)
 
-    factories = {
-        "efficientnet_b0": models.efficientnet_b0,
-        "efficientnet_b4": models.efficientnet_b4,
-        "efficientnet_v2_s": models.efficientnet_v2_s,
-    }
-    model = factories[arch_key](weights=weights)
-    if arch_key.startswith("efficientnet_v2"):
-        in_features = model.classifier[1].in_features
-        model.classifier[1] = torch.nn.Linear(in_features, num_classes)
-    else:
-        in_features = model.classifier[1].in_features
-        model.classifier[1] = torch.nn.Linear(in_features, num_classes)
+
+def build_msef_net(*, num_classes: int = DR_NUM_CLASSES, pretrained: bool = False):
+    """Multi-Scale EfficientNet Fusion (MSEF-Net 스타일)."""
+    import torch
+    import torch.nn as nn
+
+    class MSEFNet(nn.Module):
+        """Multi-Scale EfficientNet Fusion — B0(소) + B4(대) 피처 융합."""
+
+        def __init__(self) -> None:
+            super().__init__()
+            self.backbone_small = _load_efficientnet_backbone("efficientnet_b0", pretrained=pretrained)
+            self.backbone_large = _load_efficientnet_backbone("efficientnet_b4", pretrained=pretrained)
+            self.fusion = nn.Linear(MSEF_SMALL_DIM + MSEF_LARGE_DIM, 512)
+            self.dropout = nn.Dropout(p=0.2)
+            self.classifier = nn.Linear(512, num_classes)
+
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            fs = _efficientnet_embed(self.backbone_small, x)
+            fl = _efficientnet_embed(self.backbone_large, x)
+            h = torch.relu(self.fusion(torch.cat([fs, fl], dim=1)))
+            h = self.dropout(h)
+            return self.classifier(h)
+
+    return MSEFNet(), "msef_net"
+
+
+def build_dr_classifier(
+    *,
+    arch: str | None = None,
+    num_classes: int = DR_NUM_CLASSES,
+    pretrained: bool = False,
+):
+    """EfficientNet 또는 MSEF-Net 분류기."""
+    import torch
+
+    arch_key = resolve_cnn_arch(arch)
+    if arch_key == "msef_net":
+        return build_msef_net(num_classes=num_classes, pretrained=pretrained)
+
+    if arch_key not in SUPPORTED_CNN_ARCHS:
+        raise ValueError(
+            f"unsupported MEDI_CNN_ARCH={arch_key!r}; "
+            f"choose from {sorted(SUPPORTED_CNN_ARCHS)}"
+        )
+
+    model = _load_efficientnet_backbone(arch_key, pretrained=pretrained)
+    in_features = model.classifier[1].in_features
+    model.classifier[1] = torch.nn.Linear(in_features, num_classes)
     return model, arch_key
 
 
 def load_manifest_entries(manifest_path: Path, split: str = "train") -> list[dict]:
     data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    if split == "test" and "test" not in data and "val" in data:
+        split = "val"
     entries = data.get(split) or []
     if not isinstance(entries, list):
         raise ValueError(f"manifest split {split!r} invalid")
     return entries
 
 
+def load_image_tensor_from_path(
+    path: Path,
+    *,
+    image_size: int = DEFAULT_IMAGE_SIZE,
+    preprocess_mode: PreprocessMode | str | None = None,
+) -> Any:
+    """파일 경로 → (1,3,H,W) tensor."""
+    from PIL import Image
+    from torchvision import transforms as T
+
+    import torch
+
+    img = Image.open(path).convert("RGB")
+    arr = preprocess_fundus_array(np.array(img), mode=preprocess_mode)
+    img = Image.fromarray(arr).resize((image_size, image_size))
+    return T.ToTensor()(img).unsqueeze(0).to(dtype=torch.float32)
+
+
 __all__ = [
     "DR_NUM_CLASSES",
     "DEFAULT_IMAGE_SIZE",
     "DEFAULT_CNN_ARCH",
+    "DEFAULT_PREPROCESS",
     "SUPPORTED_CNN_ARCHS",
     "DrPrediction",
+    "apply_clahe",
+    "ben_graham_preprocess",
+    "preprocess_fundus_array",
     "dr_prediction_from_logits",
     "dr_prediction_to_parsed",
     "preprocess_fundus_bytes",
     "build_dr_classifier",
+    "build_msef_net",
     "resolve_cnn_arch",
+    "resolve_preprocess_mode",
     "load_manifest_entries",
+    "load_image_tensor_from_path",
     "DR_TO_ICD10",
     "DR_TO_SEVERITY",
     "DR_GRADE_CONDITION",
