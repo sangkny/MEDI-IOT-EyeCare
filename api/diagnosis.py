@@ -5,6 +5,8 @@
 POST /api/v1/diagnosis          — AI 진단 보고서 생성
 GET  /api/v1/diagnosis/{id}     — 진단 결과 조회
 POST /api/v1/diagnosis/exam     — 검사 기록 등록
+POST /api/v1/diagnosis/explain  — CNN + LLM 통합 설명 (R4-ML+)
+POST /api/v1/diagnosis/comprehensive — 설명 + 병원 + MEDI-EYE 추천
 """
 import asyncio
 import logging
@@ -20,10 +22,19 @@ from database import get_db
 from events import EVENT_MEDICAL_DIAGNOSIS_COMPLETED, publish_platform_event
 from auth.policy import policy_require
 from models.medical import EyeExam, Diagnosis, DiagnosisSeverityEnum, ReportStatusEnum
+from schemas.integrated_diagnosis import (
+    ComprehensiveDiagnosisRequest,
+    ComprehensiveDiagnosisResponse,
+    DeviceRecommendation,
+    DiagnosisExplainRequest,
+    DiagnosisExplainResponse,
+    HospitalRecommendation,
+)
 from schemas.medical import (
     DiagnosisRequest, DiagnosisResponse,
     ExamCreate, ExamResponse,
 )
+from services.integrated_diagnosis import decode_image_base64, run_integrated_explain
 from services.report_gen import ReportGenerator
 
 log = logging.getLogger("api.diagnosis")
@@ -232,6 +243,153 @@ async def _run_diagnosis(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"진단 보고서 생성 실패: {str(e)[:200]}",
         )
+
+
+def _hospitals_to_schema(candidates) -> list[HospitalRecommendation]:
+    return [
+        HospitalRecommendation(
+            name=h.name,
+            address=h.address,
+            distance_km=h.distance_km,
+            specialty=h.specialty,
+            phone=h.phone,
+            evaluation_score=h.evaluation_score,
+            map_url=h.map_url,
+            urgency=h.urgency,
+            data_source=h.data_source,
+        )
+        for h in candidates
+    ]
+
+
+def _devices_to_schema(devices) -> list[DeviceRecommendation]:
+    return [
+        DeviceRecommendation(
+            type=d.type,
+            device=d.device,
+            reason=d.reason,
+            link=d.link,
+            nutrition=d.nutrition,
+        )
+        for d in devices
+    ]
+
+
+def _explanation_to_response(
+    explanation,
+    hospitals: list,
+    devices: list | None = None,
+) -> DiagnosisExplainResponse | ComprehensiveDiagnosisResponse:
+    base = {
+        "dr_grade": explanation.dr_grade,
+        "confidence": explanation.confidence,
+        "icd10_code": explanation.icd10_code,
+        "severity": explanation.severity,
+        "patient_explanation": explanation.patient_explanation,
+        "clinical_summary": explanation.clinical_summary,
+        "recommended_actions": explanation.recommended_actions,
+        "nearby_hospitals": _hospitals_to_schema(hospitals),
+        "ontology_passed": explanation.ontology_passed,
+        "model_used": explanation.model_used,
+    }
+    if devices is not None:
+        return ComprehensiveDiagnosisResponse(
+            **base,
+            device_recommendations=_devices_to_schema(devices),
+        )
+    return DiagnosisExplainResponse(**base)
+
+
+@router.post(
+    "/explain",
+    response_model=DiagnosisExplainResponse,
+    summary="CNN + LLM 통합 설명",
+    status_code=status.HTTP_200_OK,
+)
+async def explain_diagnosis(
+    body: DiagnosisExplainRequest,
+    _: dict = Depends(policy_require("medi-iot", "ai_analyze")),
+) -> DiagnosisExplainResponse:
+    """
+    안저 이미지 → CNN DR 등급 → LLM 환자/임상 설명 → Ontology 검증.
+    ``location`` 이 있으면 주변 병원 추천을 포함합니다.
+    """
+    try:
+        image_bytes = decode_image_base64(body.image_base64)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    loc = None
+    if body.location:
+        loc = (body.location.lat, body.location.lng)
+
+    try:
+        explanation, hospitals, _ = await run_integrated_explain(
+            image_bytes,
+            patient_lang=body.lang,
+            patient_id=body.patient_id,
+            location=loc,
+            radius_km=body.radius_km,
+            include_devices=False,
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"CNN model unavailable: {exc}",
+        ) from exc
+    except Exception as exc:
+        log.error("explain_diagnosis failed: %s", exc)
+        raise HTTPException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"통합 설명 실패: {str(exc)[:200]}",
+        ) from exc
+
+    return _explanation_to_response(explanation, hospitals)
+
+
+@router.post(
+    "/comprehensive",
+    response_model=ComprehensiveDiagnosisResponse,
+    summary="통합 진단 (CNN+LLM+병원+MEDI-EYE)",
+    status_code=status.HTTP_200_OK,
+)
+async def comprehensive_diagnosis(
+    body: ComprehensiveDiagnosisRequest,
+    _: dict = Depends(policy_require("medi-iot", "ai_analyze")),
+) -> ComprehensiveDiagnosisResponse:
+    """explain + MEDI-EYE-h/w 기기 추천."""
+    try:
+        image_bytes = decode_image_base64(body.image_base64)
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+
+    loc = (37.5665, 126.9780)
+    if body.location:
+        loc = (body.location.lat, body.location.lng)
+
+    try:
+        explanation, hospitals, devices = await run_integrated_explain(
+            image_bytes,
+            patient_lang=body.lang,
+            patient_id=body.patient_id,
+            location=loc,
+            radius_km=body.radius_km,
+            include_devices=True,
+            patient_profile=body.patient_profile,
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"CNN model unavailable: {exc}",
+        ) from exc
+    except Exception as exc:
+        log.error("comprehensive_diagnosis failed: %s", exc)
+        raise HTTPException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"통합 진단 실패: {str(exc)[:200]}",
+        ) from exc
+
+    return _explanation_to_response(explanation, hospitals, devices)
 
 
 @router.get(

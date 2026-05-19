@@ -407,6 +407,16 @@ def get_inference_backend(config: InferenceConfig | None = None) -> InferenceBac
     return backend
 
 
+async def predict_dr_from_image_bytes(image_bytes: bytes):
+    """안저 바이트 → ``DrPrediction`` (CNN 백엔드)."""
+    from services.retinal_cnn import DrPrediction
+
+    cfg = load_inference_config()
+    backend = CnnRetinalBackend(cfg)
+    loop = asyncio.get_running_loop()
+    return await loop.run_in_executor(None, backend._predict_sync, image_bytes)
+
+
 async def analyze_image_via_router(
     file_path: str,
     exam_type: str = "fundus",
@@ -437,6 +447,7 @@ __all__ = [
     "EnsembleInferenceBackend",
     "load_inference_config",
     "get_inference_backend",
+    "predict_dr_from_image_bytes",
     "analyze_image_via_router",
     "merge_ensemble_results",
 ]
