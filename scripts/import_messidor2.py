@@ -19,6 +19,8 @@ ADCIS 의 Messidor-2 데이터셋 (1748장 fundus 사진 + DR/ME 라벨) 을 MED
         python scripts/import_messidor2.py --batch 100
 
 --dry-run 모드는 디스크/S3 쓰기 없이 manifest 만 출력 (validation 용도).
+
+D R4-ML train/val manifest: ``scripts/build_messidor2_manifest.py`` → ``datasets/messidor2/manifest.json``
 S3 백엔드: ``STORAGE_BACKEND=s3`` + ``S3_BUCKET`` 환경변수 설정.
 
 설계 결정:

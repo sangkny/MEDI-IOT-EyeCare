@@ -373,11 +373,10 @@ async def _run_image_analysis(
     db: AsyncSession,
 ) -> EyeImage:
     """EyeAnalyzer로 이미지 분석 실행 → EyeImage 업데이트"""
-    from services.eye_analyzer import EyeAnalyzer
+    from services.inference_router import analyze_image_via_router
 
     try:
-        analyzer = EyeAnalyzer()
-        result   = await analyzer.analyze_image_file(
+        result = await analyze_image_via_router(
             file_path=image.file_path,
             exam_type=image.image_type.value,
         )

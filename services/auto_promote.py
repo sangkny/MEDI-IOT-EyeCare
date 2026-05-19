@@ -53,6 +53,22 @@ def _consensus_required() -> bool:
     return os.getenv("MEDI_AUTO_PROMOTE_CONSENSUS_ONLY", "1") in {"1", "true", "TRUE"}
 
 
+def _allow_cnn_promote() -> bool:
+    return os.getenv("MEDI_AUTO_PROMOTE_ALLOW_CNN", "1") in {"1", "true", "TRUE"}
+
+
+def _model_eligible_for_promote(model_used: str) -> bool:
+    """consensus / ensemble / cnn(…) 백엔드 허용."""
+    mu = model_used.lower()
+    if "consensus" in mu or "ensemble" in mu:
+        return True
+    if _allow_cnn_promote() and "cnn(" in mu:
+        return True
+    if not _consensus_required():
+        return True
+    return False
+
+
 # ── 메트릭 (best-effort) ─────────────────────────────────
 
 
@@ -122,12 +138,15 @@ async def try_auto_promote_for_image(
             "reason": "ontology_passed=False — 수동 검토 필요",
         }
 
-    model_used = str(data.get("model_used") or "").lower()
-    if _consensus_required() and "consensus" not in model_used:
+    model_used = str(data.get("model_used") or "")
+    if not _model_eligible_for_promote(model_used):
         _emit_metric("skipped_non_consensus")
         return {
             "outcome": "skipped_non_consensus",
-            "reason": f"model_used={model_used!r} — consensus 가 아닌 결과는 수동 승격 필요",
+            "reason": (
+                f"model_used={model_used!r} — consensus/ensemble/cnn 이 아니면 "
+                "수동 승격 필요"
+            ),
         }
 
     if not image.exam_id:

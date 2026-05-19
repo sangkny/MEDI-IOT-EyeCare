@@ -1,0 +1,9 @@
+# MEDI Retinal CNN 학습·export 전용 (D R4-ML D2)
+# API 컨테이너에는 설치하지 않음 — 오프라인 Job / CI 스모크:
+#   pip install -r requirements-ml.txt
+
+torch>=2.2.0,<3
+torchvision>=0.17.0,<1
+onnx>=1.15.0,<2
+onnxscript>=0.1.0
+onnxruntime>=1.17.0,<2
