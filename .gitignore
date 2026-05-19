@@ -13,3 +13,14 @@ alembic/versions/*.pyc
 # 런타임 업로드·로컬 테스트 이미지 (저장소에 포함하지 않음)
 uploads/
 fundus_*_sklee.jpg
+
+# ML 모델 파일 (git에 올리지 않음 — S3/MinIO 또는 로컬 저장)
+models/*.onnx
+models/*.onnx.data
+models/*.pt
+models/*.pth
+models/*.bin
+data/
+datasets/
+*.csv
+wandb/
