@@ -21,13 +21,22 @@ sys.path.insert(0, "/app/shared-libraries")
 # DB 세션 헬퍼 — NullPool로 이벤트 루프 충돌 방지
 # ════════════════════════════════════════════════════════════
 
+def _async_db_url() -> str:
+    from config import get_settings
+
+    url = get_settings().database_url
+    if url.startswith("postgresql://") and "+asyncpg" not in url:
+        url = "postgresql+asyncpg://" + url[len("postgresql://") :]
+    return url
+
+
 async def _make_session():
     """테스트용 독립 DB 세션 (NullPool, 이벤트 루프 충돌 없음)"""
     from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
     from sqlalchemy.pool import NullPool
 
     engine = create_async_engine(
-        "postgresql+asyncpg://dev:dev@postgres:5432/mediiot",
+        _async_db_url(),
         poolclass=NullPool,
         echo=False,
     )

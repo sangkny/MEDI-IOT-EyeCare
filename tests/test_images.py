@@ -30,6 +30,15 @@ API_V1   = f"{BASE_URL}/api/v1"
 TIMEOUT  = httpx.Timeout(120.0)
 
 
+def _async_db_url() -> str:
+    from config import get_settings
+
+    url = get_settings().database_url
+    if url.startswith("postgresql://") and "+asyncpg" not in url:
+        url = "postgresql+asyncpg://" + url[len("postgresql://") :]
+    return url
+
+
 # ════════════════════════════════════════════════════════════
 # 헬퍼
 # ════════════════════════════════════════════════════════════
@@ -79,10 +88,7 @@ class TestPgvector:
         from sqlalchemy import text
 
         async def _check():
-            engine = create_async_engine(
-                "postgresql+asyncpg://dev:dev@postgres:5432/mediiot",
-                echo=False,
-            )
+            engine = create_async_engine(_async_db_url(), echo=False)
             async with engine.connect() as conn:
                 result = await conn.execute(
                     text("SELECT extname, extversion FROM pg_extension WHERE extname='vector'")
@@ -104,9 +110,7 @@ class TestPgvector:
         from sqlalchemy import text
 
         async def _check():
-            engine = create_async_engine(
-                "postgresql+asyncpg://dev:dev@postgres:5432/mediiot", echo=False
-            )
+            engine = create_async_engine(_async_db_url(), echo=False)
             async with engine.connect() as conn:
                 result = await conn.execute(text("""
                     SELECT column_name, data_type, udt_name
@@ -136,9 +140,7 @@ class TestPgvector:
         expected = {"eye_images", "medical_documents", "document_embeddings", "diagnosis_embeddings"}
 
         async def _check():
-            engine = create_async_engine(
-                "postgresql+asyncpg://dev:dev@postgres:5432/mediiot", echo=False
-            )
+            engine = create_async_engine(_async_db_url(), echo=False)
             async with engine.connect() as conn:
                 result = await conn.execute(
                     text("SELECT tablename FROM pg_tables WHERE schemaname='public'")

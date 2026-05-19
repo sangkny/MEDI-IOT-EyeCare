@@ -316,7 +316,7 @@ def test_review_queue_lists_pending(client: httpx.Client) -> None:
     review_id = promote.json()["review_id"]
 
     q = client.get(
-        "/api/v1/clinical/reviews?status=pending_review",
+        "/api/v1/clinical/reviews?status=pending_review&limit=200",
         headers=_headers(client),
     )
     assert q.status_code == 200
