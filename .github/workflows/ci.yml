@@ -57,10 +57,12 @@ jobs:
 
       - name: shared-libraries
         run: |
+          rm -rf shared-libraries
           git clone --depth 1 https://github.com/sangkny/shared-libraries.git shared-libraries
           pip install --upgrade pip
           pip install -r shared-libraries/requirements.txt
           pip install -e ./shared-libraries
+          python -c "from ontology.validator import OntologyValidator; assert hasattr(OntologyValidator, 'for_iot_device')"
 
       - name: MEDI dependencies
         run: |
@@ -78,22 +80,26 @@ jobs:
           PY
           python -m alembic upgrade head
 
-      - name: Start API (background)
-        run: |
-          nohup python -m uvicorn main:app --host 127.0.0.1 --port 8000 &
-          for i in $(seq 1 30); do
-            if curl -sf http://127.0.0.1:8000/health >/dev/null; then
-              echo "API ready"
-              exit 0
-            fi
-            sleep 2
-          done
-          echo "API failed to start"
-          exit 1
-
       - name: Medical ontology smoke
         run: |
           pytest shared-libraries/ontology/tests/test_validator.py::TestMedicalValidator::test_valid_patient_passes -q
 
+      # uvicorn 은 이 스텝 안에서만 유지 — 별도 step 의 백그라운드 프로세스는 step 종료 시 SIGTERM 됨
       - name: Pytest (ONNX / LM Studio E2E excluded)
-        run: sed -i 's/\r$//' scripts/ci-pytest.sh && bash scripts/ci-pytest.sh
+        run: |
+          sed -i 's/\r$//' scripts/ci-pytest.sh
+          nohup python -m uvicorn main:app --host 127.0.0.1 --port 8000 >/tmp/uvicorn-ci.log 2>&1 &
+          echo $! >/tmp/uvicorn-ci.pid
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:8000/health >/dev/null; then
+              echo "API ready"
+              break
+            fi
+            sleep 2
+          done
+          curl -sf http://127.0.0.1:8000/health >/dev/null || { tail -50 /tmp/uvicorn-ci.log; exit 1; }
+          curl -sf http://127.0.0.1:8000/api/v1/billing/plans >/dev/null || { tail -50 /tmp/uvicorn-ci.log; exit 1; }
+          bash scripts/ci-pytest.sh
+          PYTEST_EXIT=$?
+          kill "$(cat /tmp/uvicorn-ci.pid)" 2>/dev/null || true
+          exit $PYTEST_EXIT
