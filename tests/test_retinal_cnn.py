@@ -5,6 +5,8 @@ import json
 
 import pytest
 
+pytestmark = [pytest.mark.requires_onnx, pytest.mark.integration]
+
 from services.retinal_cnn import (
     DR_NUM_CLASSES,
     dr_prediction_from_logits,

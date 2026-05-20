@@ -12,6 +12,8 @@ import tempfile
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from services.image_storage import (
     LocalImageStorage,
     S3ImageStorage,

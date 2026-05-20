@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import pytest
 
+pytestmark = [pytest.mark.requires_onnx, pytest.mark.integration]
+
 from services.eye_analyzer import AnalysisResult
 from services.inference_router import (
     load_inference_config,

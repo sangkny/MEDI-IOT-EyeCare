@@ -29,6 +29,7 @@ from services.eye_analyzer import EyeAnalyzer, AnalysisResult, _normalize_severi
 # Level 0 — 파싱 단위 테스트 (LLM 없음)
 # ════════════════════════════════════════════════════════════
 
+@pytest.mark.unit
 class TestEyeAnalyzerUnit:
     """
     목적: 파싱 헬퍼 함수 로직 검증
@@ -97,6 +98,8 @@ class TestEyeAnalyzerUnit:
 # Level 1 — 안저 촬영 분석 (실제 LLM 호출)
 # ════════════════════════════════════════════════════════════
 
+@pytest.mark.integration
+@pytest.mark.requires_llm
 class TestEyeAnalyzerFundus:
     """
     목적: 안저 촬영 소견 분석 + 구조화 결과 검증
@@ -177,6 +180,8 @@ class TestEyeAnalyzerFundus:
 # Level 2 — OCT 분석 (실제 LLM 호출)
 # ════════════════════════════════════════════════════════════
 
+@pytest.mark.integration
+@pytest.mark.requires_llm
 class TestEyeAnalyzerOCT:
     """
     목적: OCT 검사 소견 분석 검증
@@ -225,6 +230,8 @@ class TestEyeAnalyzerOCT:
 # Level 3 — 시야 검사 + 안압 분석 (실제 LLM 호출)
 # ════════════════════════════════════════════════════════════
 
+@pytest.mark.integration
+@pytest.mark.requires_llm
 class TestEyeAnalyzerGlaucoma:
     """
     목적: 시야 검사 + 안압 데이터 종합 분석
@@ -274,6 +281,8 @@ class TestEyeAnalyzerGlaucoma:
 # Level 4 — OntologyValidator 연동 검증
 # ════════════════════════════════════════════════════════════
 
+@pytest.mark.integration
+@pytest.mark.requires_llm
 class TestOntologyIntegration:
     """
     목적: OntologyValidator가 EyeAnalyzer 결과를 올바르게 검증하는지 확인

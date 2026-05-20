@@ -22,6 +22,8 @@ from pathlib import Path
 import httpx
 import pytest
 
+pytestmark = [pytest.mark.integration, pytest.mark.requires_db]
+
 sys.path.insert(0, "/app")
 sys.path.insert(0, "/app/shared-libraries")
 
@@ -75,6 +77,8 @@ def _create_test_patient() -> str:
 # Level 0 — pgvector 확장 검증
 # ════════════════════════════════════════════════════════════
 
+@pytest.mark.integration
+@pytest.mark.requires_db
 class TestPgvector:
     """
     목적: pgvector 0.8.2 설치 및 벡터 연산 동작 확인
@@ -298,6 +302,8 @@ class TestImageUploadAPI:
 # Level 2 — VISION 모델 이미지 분석 (실제 LLM 호출)
 # ════════════════════════════════════════════════════════════
 
+@pytest.mark.integration
+@pytest.mark.requires_llm
 class TestImageAnalysis:
     """
     목적: 업로드된 이미지에 대한 VISION 모델 분석 검증

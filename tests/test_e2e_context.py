@@ -37,6 +37,8 @@ from datetime import date
 import httpx
 import pytest
 
+pytestmark = [pytest.mark.integration, pytest.mark.requires_llm]
+
 # ── 공통 ──
 BASE_URL = "http://localhost:8000"
 API_V1 = f"{BASE_URL}/api/v1"

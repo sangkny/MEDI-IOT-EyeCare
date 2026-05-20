@@ -12,6 +12,8 @@ from datetime import date, timedelta
 import httpx
 import pytest
 
+pytestmark = [pytest.mark.integration, pytest.mark.requires_db]
+
 BASE_URL = "http://localhost:8000"
 API_V1   = f"{BASE_URL}/api/v1"
 TIMEOUT  = httpx.Timeout(30.0)

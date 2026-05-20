@@ -63,6 +63,7 @@ class MockEyeExam:
 # Level 0 — 단위 테스트 (LLM 없음)
 # ════════════════════════════════════════════════════════════
 
+@pytest.mark.unit
 class TestReportGenUnit:
     """
     목적: _build_task(), _parse_report() 로직 검증
@@ -149,6 +150,8 @@ class TestReportGenUnit:
 # Level 1 — 당뇨망막병증 CONSENSUS 보고서 (실제 LLM)
 # ════════════════════════════════════════════════════════════
 
+@pytest.mark.integration
+@pytest.mark.requires_llm
 class TestReportGenDiabetic:
     """
     목적: 당뇨망막병증(H36.0) CONSENSUS 전략 보고서 생성 검증
@@ -269,6 +272,8 @@ class TestReportGenDiabetic:
 # Level 2 — 녹내장 보고서 (실제 LLM)
 # ════════════════════════════════════════════════════════════
 
+@pytest.mark.integration
+@pytest.mark.requires_llm
 class TestReportGenGlaucoma:
     """
     목적: 녹내장(H40.1) 시야 검사 기반 보고서 생성 검증
@@ -324,6 +329,8 @@ class TestReportGenGlaucoma:
 # Level 3 — EyeAnalyzer → ReportGenerator 연계 테스트
 # ════════════════════════════════════════════════════════════
 
+@pytest.mark.integration
+@pytest.mark.requires_llm
 class TestEyeAnalyzerToReport:
     """
     목적: EyeAnalyzer 분석 결과 → ReportGenerator 보고서 생성 연계 검증

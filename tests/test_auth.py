@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import pytest
+
+pytestmark = [pytest.mark.integration, pytest.mark.requires_db]
+
 from fastapi.testclient import TestClient
 
 from main import app

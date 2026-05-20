@@ -11,6 +11,9 @@ from __future__ import annotations
 import sys
 
 import httpx
+import pytest
+
+pytestmark = [pytest.mark.integration, pytest.mark.requires_db]
 
 sys.path.insert(0, "/app")
 sys.path.insert(0, "/app/shared-libraries")

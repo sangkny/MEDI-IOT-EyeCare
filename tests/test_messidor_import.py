@@ -20,6 +20,8 @@ import types
 from pathlib import Path
 
 import pytest
+
+pytestmark = [pytest.mark.integration, pytest.mark.requires_db]
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool

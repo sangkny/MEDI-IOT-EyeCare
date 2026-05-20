@@ -15,6 +15,8 @@ from datetime import datetime, timezone
 
 import httpx
 import pytest
+
+pytestmark = [pytest.mark.integration, pytest.mark.requires_db]
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool

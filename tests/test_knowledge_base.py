@@ -13,6 +13,8 @@ KnowledgeBase RAG 파이프라인 테스트 [Week 3 Day 2]
 import sys
 import pytest
 
+pytestmark = [pytest.mark.integration, pytest.mark.requires_db, pytest.mark.requires_llm]
+
 sys.path.insert(0, "/app")
 sys.path.insert(0, "/app/shared-libraries")
 

@@ -50,6 +50,8 @@ def make_patient_code() -> str:
 # Level 0 — Health 체크
 # ════════════════════════════════════════════════════════════
 
+@pytest.mark.integration
+@pytest.mark.requires_db
 class TestHealthAPI:
     """
     목적: API 서버 동작 기본 확인
@@ -87,6 +89,8 @@ class TestHealthAPI:
 # Level 1 — 환자 API
 # ════════════════════════════════════════════════════════════
 
+@pytest.mark.integration
+@pytest.mark.requires_db
 class TestPatientAPI:
     """
     목적: 환자 CRUD 전체 흐름 검증
@@ -214,6 +218,8 @@ class TestPatientAPI:
 # Level 2 — 검사 등록 API
 # ════════════════════════════════════════════════════════════
 
+@pytest.mark.integration
+@pytest.mark.requires_db
 class TestDiagnosisAPI:
     """
     목적: 검사 기록 등록 + 조회 흐름 검증 (LLM 없음)
@@ -313,6 +319,8 @@ class TestDiagnosisAPI:
 # Level 3 — AI 진단 (실제 LLM 호출)
 # ════════════════════════════════════════════════════════════
 
+@pytest.mark.integration
+@pytest.mark.requires_llm
 class TestAIDiagnosis:
     """
     목적: AI 진단 보고서 전체 파이프라인 검증

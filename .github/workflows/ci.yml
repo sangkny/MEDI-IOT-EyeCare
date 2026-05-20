@@ -1,4 +1,4 @@
-name: CI
+name: CI (Unit Tests)
 
 on:
   push:
@@ -9,45 +9,15 @@ permissions:
   contents: read
 
 jobs:
-  test:
+  unit-test:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-
-    services:
-      postgres:
-        # dev compose 와 동일 — Vector(768) 마이그레이션에 pgvector 필요
-        image: pgvector/pgvector:pg16
-        env:
-          POSTGRES_USER: dev
-          POSTGRES_PASSWORD: dev
-          POSTGRES_DB: mediiot
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-      redis:
-        image: redis:7-alpine
-        ports:
-          - 6379:6379
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+    timeout-minutes: 10
 
     env:
       PYTHONPATH: ${{ github.workspace }}/shared-libraries:${{ github.workspace }}
-      DATABASE_URL: postgresql://dev:dev@localhost:5432/mediiot
-      REDIS_URL: redis://localhost:6379
-      JWT_SECRET_KEY: ci-github-actions-not-for-prod
       MEDI_STRIPE_ENABLED: "0"
       MEDI_STRIPE_SKIP_SIG_VERIFY: "1"
       LLM_PROVIDER: local
-      MEDI_FUNDUS_LAB_OPEN: "1"
-      MEDI_INFERENCE_BACKEND: llm
 
     steps:
       - uses: actions/checkout@v4
@@ -63,57 +33,17 @@ jobs:
           pip install --upgrade pip
           pip install -r shared-libraries/requirements.txt
           pip install -e ./shared-libraries
-          python -c "from ontology.validator import OntologyValidator; assert hasattr(OntologyValidator, 'for_iot_device')"
 
-      - name: MEDI dependencies
+      - name: Install dependencies
         run: |
+          pip install pytest pytest-asyncio pytest-timeout
           pip install -r requirements.txt
 
-      - name: Database migrate
-        run: |
-          python <<'PY'
-          import os
-          import psycopg2
-          conn = psycopg2.connect(os.environ["DATABASE_URL"])
-          conn.autocommit = True
-          conn.cursor().execute("CREATE EXTENSION IF NOT EXISTS vector")
-          conn.close()
-          PY
-          python -m alembic upgrade head
-
-      - name: Medical ontology smoke
+      - name: Ontology smoke (unit)
         run: |
           pytest shared-libraries/ontology/tests/test_validator.py::TestMedicalValidator::test_valid_patient_passes -q
 
-      # uvicorn 은 이 스텝 안에서만 유지 — 별도 step 의 백그라운드 프로세스는 step 종료 시 SIGTERM 됨
-      - name: Pytest (ONNX / LM Studio E2E excluded)
+      - name: Run unit tests only
         run: |
           sed -i 's/\r$//' scripts/ci-pytest.sh
-          python -c "import os, psycopg2; psycopg2.connect(os.environ['DATABASE_URL']).close()"
-          python -c "from main import app; print('app import ok', app.title)"
-          nohup python -m uvicorn main:app --host 127.0.0.1 --port 8000 >/tmp/uvicorn-ci.log 2>&1 &
-          echo $! >/tmp/uvicorn-ci.pid
-          for i in $(seq 1 45); do
-            if curl -sf --max-time 5 http://127.0.0.1:8000/health >/dev/null; then
-              echo "API ready (${i})"
-              break
-            fi
-            sleep 2
-          done
-          curl -sf --max-time 5 http://127.0.0.1:8000/health >/dev/null || { echo "::error::API /health failed"; tail -80 /tmp/uvicorn-ci.log; exit 1; }
-          python -c "from ontology.validator import OntologyValidator; assert hasattr(OntologyValidator, 'for_iot_device')"
-          if ! bash scripts/ci-pytest.sh; then
-            echo "::error::pytest failed"
-            tail -80 /tmp/uvicorn-ci.log
-            kill "$(cat /tmp/uvicorn-ci.pid)" 2>/dev/null || true
-            exit 1
-          fi
-          kill "$(cat /tmp/uvicorn-ci.pid)" 2>/dev/null || true
-
-      - name: Upload debug logs on failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: ci-debug-logs
-          path: /tmp/uvicorn-ci.log
-          if-no-files-found: ignore
+          bash scripts/ci-pytest.sh

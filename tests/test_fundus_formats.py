@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from services.fundus_image_formats import validate_fundus_upload
 
 

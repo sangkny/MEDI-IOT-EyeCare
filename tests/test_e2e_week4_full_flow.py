@@ -17,6 +17,8 @@ from datetime import date
 import httpx
 import pytest
 
+pytestmark = [pytest.mark.integration, pytest.mark.requires_llm]
+
 sys.path.insert(0, "/app")
 sys.path.insert(0, "/app/shared-libraries")
 

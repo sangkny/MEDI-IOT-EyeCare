@@ -9,6 +9,8 @@ from unittest.mock import patch
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from services.vision_router import (
     VisionRoutingConfig,
     load_vision_config,

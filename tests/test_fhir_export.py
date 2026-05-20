@@ -10,6 +10,8 @@ from datetime import date, datetime, timezone
 
 import httpx
 import pytest
+
+pytestmark = [pytest.mark.integration, pytest.mark.requires_db]
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 

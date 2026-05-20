@@ -3,6 +3,8 @@ from __future__ import annotations
 
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from services.device_recommender import DeviceRecommender
 from services.explainer import DiagnosisExplainer
 from services.hospital_recommender import HospitalRecommender, _specialty_for_grade

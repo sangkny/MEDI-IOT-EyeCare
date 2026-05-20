@@ -4,6 +4,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
+pytestmark = pytest.mark.unit
+
 from services.retinal_cnn import (
     apply_clahe,
     ben_graham_preprocess,
