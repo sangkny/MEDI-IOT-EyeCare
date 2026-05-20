@@ -1,11 +1,14 @@
 """Fundus Lab — 안저 업로드 테스트 UI·API (다중 이미지 포맷)."""
 from __future__ import annotations
 
+import asyncio
 import logging
 import os
 from pathlib import Path
+
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
 from fastapi.responses import FileResponse, HTMLResponse
+from pydantic import BaseModel, Field
 
 from auth.policy import policy_require
 from schemas.integrated_diagnosis import (
@@ -17,11 +20,20 @@ from services.fundus_image_formats import (
     validate_fundus_upload,
 )
 from services.integrated_diagnosis import run_integrated_explain
+from services.fundus_video import (
+    MAX_VIDEO_BYTES,
+    aggregate_dr_predictions,
+    extract_jpeg_frames_from_video,
+    validate_fundus_video_upload,
+)
+from services.inference_router import predict_dr_from_image_bytes
+from services.retinal_cnn import dr_prediction_to_parsed
 
 log = logging.getLogger("api.lab")
 router = APIRouter()
 
 _LAB_HTML = Path(__file__).resolve().parent.parent / "static" / "fundus-lab" / "index.html"
+_VIDEO_DR_HTML = Path(__file__).resolve().parent.parent / "static" / "video-dr-lab" / "index.html"
 
 
 def _lab_open() -> bool:
@@ -158,4 +170,133 @@ async def fundus_formats() -> dict:
         "mime_types": sorted(ALLOWED_MIME_TYPES),
         "max_mb": 20,
         "ui_path": "/api/v1/lab/fundus",
+        "video_dr_ui_path": "/api/v1/lab/video-dr",
     }
+
+
+class VideoFrameDrOut(BaseModel):
+    """프레임별 DR(CNN) 요약."""
+
+    frame_index: int = Field(..., ge=0)
+    dr_grade: int = Field(..., ge=0, le=4)
+    confidence: float = Field(..., ge=0.0, le=1.0)
+    icd10_code: str | None = None
+    severity: str | None = None
+
+
+class VideoDrAnalyzeResponse(BaseModel):
+    """영상 업로드 → 샘플 프레임 DR 집계."""
+
+    video_format: str
+    n_frames_sampled: int
+    max_frames_requested: int
+    aggregate: dict
+    per_frame: list[VideoFrameDrOut]
+    note: str = (
+        "집계는 샘플 프레임의 **최대 DR 등급(가장 심각)** 기준입니다. "
+        "임상 판단은 의료진 검진으로 대체할 수 없습니다."
+    )
+
+
+@router.get(
+    "/video-dr",
+    response_class=HTMLResponse,
+    summary="안저 영상 DR Lab UI",
+    include_in_schema=True,
+)
+async def video_dr_lab_page() -> FileResponse:
+    """브라우저에서 mp4/webm 업로드 → 프레임 샘플 CNN DR."""
+    if not _VIDEO_DR_HTML.is_file():
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="video-dr-lab UI not found")
+    return FileResponse(_VIDEO_DR_HTML, media_type="text/html; charset=utf-8")
+
+
+@router.post(
+    "/video-dr/analyze",
+    response_model=VideoDrAnalyzeResponse,
+    summary="안저 영상(mp4/webm) — 프레임 샘플 DR(CNN) 집계",
+)
+async def lab_video_dr_analyze(
+    file: UploadFile = File(..., description="mp4 또는 webm"),
+    max_frames: int = Form(8, ge=1, le=24, description="추출·추론할 최대 프레임 수"),
+    _: dict = LAB_AUTH,
+) -> VideoDrAnalyzeResponse:
+    raw = await file.read()
+    if len(raw) > MAX_VIDEO_BYTES:
+        raise HTTPException(
+            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail=f"video too large (max {MAX_VIDEO_BYTES // (1024 * 1024)}MB)",
+        )
+    try:
+        fmt = validate_fundus_video_upload(
+            raw,
+            filename=file.filename,
+            content_type=file.content_type,
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, detail=str(exc)) from exc
+
+    try:
+        jpeg_frames = extract_jpeg_frames_from_video(
+            raw,
+            max_frames=max_frames,
+            target_fps=0.25,
+            fmt_hint=fmt,
+        )
+    except RuntimeError as exc:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc),
+        ) from exc
+
+    if not jpeg_frames:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="프레임을 추출하지 못했습니다. 코덱·손상 파일 여부를 확인하세요.",
+        )
+
+    sem = asyncio.Semaphore(3)
+
+    async def _infer_one(jpeg: bytes) -> object:
+        b = normalize_for_cnn(jpeg)
+        async with sem:
+            return await predict_dr_from_image_bytes(b)
+
+    try:
+        preds = await asyncio.gather(*[_infer_one(j) for j in jpeg_frames])
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="CNN 모델(.onnx 등)을 찾을 수 없습니다. 컨테이너에 모델을 두거나 requirements-ml 환경을 사용하세요.",
+        ) from exc
+    except Exception as exc:
+        log.exception("video DR batch failed")
+        raise HTTPException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc)[:240],
+        ) from exc
+
+    pred_list = list(preds)
+    agg = aggregate_dr_predictions(pred_list)
+    agg_parsed = dr_prediction_to_parsed(agg)
+
+    per_frame: list[VideoFrameDrOut] = []
+    for i, p in enumerate(pred_list):
+        parsed = dr_prediction_to_parsed(p)
+        per_frame.append(
+            VideoFrameDrOut(
+                frame_index=i,
+                dr_grade=p.dr_grade,
+                confidence=float(p.confidence),
+                icd10_code=parsed.get("icd10_code"),
+                severity=parsed.get("severity"),
+            )
+        )
+
+    return VideoDrAnalyzeResponse(
+        video_format=fmt,
+        n_frames_sampled=len(jpeg_frames),
+        max_frames_requested=max_frames,
+        aggregate=dict(agg_parsed),
+        per_frame=per_frame,
+    )

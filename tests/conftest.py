@@ -10,6 +10,7 @@ import pytest
 # ── 파일 단위 기본 마커 (모듈명, tests.test_* ) ───────────────
 _UNIT_MODULES = frozenset({
     "test_fundus_formats",
+    "test_fundus_video",
     "test_image_storage",
     "test_integrated_diagnosis",
     "test_iot_gateway",
