@@ -1,0 +1,9 @@
+# CNN 스모크(ONNX export + onnxruntime 추론) — CPU 휠
+numpy>=1.26,<2
+# MEDI 기본 API 이미지에 포함하면 이미지가 커지므로, 개발 시 선택 설치:
+#   docker compose ... exec medi-iot-api pip install -r requirements-cnn-smoke.txt
+torch==2.6.0
+torchvision==0.21.0
+onnx==1.16.2
+onnxruntime==1.17.3
+opencv-python-headless==4.10.0.84
