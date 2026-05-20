@@ -11,6 +11,7 @@ permissions:
 jobs:
   test:
     runs-on: ubuntu-latest
+    timeout-minutes: 20
 
     services:
       postgres:
@@ -88,11 +89,11 @@ jobs:
       - name: Pytest (ONNX / LM Studio E2E excluded)
         run: |
           sed -i 's/\r$//' scripts/ci-pytest.sh
-          nohup python -m uvicorn main:app --host 127.0.0.1 --port 8000 >/tmp/uvicorn-ci.log 2>&1 &
+          setsid python -m uvicorn main:app --host 127.0.0.1 --port 8000 </dev/null >/tmp/uvicorn-ci.log 2>&1 &
           echo $! >/tmp/uvicorn-ci.pid
-          for i in $(seq 1 30); do
+          for i in $(seq 1 45); do
             if curl -sf http://127.0.0.1:8000/health >/dev/null; then
-              echo "API ready"
+              echo "API ready (${i})"
               break
             fi
             sleep 2
