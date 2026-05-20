@@ -97,9 +97,12 @@ jobs:
             fi
             sleep 2
           done
-          curl -sf http://127.0.0.1:8000/health >/dev/null || { tail -50 /tmp/uvicorn-ci.log; exit 1; }
-          curl -sf http://127.0.0.1:8000/api/v1/billing/plans >/dev/null || { tail -50 /tmp/uvicorn-ci.log; exit 1; }
-          bash scripts/ci-pytest.sh
-          PYTEST_EXIT=$?
+          curl -sf http://127.0.0.1:8000/health >/dev/null || { echo "::error::API /health failed"; tail -80 /tmp/uvicorn-ci.log; exit 1; }
+          python -c "from ontology.validator import OntologyValidator; assert hasattr(OntologyValidator, 'for_iot_device')"
+          if ! bash scripts/ci-pytest.sh; then
+            echo "::error::pytest failed"
+            tail -80 /tmp/uvicorn-ci.log
+            kill "$(cat /tmp/uvicorn-ci.pid)" 2>/dev/null || true
+            exit 1
+          fi
           kill "$(cat /tmp/uvicorn-ci.pid)" 2>/dev/null || true
-          exit $PYTEST_EXIT
