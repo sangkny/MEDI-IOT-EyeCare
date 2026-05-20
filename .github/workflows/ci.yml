@@ -89,16 +89,17 @@ jobs:
       - name: Pytest (ONNX / LM Studio E2E excluded)
         run: |
           sed -i 's/\r$//' scripts/ci-pytest.sh
+          pg_isready -h 127.0.0.1 -p 5432 -U dev -d mediiot
           setsid python -m uvicorn main:app --host 127.0.0.1 --port 8000 </dev/null >/tmp/uvicorn-ci.log 2>&1 &
           echo $! >/tmp/uvicorn-ci.pid
           for i in $(seq 1 45); do
-            if curl -sf http://127.0.0.1:8000/health >/dev/null; then
+            if curl -sf --max-time 5 http://127.0.0.1:8000/health >/dev/null; then
               echo "API ready (${i})"
               break
             fi
             sleep 2
           done
-          curl -sf http://127.0.0.1:8000/health >/dev/null || { echo "::error::API /health failed"; tail -80 /tmp/uvicorn-ci.log; exit 1; }
+          curl -sf --max-time 5 http://127.0.0.1:8000/health >/dev/null || { echo "::error::API /health failed"; tail -80 /tmp/uvicorn-ci.log; exit 1; }
           python -c "from ontology.validator import OntologyValidator; assert hasattr(OntologyValidator, 'for_iot_device')"
           if ! bash scripts/ci-pytest.sh; then
             echo "::error::pytest failed"
