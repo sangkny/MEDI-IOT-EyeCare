@@ -109,3 +109,11 @@ jobs:
             exit 1
           fi
           kill "$(cat /tmp/uvicorn-ci.pid)" 2>/dev/null || true
+
+      - name: Upload debug logs on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-debug-logs
+          path: /tmp/uvicorn-ci.log
+          if-no-files-found: ignore
