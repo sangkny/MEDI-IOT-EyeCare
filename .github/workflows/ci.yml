@@ -89,7 +89,7 @@ jobs:
       - name: Pytest (ONNX / LM Studio E2E excluded)
         run: |
           sed -i 's/\r$//' scripts/ci-pytest.sh
-          pg_isready -h 127.0.0.1 -p 5432 -U dev -d mediiot
+          python -c "import os, psycopg2; psycopg2.connect(os.environ['DATABASE_URL']).close()"
           setsid python -m uvicorn main:app --host 127.0.0.1 --port 8000 </dev/null >/tmp/uvicorn-ci.log 2>&1 &
           echo $! >/tmp/uvicorn-ci.pid
           for i in $(seq 1 45); do
