@@ -25,4 +25,10 @@ datasets/
 *.csv
 wandb/
 reports/
+# Training kit runtime (large artifacts)
+training/data/
+training/reports/
+training/models/
+training/__pycache__/
+training/.pytest_cache/
 # CI workflow 는 추적 (.github/workflows/ci.yml) — Appendix F cicd-guide.md

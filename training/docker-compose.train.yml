@@ -1,0 +1,98 @@
+# MEDI DR 훈련 — GPU / CPU / 데이터 준비
+# 사용 (MEDI-IOT-EyeCare 루트):
+#   docker compose -f training/docker-compose.train.yml build train-gpu
+#   docker compose -f training/docker-compose.train.yml run --rm data-prep
+#   docker compose -f training/docker-compose.train.yml run --rm train-gpu
+#
+# CPU:
+#   docker compose -f training/docker-compose.train.yml run --rm train-cpu
+
+services:
+  data-prep:
+    build:
+      context: ..
+      dockerfile: training/Dockerfile.cpu
+    image: medi-train:cpu
+    working_dir: /workspace
+    volumes:
+      - ..:/workspace
+    entrypoint: ["python", "training/download_data.py"]
+    command: ["--mode", "synthetic", "--per-class", "200"]
+    mem_limit: 8g
+
+  train-gpu:
+    build:
+      context: ..
+      dockerfile: training/Dockerfile.gpu
+    image: medi-train:gpu
+    working_dir: /workspace
+    volumes:
+      - ..:/workspace
+      - ${KAGGLE_CONFIG_DIR:-~/.kaggle}:/root/.kaggle:ro
+    environment:
+      ARCH: ${ARCH:-efficientnet_b4}
+      EPOCHS: ${EPOCHS:-50}
+      BATCH: ${BATCH:-16}
+    gpus: all
+    shm_size: 4g
+    entrypoint: ["python", "training/train.py"]
+    command:
+      - --manifest
+      - data/synthetic_manifest.json
+      - --arch
+      - ${ARCH:-efficientnet_b4}
+      - --epochs
+      - ${EPOCHS:-50}
+      - --batch-size
+      - ${BATCH:-16}
+      - --device
+      - cuda
+      - --output
+      - models/retinal_v3.pt
+
+  train-cpu:
+    build:
+      context: ..
+      dockerfile: training/Dockerfile.cpu
+    image: medi-train:cpu
+    working_dir: /workspace
+    volumes:
+      - ..:/workspace
+    environment:
+      ARCH: ${ARCH:-efficientnet_b0}
+      EPOCHS: ${EPOCHS:-30}
+      BATCH: ${BATCH:-32}
+    mem_limit: ${TRAIN_MEM_LIMIT:-16g}
+    shm_size: 2g
+    entrypoint: ["python", "training/train.py"]
+    command:
+      - --manifest
+      - data/synthetic_manifest.json
+      - --arch
+      - ${ARCH:-efficientnet_b0}
+      - --epochs
+      - ${EPOCHS:-30}
+      - --batch-size
+      - ${BATCH:-32}
+      - --device
+      - cpu
+      - --output
+      - models/retinal_v2.pt
+
+  eval-gpu:
+    image: medi-train:gpu
+    profiles: ["eval"]
+    working_dir: /workspace
+    volumes:
+      - ..:/workspace
+    gpus: all
+    entrypoint: ["python", "scripts/eval_messidor.py"]
+    command:
+      - --model
+      - models/retinal_v3.onnx
+      - --manifest
+      - data/synthetic_manifest.json
+      - --split
+      - test
+      - --output
+      - reports/

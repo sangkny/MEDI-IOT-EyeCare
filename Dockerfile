@@ -10,7 +10,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # GPU torch 먼저 설치 (CPU 버전 덮어쓰기 방지)
-RUN pip install torch==2.6.0 torchvision \
+RUN pip install torch==2.6.0 torchvision==0.21.0 \
     --index-url https://download.pytorch.org/whl/cu124 \
     --no-cache-dir --prefix=/install
 

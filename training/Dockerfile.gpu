@@ -1,0 +1,39 @@
+# MEDI DR training — GPU (CUDA 12.4 + PyTorch 2.6)
+# Build (repo root): docker build -f training/Dockerfile.gpu -t medi-train:gpu .
+FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 python3-pip python3-venv \
+    curl libgl1 libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -sf /usr/bin/python3 /usr/bin/python
+
+WORKDIR /workspace
+
+RUN pip install --upgrade pip \
+    && pip install torch==2.6.0 torchvision==0.21.0 \
+        --index-url https://download.pytorch.org/whl/cu124
+
+COPY training/requirements.txt /tmp/training-requirements.txt
+RUN pip install -r /tmp/training-requirements.txt
+
+COPY services/retinal_cnn.py services/__init__.py /workspace/services/
+COPY scripts/generate_synthetic_fundus.py \
+    scripts/build_messidor2_manifest.py \
+    scripts/export_onnx.py \
+    scripts/eval_messidor.py \
+    /workspace/scripts/
+COPY training/train.py training/download_data.py training/deploy_model.py \
+    training/run_training.sh /workspace/training/
+
+RUN chmod +x /workspace/training/run_training.sh
+
+ENV PYTHONPATH=/workspace \
+    NVIDIA_VISIBLE_DEVICES=all
+
+ENTRYPOINT ["python", "training/train.py"]
+CMD ["--help"]

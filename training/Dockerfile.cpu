@@ -1,0 +1,32 @@
+# MEDI DR training — CPU only
+# Build: docker build -f training/Dockerfile.cpu -t medi-train:cpu .
+FROM python:3.11-slim-bookworm
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential curl libgl1 libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace
+
+RUN pip install --upgrade pip \
+    && pip install torch==2.6.0 torchvision==0.21.0 \
+        --index-url https://download.pytorch.org/whl/cpu
+
+COPY training/requirements.txt /tmp/training-requirements.txt
+RUN pip install -r /tmp/training-requirements.txt
+
+COPY services/retinal_cnn.py services/__init__.py /workspace/services/
+COPY scripts/generate_synthetic_fundus.py \
+    scripts/build_messidor2_manifest.py \
+    scripts/export_onnx.py \
+    scripts/eval_messidor.py \
+    /workspace/scripts/
+COPY training/train.py training/download_data.py training/deploy_model.py \
+    training/run_training.sh /workspace/training/
+
+RUN chmod +x /workspace/training/run_training.sh
+
+ENV PYTHONPATH=/workspace
+
+ENTRYPOINT ["python", "training/train.py"]
+CMD ["--help"]
