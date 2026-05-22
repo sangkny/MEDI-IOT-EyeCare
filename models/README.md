@@ -8,18 +8,49 @@
 | 환경 | 경로 |
 |------|------|
 | 개발 | `./models/` (로컬 전용, git 제외) |
-| 운영 | S3/MinIO `medi-dev` 버킷 `models/` prefix |
+| MinIO (SSOT) | `s3://medi-dev/models/` — 상세 [`docs/model-deploy-minio.md`](../docs/model-deploy-minio.md) |
 
-## 모델 다운로드 (MinIO)
+### 버전별 MinIO 키
+
+| 버전 | 객체 키 | 비고 |
+|------|---------|------|
+| v1 | `models/retinal_v1.onnx` | 스모크 |
+| v2 | `models/retinal_v2.onnx` | 합성 B0 (현재 compose 기본) |
+| **v3** | `models/retinal_v3.onnx` | **실데이터 배포 목표** (+ `.meta.json`) |
+
+## MinIO 다운로드 (권장)
 
 ```bash
-mc alias set local http://localhost:9000 minioadmin minioadmin
-mc cp local/medi-dev/models/retinal_v1.onnx ./models/
-mc cp local/medi-dev/models/retinal_v1.pt   ./models/
-mc cp local/medi-dev/models/retinal_v1.meta.json ./models/
+# 경로 점검 (업로드 전/후)
+python scripts/download_model.py --model retinal_v3.onnx --dry-run
+
+# 다운로드 + onnxruntime 검증 + projects/.env.local 갱신
+python scripts/download_model.py --model retinal_v3.onnx \
+  --source minio://medi-dev/models/
 ```
 
-## 모델 직접 학습
+`mc` 사용 시:
+
+```bash
+mc alias set local http://127.0.0.1:9000 minioadmin minioadmin
+mc cp local/medi-dev/models/retinal_v3.onnx ./models/
+mc cp local/medi-dev/models/retinal_v3.meta.json ./models/
+```
+
+## MinIO 업로드 (훈련 후)
+
+```bash
+python training/deploy_model.py --model retinal_v3.onnx --target minio
+```
+
+## 원격 GPU 학습 (OOM 시)
+
+`training/` 키트가 SSOT. 레거시: [`training-remote/README.md`](../training-remote/README.md).
+
+- Compose: `training/docker-compose.train.yml`
+- 가이드: [`training/README.md`](../training/README.md)
+
+## 모델 직접 학습 (동일 머신)
 
 ```bash
 pip install -r requirements-ml.txt

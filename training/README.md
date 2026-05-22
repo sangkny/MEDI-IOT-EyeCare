@@ -54,11 +54,17 @@ docker compose -f training/docker-compose.train.yml run --rm train-gpu \
     --output models/retinal_v3.pt
 ```
 
-## Deploy to API host
+## Deploy to API host (MinIO → medi-iot-api)
 
-```bash
-python training/deploy_model.py --model retinal_v3.onnx --target minio
-python scripts/download_model.py --model retinal_v3.onnx
-```
+**SSOT**: [`docs/model-deploy-minio.md`](../docs/model-deploy-minio.md)
+
+| 단계 | 명령 |
+|------|------|
+| 경로 점검 | `python scripts/download_model.py --model retinal_v3.onnx --dry-run` |
+| 업로드 | `python training/deploy_model.py --model retinal_v3.onnx --target minio` |
+| 다운로드 | `python scripts/download_model.py --model retinal_v3.onnx` |
+| API 재시작 | `cd ../.. && docker compose -f docker-compose.dev.yml restart medi-iot-api` |
+
+MinIO 키: `s3://medi-dev/models/retinal_v3.{onnx,meta.json}` · 호스트 endpoint `http://127.0.0.1:9000`
 
 Book: `book/part7/ch27-medi-r4-ml.md` §27.6 · `book/part7/ch30-samd-partner-platform.md` §30.7

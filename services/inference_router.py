@@ -2,7 +2,9 @@
 
 환경 변수:
     MEDI_INFERENCE_BACKEND   llm | cnn | ensemble  (기본 llm)
-    MEDI_CNN_MODEL_PATH      .onnx 또는 .pt (기본 models/retinal_v1.onnx)
+    MEDI_CNN_MODEL_PATH      명시 경로 (비우면 VERSION/auto 해석)
+    MEDI_CNN_MODEL_VERSION   v1 | v2 | v3 | auto (기본 auto — v3→v2→v1)
+    MEDI_CNN_AUTO_PULL       1 이면 기동 시 sync_cnn_model.py → MinIO
     MEDI_CNN_CONFIDENCE_MIN  CNN 단독·ensemble 가중 임계 (기본 0.70)
     MEDI_CNN_ARCH            retinal_cnn.resolve_cnn_arch (meta 없을 때)
     MEDI_CNN_DEVICE          cpu | cuda (torch 추론)
@@ -18,6 +20,7 @@ from pathlib import Path
 from typing import Any, Protocol, runtime_checkable
 
 from services.eye_analyzer import AnalysisResult, EyeAnalyzer
+from services.cnn_model_resolver import resolve_cnn_model
 from services.retinal_cnn import (
     DEFAULT_IMAGE_SIZE,
     dr_prediction_from_logits,
@@ -59,10 +62,17 @@ def load_inference_config() -> InferenceConfig:
     backend = (os.getenv("MEDI_INFERENCE_BACKEND") or "llm").strip().lower()
     if backend not in {"llm", "cnn", "ensemble"}:
         backend = "llm"
-    raw_path = (os.getenv("MEDI_CNN_MODEL_PATH") or "models/retinal_v1.onnx").strip()
-    path = Path(raw_path)
-    if not path.is_absolute():
-        path = Path("/app") / path
+    resolved = resolve_cnn_model()
+    path = resolved.absolute_path
+    arch = resolved.arch or resolve_cnn_arch()
+    if not path.is_file():
+        log.warning(
+            "CNN model not found at %s (version=%s source=%s); "
+            "set MEDI_CNN_MODEL_VERSION or run sync_cnn_model.py",
+            path,
+            resolved.version,
+            resolved.source,
+        )
     try:
         cnn_min = float(os.getenv("MEDI_CNN_CONFIDENCE_MIN", "0.70"))
     except ValueError:
@@ -72,7 +82,7 @@ def load_inference_config() -> InferenceConfig:
         backend=backend,
         cnn_model_path=path,
         cnn_confidence_min=cnn_min,
-        cnn_arch=resolve_cnn_arch(),
+        cnn_arch=arch,
         cnn_device=device,
     )
 
