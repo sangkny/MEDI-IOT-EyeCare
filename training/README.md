@@ -39,6 +39,16 @@ docker compose -f training/docker-compose.train.yml run --rm data-prep
 docker compose -f training/docker-compose.train.yml run --rm train-gpu
 ```
 
+## Eval (훈련 전·후)
+
+```bash
+# API 컨테이너 (권장)
+docker exec medi-iot-api-dev python3 /app/scripts/eval_messidor.py \
+  --model models/retinal_v2.onnx \
+  --manifest data/synthetic_manifest.json \
+  --split test --output reports/
+```
+
 ## Real data (Messidor / APTOS)
 
 1. Place images under `data/messidor2/images/{train,val,test}/{0..4}/`

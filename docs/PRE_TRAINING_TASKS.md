@@ -2,42 +2,59 @@
 
 > **훈련이 필요 없는 작업** — 기존 `retinal_v1`(스모크) / `retinal_v2`(합성) 로 검증 가능.
 
-## A. 지금 (오늘)
+## A. 지금 (오늘) — ✅ 완료
 
-| # | 작업 | 명령 / 경로 |
-|---|------|-------------|
-| A1 | `.env.local` v1 고정 해제 | `MEDI_CNN_MODEL_VERSION=auto`, `MEDI_CNN_MODEL_PATH=` (비움) |
-| A2 | Compose 재기동 + sync 로그 | `cd projects && docker compose -f docker-compose.dev.yml restart medi-iot-api` |
-| A3 | E2E 스모크 | `docker exec -e MEDI_SMOKE_IN_CONTAINER=1 medi-iot-api-dev python3 /app/scripts/e2e_fundus_smoke.py` |
-| A3b | 호스트 curl | `scripts/host_fundus_partner_smoke.ps1` (Fundus Lab + 파트너) |
-| A4 | 파트너 테이블 | `docker exec medi-iot-api-dev python3 /app/scripts/ensure_partner_tables.py` |
-| A5 | MinIO 경로 dry-run | `python3 scripts/download_model.py --model retinal_v3.onnx --dry-run` |
-| A6 | 단위 테스트 | `pytest tests/test_cnn_model_resolver.py tests/test_inference_router.py -q` |
-| A7 | Fundus Lab / Video DR | e2e 스모크 Step 3·7 또는 브라우저 `:8001` |
-| A8 | SaMD 파트너 API | e2e `partner/register` + `partner/analyze` (GradCAM) |
-| A9 | API 이미지 재빌드 | `requirements.txt` opencv+onnxruntime 추가 후 `docker compose build medi-iot-api` |
-
-**주의**: `.env.local` 변경 후 `restart`만으로 env 미반영 → `up -d medi-iot-api --force-recreate` 필요.
-
-## B. 훈련 24h 전 (데이터만)
-
-| # | 작업 | 비고 |
+| # | 작업 | 상태 |
 |---|------|------|
-| B1 | Messidor/APTOS 라이선스·경로 확보 | Git 제외 `data/` |
-| B2 | manifest 생성 | `scripts/build_messidor2_manifest.py` |
-| B3 | `training/download_data.py` | `--mode manifest` / synthetic 검증 |
-| B4 | GPU 서버 Docker | `training/docker-compose.train.yml build train-gpu` |
+| A1 | `.env.local` auto / PATH 비움 | ✅ |
+| A2 | Compose 재기동 (`--force-recreate`) | ✅ |
+| A3 | E2E 스모크 (`MEDI_SMOKE_IN_CONTAINER=1`) | ✅ |
+| A3b | 호스트 curl `host_fundus_partner_smoke.ps1` | ✅ |
+| A4 | 파트너 테이블 | ✅ |
+| A5 | MinIO dry-run v3 | ✅ (업로드 전 — 객체 없음 정상) |
+| A6 | 단위 테스트 8 passed | ✅ |
+| A7 | Fundus Lab / Video DR | ✅ HTTP 200 |
+| A8 | 파트너 analyze + GradCAM | ✅ |
+| A8b | 파트너 FHIR `host_partner_fhir_smoke.ps1` | ✅ Bundle |
+| A9 | API 이미지 numpy 1.26 + opencv + ort | ✅ |
+
+## B. 훈련 24h 전 (데이터·인프라) — ✅ 준비 완료
+
+| # | 작업 | 상태 |
+|---|------|------|
+| B1 | Messidor/APTOS 경로 | 📋 `data/README.md` (수동 다운로드 대기) |
+| B2 | 합성 manifest | ✅ `data/synthetic_manifest.json` (1000장) |
+| B3 | `data-prep` Docker | ✅ |
+| B4 | `medi-train:gpu` 빌드 | ✅ |
+| B5 | eval 파이프라인 검증 | ✅ v2 합성 test QWK 1.0 → `reports/eval_test_*.json` |
+
+```bash
+# 합성 데이터·manifest 재생성
+docker compose -f training/docker-compose.train.yml run --rm data-prep
+
+# eval (API 컨테이너)
+docker exec medi-iot-api-dev python3 /app/scripts/eval_messidor.py \
+  --model models/retinal_v2.onnx \
+  --manifest data/synthetic_manifest.json --split test --output reports/
+```
 
 ## C. 훈련 당일 (24h 후)
 
 | # | 작업 |
 |---|------|
-| C1 | `train-gpu` 실데이터 학습 → `retinal_v3.*` |
-| C2 | `eval_messidor.py` — QWK ≥ 0.85 |
+| C1 | Messidor 배치 후 `train-gpu` → `retinal_v3.*` |
+| C2 | `eval_messidor.py` — **QWK ≥ 0.85** (실데이터) |
 | C3 | `deploy_model.py --target minio` |
-| C4 | `download_model.py` 또는 `AUTO_PULL` + API 재시작 |
-| C5 | 파트너 `/analyze` 회귀 + `meta.json` 버전 고정 |
+| C4 | `AUTO_PULL` / `download_model.py` + API 재시작 |
+| C5 | `host_fundus_partner_smoke.ps1` 회귀 |
+
+```bash
+docker compose -f training/docker-compose.train.yml run --rm train-gpu \
+  python training/train.py \
+  --manifest data/messidor2_manifest.json \
+  --arch efficientnet_b4 --epochs 50 --output models/retinal_v3.pt
+```
 
 ## 레거시
 
-- `training-remote/` → **`training/`** SSOT (`training/README.md`)
+- `training-remote/` → **`training/`** SSOT

@@ -56,6 +56,8 @@ def test_merge_ensemble_prefers_cnn_icd_when_confident() -> None:
 def test_load_inference_config_defaults(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("MEDI_INFERENCE_BACKEND", raising=False)
     monkeypatch.delenv("MEDI_CNN_ARCH", raising=False)
+    monkeypatch.delenv("MEDI_CNN_MODEL_VERSION", raising=False)
+    monkeypatch.setenv("MEDI_CNN_MODEL_PATH", "models/retinal_v1.onnx")
     cfg = load_inference_config()
     assert cfg.backend == "llm"
     assert cfg.cnn_arch == "efficientnet_b4"
