@@ -165,6 +165,18 @@ async def run_partner_analyze(
         include_devices=False,
     )
 
+    from services.diagnosis_pipeline import apply_four_agent_decision
+
+    ontology_passed, audit_trail, decision_mode = await apply_four_agent_decision(
+        dr_grade=explanation.dr_grade,
+        confidence=explanation.confidence,
+        icd10_code=explanation.icd10_code,
+        patient_explanation=explanation.patient_explanation,
+        clinical_summary=explanation.clinical_summary,
+        ontology_passed_legacy=explanation.ontology_passed,
+        patient_id=patient_id or account.partner_id,
+    )
+
     analysis_id = str(uuid.uuid4())
     cost = float(account.cost_per_analysis)
 
@@ -179,8 +191,10 @@ async def run_partner_analyze(
         "patient_explanation": explanation.patient_explanation,
         "clinical_summary": explanation.clinical_summary,
         "recommended_actions": explanation.recommended_actions,
-        "ontology_passed": explanation.ontology_passed,
+        "ontology_passed": ontology_passed,
         "model_used": explanation.model_used,
+        "decision_mode": decision_mode,
+        "audit_trail": audit_trail,
         "cost": cost,
         "currency": "USD",
     }
@@ -197,9 +211,11 @@ async def run_partner_analyze(
 
     fmt = (return_format or "json").strip().lower()
     if fmt == "fhir":
-        payload["fhir"] = build_fhir_bundle(
+        bundle = build_fhir_bundle(
             explanation, analysis_id=analysis_id, partner_id=account.partner_id
         )
+        payload["fhir"] = bundle
+        payload["fhir_bundle"] = bundle
     elif fmt == "hl7":
         payload["hl7"] = build_hl7_oru(
             explanation, analysis_id=analysis_id, partner_id=account.partner_id
