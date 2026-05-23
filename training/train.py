@@ -120,10 +120,11 @@ def evaluate_model(model, loader, device) -> tuple[float, float]:
 
 def export_onnx(model, path: Path, image_size: int) -> None:
     model.eval()
+    cpu_model = model.cpu()
     dummy = torch.randn(1, 3, image_size, image_size)
     path.parent.mkdir(parents=True, exist_ok=True)
     torch.onnx.export(
-        model,
+        cpu_model,
         dummy,
         str(path),
         input_names=["input"],

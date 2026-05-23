@@ -30,7 +30,7 @@ def _scan_split(data_dir: Path, split: str) -> list[dict]:
     return entries
 
 
-def build_manifest(data_dir: Path) -> dict:
+def build_manifest(data_dir: Path, *, source: str = "messidor2") -> dict:
     data_dir = data_dir.resolve()
     try:
         data_dir_key = str(data_dir.relative_to(ROOT))
@@ -38,7 +38,7 @@ def build_manifest(data_dir: Path) -> dict:
         data_dir_key = str(data_dir)
     manifest = {
         "data_dir": data_dir_key,
-        "source": "synthetic",
+        "source": source,
         "train": _scan_split(data_dir, "train"),
         "val": _scan_split(data_dir, "val"),
         "test": _scan_split(data_dir, "test"),
@@ -69,6 +69,7 @@ def main() -> None:
     p.add_argument("--data-dir", "--data_dir", dest="data_dir", type=Path, required=True)
     p.add_argument("--output", "-o", type=Path, required=True)
     p.add_argument("--seed", type=int, default=42)
+    p.add_argument("--source", default="messidor2", help="manifest source label")
     args = p.parse_args()
 
     data_dir = args.data_dir
@@ -79,7 +80,7 @@ def main() -> None:
         out = ROOT / out
 
     random.seed(args.seed)
-    manifest = build_manifest(data_dir)
+    manifest = build_manifest(data_dir, source=args.source)
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
     for s in SPLITS:

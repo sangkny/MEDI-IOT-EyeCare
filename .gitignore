@@ -20,6 +20,7 @@ models/*.onnx.data
 models/*.pt
 models/*.pth
 models/*.bin
+models/incoming/
 data/
 datasets/
 *.csv
