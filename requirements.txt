@@ -40,6 +40,11 @@ pgvector==0.4.2            # pgvector Python 클라이언트 (SQLAlchemy 연동)
 
 # ── Imaging (Phase 2 W7 preprocessing) ───────────────────
 pillow>=10.4,<12
+numpy==1.26.4
+
+# ── CNN inference (D R4-ML — CLAHE + ONNX, 훈련 전에도 v2 추론) ──
+opencv-python-headless==4.10.0.84
+onnxruntime==1.17.3
 
 # ── Testing ────────────────────────────────────────────────
 pytest==8.3.4

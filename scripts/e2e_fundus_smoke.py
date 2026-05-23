@@ -67,9 +67,11 @@ def _truncate_b64(obj: dict, key: str = "heatmap_base64", head: int = 80) -> dic
 
 
 async def main() -> None:
+    from services.cnn_model_resolver import resolve_cnn_model
+
     os.environ.setdefault("MEDI_INFERENCE_BACKEND", "cnn")
-    os.environ.setdefault("MEDI_CNN_MODEL_PATH", "models/retinal_v1.onnx")
-    os.environ.setdefault("MEDI_CNN_ARCH", "efficientnet_b4")
+    resolved = resolve_cnn_model(app_root=ROOT)
+    print("cnn_model", resolved.relative_path, f"version={resolved.version} source={resolved.source}")
 
     tmp = Path("/tmp")
     normal = tmp / "test_fundus_normal.jpg"
@@ -84,8 +86,8 @@ async def main() -> None:
         print("OK", path, path.stat().st_size, "bytes", "(synthetic)" if seed == 7 and path == dr else "")
 
     print("\n=== Step 1 확인: ONNX ===")
-    onnx = ROOT / "models" / "retinal_v1.onnx"
-    meta = ROOT / "models" / "retinal_v1.meta.json"
+    onnx = resolved.absolute_path
+    meta = onnx.with_suffix(".meta.json")
     print("onnx", onnx.is_file(), onnx.stat().st_size if onnx.is_file() else 0)
     if meta.is_file():
         print("meta", meta.read_text(encoding="utf-8")[:300])
@@ -155,7 +157,10 @@ async def main() -> None:
         print("video_skip", exc)
 
     print("\n=== Step 3/5: HTTP (localhost:8001) ===")
-    base = os.getenv("MEDI_SMOKE_BASE", "http://127.0.0.1:8001")
+    base = os.getenv(
+        "MEDI_SMOKE_BASE",
+        "http://127.0.0.1:8000" if Path("/app").is_dir() else "http://127.0.0.1:8001",
+    )
     try:
         import httpx
 
