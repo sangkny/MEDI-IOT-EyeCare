@@ -20,6 +20,11 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --prefix=/install \
     -r shared-libs-requirements.txt \
     -r requirements.txt
+# torchvision/onnxruntime 가 numpy 2.x 를 끌어올 수 있음 — 마지막에 --no-deps 로 고정
+RUN pip install --no-cache-dir --prefix=/install --force-reinstall --no-deps \
+    "numpy==1.26.4" \
+    "opencv-python-headless==4.10.0.84" \
+    "onnxruntime==1.17.3"
 
 # ============================================================
 # Stage 2: runtime
@@ -33,6 +38,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # builder에서 설치된 패키지 복사
 COPY --from=builder /install /usr/local
+
+# CNN 런타임: numpy 1.26 + opencv + ort (builder 단계 이후 최종 고정)
+RUN pip install --no-cache-dir --force-reinstall --no-deps \
+    "numpy==1.26.4" \
+    "opencv-python-headless==4.10.0.84" \
+    "onnxruntime==1.17.3"
 
 ENV PYTHONPATH="/app/shared-libraries:/app"
 ENV PYTHONUNBUFFERED=1

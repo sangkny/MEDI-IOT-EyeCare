@@ -50,7 +50,22 @@ class GradCAMVisualizer:
 
         meta = self._load_meta()
         arch = resolve_cnn_arch(str(meta.get("arch") or self._config.cnn_arch))
-        model, _ = build_dr_classifier(arch=arch, pretrained=False)
+        model, arch_key = build_dr_classifier(arch=arch, pretrained=False)
+        path = self._config.cnn_model_path
+        if path.suffix == ".onnx":
+            pt_alt = path.with_suffix(".pt")
+            if pt_alt.is_file():
+                path = pt_alt
+        if path.is_file() and path.suffix == ".pt":
+            try:
+                ckpt = torch.load(path, map_location="cpu", weights_only=False)
+            except TypeError:
+                ckpt = torch.load(path, map_location="cpu")
+            if isinstance(ckpt, dict) and "state_dict" in ckpt:
+                model.load_state_dict(ckpt["state_dict"])
+            else:
+                model.load_state_dict(ckpt)
+            arch_key = str(ckpt.get("arch", arch_key)) if isinstance(ckpt, dict) else arch_key
         device = torch.device(
             self._config.cnn_device if self._config.cnn_device == "cuda" else "cpu"
         )

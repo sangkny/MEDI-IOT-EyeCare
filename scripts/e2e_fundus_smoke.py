@@ -92,10 +92,6 @@ async def main() -> None:
     if meta.is_file():
         print("meta", meta.read_text(encoding="utf-8")[:300])
 
-    import torch
-
-    print("cuda_available", torch.cuda.is_available())
-
     print("\n=== Step 4: CNN InferenceRouter ===")
     from services.inference_router import analyze_image_via_router
 
@@ -114,6 +110,13 @@ async def main() -> None:
             indent=2,
         )
     )
+
+    try:
+        import torch
+
+        print("cuda_available", torch.cuda.is_available())
+    except Exception as exc:
+        print("torch_cuda_skip", exc)
 
     print("\n=== Step 6: GradCAM ===")
     from services.gradcam import GradCAMVisualizer
@@ -157,10 +160,11 @@ async def main() -> None:
         print("video_skip", exc)
 
     print("\n=== Step 3/5: HTTP (localhost:8001) ===")
-    base = os.getenv(
-        "MEDI_SMOKE_BASE",
-        "http://127.0.0.1:8000" if Path("/app").is_dir() else "http://127.0.0.1:8001",
-    )
+    # 컨테이너 exec: 호스트 게이트웨이(:8001). API 프로세스 내부: localhost:8000
+    default_base = "http://127.0.0.1:8001"
+    if os.getenv("MEDI_SMOKE_IN_CONTAINER") == "1":
+        default_base = "http://127.0.0.1:8000"
+    base = os.getenv("MEDI_SMOKE_BASE", default_base)
     try:
         import httpx
 
@@ -202,10 +206,13 @@ async def main() -> None:
                 )
 
             b64 = base64.b64encode(normal.read_bytes()).decode()
+            import time
+
+            smoke_pid = f"smoke-lab-{int(time.time())}"
             reg = await client.post(
                 f"{base}/api/v1/partner/register",
                 json={
-                    "partner_id": "smoke-lab",
+                    "partner_id": smoke_pid,
                     "name": "Smoke Lab Partner",
                     "plan": "trial",
                 },
@@ -216,7 +223,7 @@ async def main() -> None:
                     f"{base}/api/v1/partner/analyze",
                     headers={"X-API-Key": api_key},
                     json={
-                        "partner_id": "smoke-lab",
+                        "partner_id": smoke_pid,
                         "image_base64": b64,
                         "return_format": "json",
                         "include_heatmap": True,
@@ -230,6 +237,8 @@ async def main() -> None:
                     )
                 else:
                     print("partner_analyze_fail", pa.status_code, pa.text[:400])
+            elif reg.status_code == 409:
+                print("partner_register_skip", reg.text[:200])
             else:
                 print("partner_register", reg.status_code, reg.text[:300])
     except Exception as exc:
