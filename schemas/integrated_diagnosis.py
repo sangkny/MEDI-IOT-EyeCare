@@ -61,6 +61,14 @@ class DiagnosisExplainResponse(BaseModel):
     nearby_hospitals: list[HospitalRecommendation] = Field(default_factory=list)
     ontology_passed: bool
     model_used: str = ""
+    decision_mode: str = Field(
+        default="legacy",
+        description="legacy | four_agent — AGENT_DECISION_MODE",
+    )
+    audit_trail: dict = Field(
+        default_factory=dict,
+        description="4-에이전트 결정 감사 추적 (scores, summaries)",
+    )
 
 
 class ComprehensiveDiagnosisRequest(DiagnosisExplainRequest):

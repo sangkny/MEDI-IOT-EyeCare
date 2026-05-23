@@ -279,6 +279,10 @@ def _explanation_to_response(
     explanation,
     hospitals: list,
     devices: list | None = None,
+    *,
+    ontology_passed: bool | None = None,
+    audit_trail: dict | None = None,
+    decision_mode: str = "legacy",
 ) -> DiagnosisExplainResponse | ComprehensiveDiagnosisResponse:
     base = {
         "dr_grade": explanation.dr_grade,
@@ -289,8 +293,14 @@ def _explanation_to_response(
         "clinical_summary": explanation.clinical_summary,
         "recommended_actions": explanation.recommended_actions,
         "nearby_hospitals": _hospitals_to_schema(hospitals),
-        "ontology_passed": explanation.ontology_passed,
+        "ontology_passed": (
+            explanation.ontology_passed
+            if ontology_passed is None
+            else ontology_passed
+        ),
         "model_used": explanation.model_used,
+        "decision_mode": decision_mode,
+        "audit_trail": audit_trail or {},
     }
     if devices is not None:
         return ComprehensiveDiagnosisResponse(
@@ -344,7 +354,28 @@ async def explain_diagnosis(
             detail=f"통합 설명 실패: {str(exc)[:200]}",
         ) from exc
 
-    return _explanation_to_response(explanation, hospitals)
+    onto, audit, mode = await _apply_four_agent(explanation, body.patient_id)
+    return _explanation_to_response(
+        explanation,
+        hospitals,
+        ontology_passed=onto,
+        audit_trail=audit,
+        decision_mode=mode,
+    )
+
+
+async def _apply_four_agent(explanation, patient_id: str | None):
+    from services.diagnosis_pipeline import apply_four_agent_decision
+
+    return await apply_four_agent_decision(
+        dr_grade=explanation.dr_grade,
+        confidence=explanation.confidence,
+        icd10_code=explanation.icd10_code,
+        patient_explanation=explanation.patient_explanation,
+        clinical_summary=explanation.clinical_summary,
+        ontology_passed_legacy=explanation.ontology_passed,
+        patient_id=patient_id,
+    )
 
 
 @router.post(
@@ -389,7 +420,15 @@ async def comprehensive_diagnosis(
             detail=f"통합 진단 실패: {str(exc)[:200]}",
         ) from exc
 
-    return _explanation_to_response(explanation, hospitals, devices)
+    onto, audit, mode = await _apply_four_agent(explanation, body.patient_id)
+    return _explanation_to_response(
+        explanation,
+        hospitals,
+        devices,
+        ontology_passed=onto,
+        audit_trail=audit,
+        decision_mode=mode,
+    )
 
 
 @router.get(

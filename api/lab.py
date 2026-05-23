@@ -73,6 +73,7 @@ async def _run_lab_analysis(
     lat: float | None,
     lng: float | None,
     comprehensive: bool,
+    include_heatmap: bool = False,
 ):
     image_bytes, fmt_label = await _read_and_validate(file)
     loc = None
@@ -99,16 +100,27 @@ async def _run_lab_analysis(
             detail=str(exc)[:200],
         ) from exc
 
-    from api.diagnosis import _explanation_to_response
+    from api.diagnosis import _apply_four_agent, _explanation_to_response
 
+    onto, audit, mode = await _apply_four_agent(explanation, patient_id)
     resp = _explanation_to_response(
         explanation,
         hospitals,
         devices if comprehensive else None,
+        ontology_passed=onto,
+        audit_trail=audit,
+        decision_mode=mode,
     )
     if hasattr(resp, "model_dump"):
         d = resp.model_dump()
         d["input_format"] = fmt_label
+        if include_heatmap:
+            try:
+                from services.gradcam import GradCAMVisualizer
+
+                d["heatmap_base64"] = await GradCAMVisualizer().generate_heatmap(image_bytes)
+            except Exception as exc:
+                d["heatmap_error"] = str(exc)[:200]
         return d
     return resp
 
@@ -154,10 +166,17 @@ async def lab_fundus_comprehensive(
     patient_id: str | None = Form(None),
     lat: float | None = Form(37.5665),
     lng: float | None = Form(126.9780),
+    include_heatmap: bool = Form(False),
     _: dict = LAB_AUTH,
 ):
     return await _run_lab_analysis(
-        file, lang=lang, patient_id=patient_id, lat=lat, lng=lng, comprehensive=True
+        file,
+        lang=lang,
+        patient_id=patient_id,
+        lat=lat,
+        lng=lng,
+        comprehensive=True,
+        include_heatmap=include_heatmap,
     )
 
 
