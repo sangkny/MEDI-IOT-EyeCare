@@ -1,0 +1,11 @@
+{
+  "arch": "efficientnet_b4",
+  "preprocess": "clahe",
+  "image_size": 224,
+  "onnx": "retinal_v3.onnx",
+  "pt": "retinal_v3.pt",
+  "version": "train-kit-v1",
+  "trained_on": "synthetic_manifest.json",
+  "epochs": 50,
+  "qwk": 0.9975
+}

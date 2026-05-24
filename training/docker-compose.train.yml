@@ -33,7 +33,13 @@ services:
       ARCH: ${ARCH:-efficientnet_b4}
       EPOCHS: ${EPOCHS:-50}
       BATCH: ${BATCH:-16}
-    gpus: all
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
     shm_size: 4g
     entrypoint: ["python", "training/train.py"]
     command:
@@ -85,7 +91,13 @@ services:
     working_dir: /workspace
     volumes:
       - ..:/workspace
-    gpus: all
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
     entrypoint: ["python", "scripts/eval_messidor.py"]
     command:
       - --model

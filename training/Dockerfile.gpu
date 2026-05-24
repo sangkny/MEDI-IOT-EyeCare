@@ -1,6 +1,6 @@
 # MEDI DR training — GPU (CUDA 12.4 + PyTorch 2.6)
 # Build (repo root): docker build -f training/Dockerfile.gpu -t medi-train:gpu .
-FROM nvidia/cuda:12.4.1-cudnn-runtime-ubuntu22.04
+FROM nvidia/cuda:12.0.0-cudnn8-runtime-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
@@ -15,8 +15,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /workspace
 
 RUN pip install --upgrade pip \
-    && pip install torch==2.6.0 torchvision==0.21.0 \
-        --index-url https://download.pytorch.org/whl/cu124
+    && pip install torch==2.5.1 torchvision==0.20.1 \
+        --index-url https://download.pytorch.org/whl/cu121
 
 COPY training/requirements.txt /tmp/training-requirements.txt
 RUN pip install -r /tmp/training-requirements.txt
