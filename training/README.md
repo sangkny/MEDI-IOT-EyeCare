@@ -60,6 +60,15 @@ docker exec medi-iot-api-dev python3 /app/scripts/eval_messidor.py \
   --split test --output reports/
 ```
 
+## retinal_v4 (Messidor 실데이터)
+
+**SSOT**: [`training/RETINAL_V4.md`](RETINAL_V4.md) — 학습 목적·파라미터 의미·QWK≥0.85 목표.
+
+```bash
+# 원격 192.168.0.23
+bash training/run_retinal_v4_messidor.sh
+```
+
 ## Real data (Messidor / APTOS)
 
 1. Place images under `data/messidor2/images/{train,val,test}/{0..4}/`
