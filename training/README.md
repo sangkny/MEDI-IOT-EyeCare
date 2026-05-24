@@ -1,6 +1,17 @@
 # MEDI-IOT DR Training Kit
 
-**SSOT** for offline / remote GPU training. Inference stays in `medi-iot-api` (Docker dev compose).
+**SSOT** for **remote CNN training only**. Inference stays in `medi-iot-api` (`projects/docker-compose.dev.yml` on dev PC).
+
+## GPU 인프라 (2026-05-24)
+
+| 서버 | IP | GPU | 용도 |
+|------|----|-----|------|
+| 개발 PC | `192.168.0.12` | TITAN RTX 24GB | LM Studio · **이 compose 아님** |
+| **원격 GPU** | `192.168.0.23` | TITAN X 12GB | **`training/docker-compose.train.yml` 실행** |
+
+- CNN 훈련: SSH → `192.168.0.23` → `bash training/run_training.sh gpu`
+- 산출물 회수: `scp root@192.168.0.23:~/MEDI-IOT-EyeCare/models/retinal_v*.* models/`
+- `models/*.onnx`, `*.pt` — Git 제외
 
 Legacy alias: `training-remote/` (same workflows; prefer this directory).
 

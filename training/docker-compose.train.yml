@@ -1,10 +1,15 @@
 # MEDI DR 훈련 — GPU / CPU / 데이터 준비
-# 사용 (MEDI-IOT-EyeCare 루트):
+#
+# 실행 위치: 원격 GPU 서버 192.168.0.23 (TITAN X 12GB) — CNN 훈련 전용
+# 개발 PC 192.168.0.12 (TITAN RTX 24GB) = LM Studio LLM — 이 파일을 dev PC에서
+#   docker-compose.dev.yml 과 혼동하지 말 것 (dev compose 에 gpus: 없음)
+#
+# 사용 (MEDI-IOT-EyeCare 루트, 원격 서버에서):
 #   docker compose -f training/docker-compose.train.yml build train-gpu
 #   docker compose -f training/docker-compose.train.yml run --rm data-prep
 #   docker compose -f training/docker-compose.train.yml run --rm train-gpu
 #
-# CPU:
+# CPU (GPU 없을 때 합성 검증):
 #   docker compose -f training/docker-compose.train.yml run --rm train-cpu
 
 services:

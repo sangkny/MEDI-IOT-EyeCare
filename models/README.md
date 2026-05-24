@@ -3,6 +3,17 @@
 > **중요**: `models/*.onnx`, `models/*.pt` 등 가중치 파일은 **Git에 포함하지 않습니다**.
 > `git add` 시 **절대 `git add -A` 사용 금지** — 변경한 소스 파일만 파일명을 명시해 추가하세요.
 
+## GPU 인프라 (2026-05-24)
+
+| 서버 | IP | 역할 |
+|------|----|------|
+| 개발 PC | `192.168.0.12` | LM Studio (TITAN RTX) · CNN **추론** (`medi-iot-api`, ONNX CPU) |
+| 원격 GPU | `192.168.0.23` | CNN **훈련** (TITAN X) → 산출물을 scp 로 `models/` 에 복사 |
+
+```bash
+scp root@192.168.0.23:~/MEDI-IOT-EyeCare/models/retinal_v3.{onnx,pt,meta.json} ./models/
+```
+
 ## 저장 위치
 
 | 환경 | 경로 |
