@@ -50,22 +50,42 @@ class GradCAMVisualizer:
 
         meta = self._load_meta()
         arch = resolve_cnn_arch(str(meta.get("arch") or self._config.cnn_arch))
-        model, arch_key = build_dr_classifier(arch=arch, pretrained=False)
         path = self._config.cnn_model_path
         if path.suffix == ".onnx":
             pt_alt = path.with_suffix(".pt")
             if pt_alt.is_file():
                 path = pt_alt
+        ckpt: dict | object | None = None
         if path.is_file() and path.suffix == ".pt":
             try:
                 ckpt = torch.load(path, map_location="cpu", weights_only=False)
             except TypeError:
                 ckpt = torch.load(path, map_location="cpu")
-            if isinstance(ckpt, dict) and "state_dict" in ckpt:
+            if isinstance(ckpt, dict) and ckpt.get("arch"):
+                ckpt_arch = resolve_cnn_arch(str(ckpt["arch"]))
+                if ckpt_arch != arch:
+                    log.warning(
+                        "GradCAM checkpoint arch %s != meta/config %s (%s); "
+                        "re-copy matching .pt from training host",
+                        ckpt_arch,
+                        arch,
+                        path,
+                    )
+                else:
+                    arch = ckpt_arch
+        model, arch_key = build_dr_classifier(arch=arch, pretrained=False)
+        if isinstance(ckpt, dict) and "state_dict" in ckpt:
+            if resolve_cnn_arch(str(ckpt.get("arch", arch))) == arch:
                 model.load_state_dict(ckpt["state_dict"])
             else:
-                model.load_state_dict(ckpt)
-            arch_key = str(ckpt.get("arch", arch_key)) if isinstance(ckpt, dict) else arch_key
+                raise RuntimeError(
+                    f"GradCAM .pt arch mismatch: meta={arch!r} ckpt={ckpt.get('arch')!r}; "
+                    f"sync {path.name} from GPU training output"
+                )
+        elif ckpt is not None and not isinstance(ckpt, dict):
+            model.load_state_dict(ckpt)  # type: ignore[arg-type]
+        elif path.suffix == ".pt" and path.is_file():
+            raise RuntimeError(f"GradCAM cannot load weights from {path}")
         device = torch.device(
             self._config.cnn_device if self._config.cnn_device == "cuda" else "cpu"
         )
@@ -83,7 +103,7 @@ class GradCAMVisualizer:
 
         self._ensure_model()
         meta = self._load_meta()
-        size = int(meta.get("input_size", [224, 224])[0] if meta.get("input_size") else 224)
+        size = int(meta.get("image_size") or meta.get("input_size") or 224)
         pm = resolve_preprocess_mode(str(meta.get("preprocess") or ""))
 
         pil = Image.open(io.BytesIO(image_bytes)).convert("RGB")
