@@ -1,0 +1,30 @@
+# RETFound / ViT-Large 파인튜닝 (TITAN X 12GB — batch=4 권장)
+# Build: docker build -f training/Dockerfile.retfound -t medi-train:retfound .
+FROM nvidia/cuda:12.0.0-cudnn8-runtime-ubuntu22.04
+
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    python3 python3-pip \
+    libgl1 libglib2.0-0 \
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -sf /usr/bin/python3 /usr/bin/python
+
+WORKDIR /workspace
+
+RUN pip install --upgrade pip \
+    && pip install torch==2.5.1 torchvision==0.20.1 \
+        --index-url https://download.pytorch.org/whl/cu121 \
+    && pip install timm==1.0.15 einops scikit-learn opencv-python-headless albumentations
+
+COPY training/requirements.txt /tmp/training-requirements.txt
+RUN pip install -r /tmp/training-requirements.txt
+
+COPY services/ /workspace/services/
+COPY training/train.py training/train_retfound.py training/download_data.py /workspace/training/
+
+ENV PYTHONPATH=/workspace
+ENTRYPOINT ["python", "training/train_retfound.py"]
+CMD ["--help"]

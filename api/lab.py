@@ -118,7 +118,10 @@ async def _run_lab_analysis(
             try:
                 from services.gradcam import GradCAMVisualizer
 
-                d["heatmap_base64"] = await GradCAMVisualizer().generate_heatmap(image_bytes)
+                ann = await GradCAMVisualizer().generate_annotated(
+                    image_bytes, int(d.get("dr_grade", 0))
+                )
+                d.update(ann)
             except Exception as exc:
                 d["heatmap_error"] = str(exc)[:200]
         return d

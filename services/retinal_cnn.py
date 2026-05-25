@@ -9,7 +9,7 @@
 운영 기본 백본: ``efficientnet_b4`` · 멀티스케일: ``msef_net``.
 
 환경:
-  ``MEDI_CNN_ARCH`` — efficientnet_b0 | efficientnet_b4 | efficientnet_v2_s | msef_net
+  ``MEDI_CNN_ARCH`` — efficientnet_b0 | efficientnet_b4 | efficientnet_b4_se | efficientnet_v2_s | msef_net
   ``MEDI_CNN_PREPROCESS`` — none | clahe | ben_graham | both
 """
 from __future__ import annotations
@@ -63,11 +63,19 @@ ARCH_ALIASES: dict[str, str] = {
     "msef_net": "msef_net",
     "b0": "efficientnet_b0",
     "b4": "efficientnet_b4",
+    "b4_se": "efficientnet_b4_se",
+    "efficientnet-b4-se": "efficientnet_b4_se",
     "v2s": "efficientnet_v2_s",
 }
 
 SUPPORTED_CNN_ARCHS: frozenset[str] = frozenset(
-    {"efficientnet_b0", "efficientnet_b4", "efficientnet_v2_s", "msef_net"}
+    {
+        "efficientnet_b0",
+        "efficientnet_b4",
+        "efficientnet_b4_se",
+        "efficientnet_v2_s",
+        "msef_net",
+    }
 )
 
 MSEF_SMALL_DIM = 1280
@@ -239,6 +247,55 @@ def _load_efficientnet_backbone(arch_key: str, *, pretrained: bool):
     return factories[arch_key](weights=weights)
 
 
+def build_efficientnet_b4_se(
+    *,
+    num_classes: int = DR_NUM_CLASSES,
+    pretrained: bool = False,
+):
+    """EfficientNet-B4 + SE Block (마지막 feature map 채널 어텐션)."""
+    import torch
+    import torch.nn as nn
+
+    class SEBlock(nn.Module):
+        def __init__(self, channels: int, reduction: int = 16) -> None:
+            super().__init__()
+            hidden = max(channels // reduction, 8)
+            self.squeeze = nn.AdaptiveAvgPool2d(1)
+            self.excitation = nn.Sequential(
+                nn.Linear(channels, hidden, bias=False),
+                nn.ReLU(inplace=True),
+                nn.Linear(hidden, channels, bias=False),
+                nn.Sigmoid(),
+            )
+
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            b, c, _, _ = x.size()
+            y = self.squeeze(x).view(b, c)
+            y = self.excitation(y).view(b, c, 1, 1)
+            return x * y.expand_as(x)
+
+    class EfficientNetB4WithSE(nn.Module):
+        def __init__(self) -> None:
+            super().__init__()
+            backbone = _load_efficientnet_backbone("efficientnet_b4", pretrained=pretrained)
+            self.features = backbone.features
+            self.avgpool = backbone.avgpool
+            feat_dim = backbone.classifier[1].in_features
+            self.se = SEBlock(feat_dim)
+            self.dropout = nn.Dropout(p=0.3)
+            self.classifier = nn.Linear(feat_dim, num_classes)
+
+        def forward(self, x: torch.Tensor) -> torch.Tensor:
+            x = self.features(x)
+            x = self.se(x)
+            x = self.avgpool(x)
+            x = torch.flatten(x, 1)
+            x = self.dropout(x)
+            return self.classifier(x)
+
+    return EfficientNetB4WithSE(), "efficientnet_b4_se"
+
+
 def build_msef_net(*, num_classes: int = DR_NUM_CLASSES, pretrained: bool = False):
     """Multi-Scale EfficientNet Fusion (MSEF-Net 스타일)."""
     import torch
@@ -277,6 +334,8 @@ def build_dr_classifier(
     arch_key = resolve_cnn_arch(arch)
     if arch_key == "msef_net":
         return build_msef_net(num_classes=num_classes, pretrained=pretrained)
+    if arch_key == "efficientnet_b4_se":
+        return build_efficientnet_b4_se(num_classes=num_classes, pretrained=pretrained)
 
     if arch_key not in SUPPORTED_CNN_ARCHS:
         raise ValueError(
@@ -288,6 +347,15 @@ def build_dr_classifier(
     in_features = model.classifier[1].in_features
     model.classifier[1] = torch.nn.Linear(in_features, num_classes)
     return model, arch_key
+
+
+# ── 호환 API (HANDOVER / 스크립트) ─────────────────────────────
+def build_model(arch: str, num_classes: int = DR_NUM_CLASSES):
+    """레거시/스모크 스크립트 호환용 alias.
+
+    반환: (model, resolved_arch)
+    """
+    return build_dr_classifier(arch=arch, num_classes=num_classes, pretrained=False)
 
 
 def load_manifest_entries(manifest_path: Path, split: str = "train") -> list[dict]:
@@ -332,6 +400,8 @@ __all__ = [
     "dr_prediction_to_parsed",
     "preprocess_fundus_bytes",
     "build_dr_classifier",
+    "build_model",
+    "build_efficientnet_b4_se",
     "build_msef_net",
     "resolve_cnn_arch",
     "resolve_preprocess_mode",
