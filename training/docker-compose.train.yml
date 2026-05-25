@@ -33,6 +33,7 @@ services:
     working_dir: /workspace
     volumes:
       - ..:/workspace
+      - /home/smartvisionglobal/workspace/dataset:/dataset
       - ${KAGGLE_CONFIG_DIR:-~/.kaggle}:/root/.kaggle:ro
     environment:
       ARCH: ${ARCH:-efficientnet_b4}

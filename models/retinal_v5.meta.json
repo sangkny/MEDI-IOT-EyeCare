@@ -1,0 +1,11 @@
+{
+  "arch": "efficientnet_b4",
+  "preprocess": "none",
+  "image_size": 224,
+  "onnx": "retinal_v5.onnx",
+  "pt": "retinal_v5.pt",
+  "version": "train-kit-v1",
+  "trained_on": "unified_manifest_eyepacs.json",
+  "epochs": 50,
+  "qwk": 0.4414
+}

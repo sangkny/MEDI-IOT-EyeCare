@@ -188,9 +188,9 @@ def main() -> None:
         replacement=True,
     )
     train_loader = DataLoader(
-        train_ds, batch_size=args.batch_size, sampler=sampler, num_workers=0
+        train_ds, batch_size=args.batch_size, sampler=sampler, num_workers=4, pin_memory=True
     )
-    val_loader = DataLoader(val_ds, batch_size=args.batch_size, shuffle=False, num_workers=0)
+    val_loader = DataLoader(val_ds, batch_size=args.batch_size, shuffle=False, num_workers=4, pin_memory=True)
 
     model, arch_key = build_dr_classifier(
         arch=args.arch, pretrained=not args.no_pretrained and not args.smoke
