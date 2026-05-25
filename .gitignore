@@ -32,4 +32,9 @@ training/reports/
 training/models/
 training/__pycache__/
 training/.pytest_cache/
+# Manifest (대용량 — GPU 서버에서 생성)
+training/manifests/unified_*.json
+training/manifests/*_eyepacs.json
+!training/manifests/sample_*.json
+!training/manifests/README.md
 # CI workflow 는 추적 (.github/workflows/ci.yml) — Appendix F cicd-guide.md

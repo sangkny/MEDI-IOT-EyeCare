@@ -1,0 +1,132 @@
+{
+  "data_dir": "data",
+  "meta": {
+    "created_at": "2026-05-25T01:50:12.440020+00:00",
+    "datasets": [
+      "synthetic"
+    ],
+    "total": 25,
+    "split": {
+      "train": 20,
+      "val": 2,
+      "test": 3
+    },
+    "grade_dist": {
+      "0": 5,
+      "1": 5,
+      "2": 5,
+      "3": 5,
+      "4": 5
+    },
+    "source_dist": {
+      "synthetic": 25
+    },
+    "seed": 42
+  },
+  "train": [
+    {
+      "path": "images/train/0/g0_0066.jpg",
+      "dr_grade": 0
+    },
+    {
+      "path": "images/train/4/g4_0098.jpg",
+      "dr_grade": 4
+    },
+    {
+      "path": "images/train/0/g0_0111.jpg",
+      "dr_grade": 0
+    },
+    {
+      "path": "images/train/2/g2_0075.jpg",
+      "dr_grade": 2
+    },
+    {
+      "path": "images/train/1/g1_0128.jpg",
+      "dr_grade": 1
+    },
+    {
+      "path": "images/test/0/g0_0013.jpg",
+      "dr_grade": 0
+    },
+    {
+      "path": "images/train/4/g4_0065.jpg",
+      "dr_grade": 4
+    },
+    {
+      "path": "images/train/0/g0_0101.jpg",
+      "dr_grade": 0
+    },
+    {
+      "path": "images/train/3/g3_0131.jpg",
+      "dr_grade": 3
+    },
+    {
+      "path": "images/train/2/g2_0122.jpg",
+      "dr_grade": 2
+    },
+    {
+      "path": "images/train/2/g2_0054.jpg",
+      "dr_grade": 2
+    },
+    {
+      "path": "images/train/1/g1_0094.jpg",
+      "dr_grade": 1
+    },
+    {
+      "path": "images/train/3/g3_0094.jpg",
+      "dr_grade": 3
+    },
+    {
+      "path": "images/train/1/g1_0152.jpg",
+      "dr_grade": 1
+    },
+    {
+      "path": "images/train/4/g4_0128.jpg",
+      "dr_grade": 4
+    },
+    {
+      "path": "images/train/4/g4_0156.jpg",
+      "dr_grade": 4
+    },
+    {
+      "path": "images/train/2/g2_0159.jpg",
+      "dr_grade": 2
+    },
+    {
+      "path": "images/train/4/g4_0143.jpg",
+      "dr_grade": 4
+    },
+    {
+      "path": "images/val/1/g1_0003.jpg",
+      "dr_grade": 1
+    },
+    {
+      "path": "images/test/2/g2_0015.jpg",
+      "dr_grade": 2
+    }
+  ],
+  "val": [
+    {
+      "path": "images/test/3/g3_0007.jpg",
+      "dr_grade": 3
+    },
+    {
+      "path": "images/train/3/g3_0102.jpg",
+      "dr_grade": 3
+    }
+  ],
+  "test": [
+    {
+      "path": "images/train/1/g1_0076.jpg",
+      "dr_grade": 1
+    },
+    {
+      "path": "images/test/0/g0_0007.jpg",
+      "dr_grade": 0
+    },
+    {
+      "path": "images/train/3/g3_0055.jpg",
+      "dr_grade": 3
+    }
+  ]
+}

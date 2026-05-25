@@ -50,6 +50,12 @@ class DiagnosisExplainRequest(BaseModel):
     radius_km: float = Field(default=5.0, ge=1, le=50)
 
 
+class HotspotRegion(BaseModel):
+    x: float = Field(..., ge=0, le=1)
+    y: float = Field(..., ge=0, le=1)
+    intensity: float = Field(..., ge=0, le=1)
+
+
 class DiagnosisExplainResponse(BaseModel):
     dr_grade: int = Field(..., ge=0, le=4)
     confidence: float = Field(..., ge=0, le=1)
@@ -69,6 +75,12 @@ class DiagnosisExplainResponse(BaseModel):
         default_factory=dict,
         description="4-에이전트 결정 감사 추적 (scores, summaries)",
     )
+    heatmap_base64: str | None = None
+    lesion_labels: list[str] = Field(default_factory=list)
+    attention_score: float | None = None
+    hotspot_regions: list[HotspotRegion] = Field(default_factory=list)
+    gradcam_version: str | None = None
+    heatmap_error: str | None = None
 
 
 class ComprehensiveDiagnosisRequest(DiagnosisExplainRequest):

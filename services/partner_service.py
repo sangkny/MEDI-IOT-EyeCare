@@ -204,8 +204,10 @@ async def run_partner_analyze(
         try:
             from services.gradcam import GradCAMVisualizer
 
-            heatmap_b64 = await GradCAMVisualizer().generate_heatmap(image_bytes)
-            payload["heatmap_base64"] = heatmap_b64
+            ann = await GradCAMVisualizer().generate_annotated(
+                image_bytes, explanation.dr_grade
+            )
+            payload.update(ann)
         except Exception as exc:
             payload["heatmap_error"] = str(exc)[:120]
 

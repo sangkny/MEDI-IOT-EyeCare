@@ -1,43 +1,136 @@
-# MEDI-IOT 학습 데이터 디렉터리
+# 안저 DR 훈련 데이터셋 가이드
 
-가중치·대용량 이미지는 **Git 제외**. 원격 GPU `192.168.0.23` 에 배치 후 학습한다.
+가중치·대용량 이미지는 **Git 제외**. GPU 서버 `192.168.0.23` 에 원본을 두고 manifest·학습을 수행한다.
 
-## Messidor-2 (retinal_v4)
+## 데이터셋 현황 (2026-05-25)
+
+| 데이터셋 | 이미지 수 | 라벨 | 위치 (GPU 서버) | 상태 |
+|---------|---------|------|-----------------|------|
+| APTOS 2019 | 3,662장 | 0~4 | `data/aptos2019_raw/` | ✅ 완료 |
+| Messidor-2 | 1,057장 | 0~3→0~4 | `data/Messidor-2_raw/` | ✅ 완료 |
+| IDRiD | 516장 | 0~4 | `data/IDRiD_raw/` | ✅ 완료 |
+| DRIVE | 40장 | 혈관 세그멘테이션 | `data/DRIVE_raw/` | ✅ 완료 |
+| EyePACS | 35,126장 | 0~4 | `/workspace/dataset/EyePACS_raw/` | ⏳ 해제 중 |
+
+**통합 학습 (v4)**: APTOS + Messidor-2 + IDRiD = **5,235장** → `training/manifests/unified_v4.json` · val QWK **0.8204**
+
+Manifest SSOT: `training/make_manifest.py` · 샘플: `training/manifests/sample_synthetic.json` (Git 포함)
+
+---
+
+## GPU 서버 경로 (`192.168.0.23`, `smartvisionglobal`)
 
 ```
-data/messidor2/images/
-  train/0/ … train/4/
-  val/0/   … val/4/
-  test/0/  … test/4/
+/home/smartvisionglobal/workspace/Office_Automation/idea-collection/MEDI-IOT-EyeCare/
+├── data/
+│   ├── aptos2019_raw/
+│   │   ├── train_images/      # 3,662장 PNG
+│   │   └── train.csv          # id_code, diagnosis (0~4)
+│   ├── Messidor-2_raw/
+│   │   ├── IMAGES/            # 1,058장 PNG
+│   │   └── messidor_data.csv  # image_id, adjudicated_dr_grade (0~3)
+│   ├── IDRiD_raw/
+│   │   └── B. Disease Grading/
+│   │       ├── 1. Original Images/
+│   │       │   ├── a. Training Set/   # 413장
+│   │       │   └── b. Testing Set/    # 103장
+│   │       └── 2. Groundtruths/
+│   │           ├── a. IDRiD_Disease Grading_Training Labels.csv
+│   │           └── b. IDRiD_Disease Grading_Testing Labels.csv
+│   ├── DRIVE_raw/
+│   │   ├── training/
+│   │   └── test/
+│   └── synthetic/                    # download_data.py 합성
+├── training/
+│   ├── make_manifest.py              # manifest 생성 SSOT
+│   └── manifests/
+│       ├── sample_synthetic.json     # Git 포함 (25장)
+│       ├── unified_v4.json           # 로컬 생성 (gitignore)
+│       └── unified_eyepacs.json      # v5 (gitignore)
+├── models/
+│   ├── retinal_v3.{onnx,pt,meta.json}  # QWK=0.9975 (합성)
+│   └── retinal_v4.{onnx,pt,meta.json}  # QWK=0.8204 (실데이터)
+└── training/
+
+/home/smartvisionglobal/workspace/dataset/
+└── EyePACS_raw/
+    ├── trainLabels.csv    # image, level (0~4)
+    ├── train/             # 35,126장 JPEG (해제 중)
+    └── test/              # 53,576장
 ```
+
+개발 PC 반영:
 
 ```bash
-# manifest (원격 또는 개발 PC)
-python training/download_data.py \
-  --mode manifest \
-  --data-dir data/messidor2 \
-  --manifest-out data/messidor2_manifest.json
+scp smartvisionglobal@192.168.0.23:~/workspace/Office_Automation/idea-collection/MEDI-IOT-EyeCare/models/retinal_v4.{onnx,meta.json} models/
 ```
 
-학습 SSOT: [`training/RETINAL_V4.md`](../training/RETINAL_V4.md)
+---
 
-## 합성 (retinal_v3 스모크)
+## 라벨 등급 통일 (ETDRS 0~4)
 
-```
-data/synthetic/
-data/synthetic_manifest.json
-```
+| 데이터셋 | 원본 등급 | 변환 | No DR | Mild | Moderate | Severe | PDR |
+|---------|---------|------|-------|------|----------|--------|-----|
+| APTOS | 0~4 | 없음 | 0 | 1 | 2 | 3 | 4 |
+| Messidor-2 | 0~3 | **3→4** | 0 | 1 | 2 | — | 4 |
+| IDRiD | 0~4 | 없음 | 0 | 1 | 2 | 3 | 4 |
+| EyePACS | 0~4 | 없음 | 0 | 1 | 2 | 3 | 4 |
+
+---
+
+## 훈련 명령어
+
+### Manifest 생성 (GPU 서버)
 
 ```bash
-docker compose -f training/docker-compose.train.yml run --rm data-prep
+cd MEDI-IOT-EyeCare
+
+# v4 (EyePACS 제외)
+python3 training/make_manifest.py \
+  --datasets aptos messidor2 idrid \
+  --output training/manifests/unified_v4.json
+
+# v5 (EyePACS 포함)
+python3 training/make_manifest.py \
+  --datasets aptos messidor2 idrid eyepacs \
+  --output training/manifests/unified_eyepacs.json \
+  --eyepacs-dir /dataset/EyePACS_raw
 ```
 
-## 전송 예시
+### retinal_v4 (현재 운영, 5,235장)
 
 ```bash
-# 로컬 → 원격
-scp -r data/messidor2 root@192.168.0.23:~/MEDI-IOT-EyeCare/data/
-
-# 원격 → 개발 PC (모델)
-scp root@192.168.0.23:~/MEDI-IOT-EyeCare/models/retinal_v4.* models/
+# 원격 GPU 서버
+docker compose -f training/docker-compose.train.yml run --rm train-gpu \
+  python training/train.py \
+    --manifest training/manifests/unified_v4.json \
+    --arch efficientnet_b4 \
+    --preprocess clahe \
+    --epochs 50 --batch-size 16 \
+    --device cuda --early-stop 10 \
+    --output models/retinal_v4.pt
 ```
+
+### retinal_v5 (EyePACS 포함, ≥0.85 목표)
+
+```bash
+# EyePACS 해제 완료 확인
+find /workspace/dataset/EyePACS_raw/train -name "*.jpeg" | wc -l
+# 기대: 35126
+
+python3 training/make_manifest.py \
+  --datasets aptos messidor2 idrid eyepacs \
+  --output training/manifests/unified_eyepacs.json \
+  --eyepacs-dir /dataset/EyePACS_raw
+
+docker compose -f training/docker-compose.train.yml run --rm train-gpu \
+  python training/train.py \
+    --manifest training/manifests/unified_eyepacs.json \
+    --arch efficientnet_b4 \
+    --preprocess clahe \
+    --epochs 50 --batch-size 16 \
+    --device cuda --early-stop 10 \
+    --output models/retinal_v5.pt
+```
+
+SSOT: [`training/RETINAL_V4.md`](../training/RETINAL_V4.md) · [`book/part7/ch32-retinal-dataset-training.md`](../../book/part7/ch32-retinal-dataset-training.md)

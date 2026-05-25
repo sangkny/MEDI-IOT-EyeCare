@@ -11,6 +11,7 @@
 예:
   python training/train.py --manifest data/synthetic_manifest.json --arch efficientnet_b4
   python training/train.py --manifest data/messidor2_manifest.json --epochs 50 --device cuda
+  python training/train.py --resume models/retinal_v5.pt --resume_epoch 7 --epochs 50 ...
 """
 from __future__ import annotations
 
@@ -118,6 +119,54 @@ def evaluate_model(model, loader, device) -> tuple[float, float]:
     return qwk, acc
 
 
+def _resolve_resume_path(path: str | Path) -> Path:
+    p = Path(path)
+    return p if p.is_absolute() else ROOT / p
+
+
+def _load_resume_checkpoint(
+    model: nn.Module,
+    resume_path: Path,
+    device: torch.device,
+    resume_epoch: int,
+) -> tuple[int, float]:
+    """체크포인트 로드. 반환: (start_epoch, best_qwk)."""
+    if resume_path.suffix.lower() == ".onnx":
+        raise SystemExit(f"--resume must be a .pt checkpoint, not ONNX: {resume_path}")
+
+    if not resume_path.is_file():
+        raise SystemExit(f"resume checkpoint not found: {resume_path}")
+
+    ckpt = torch.load(resume_path, map_location=device, weights_only=False)
+
+    if isinstance(ckpt, dict) and "model_state" in ckpt:
+        model.load_state_dict(ckpt["model_state"])
+        start_epoch = int(ckpt.get("epoch", resume_epoch))
+        best_qwk = float(ckpt.get("best_qwk", ckpt.get("best_val_qwk", -1.0)))
+        print(f"Resume: epoch={start_epoch} best_qwk={best_qwk:.4f} from {resume_path.name}")
+        return start_epoch, best_qwk
+
+    if isinstance(ckpt, dict) and "state_dict" in ckpt:
+        model.load_state_dict(ckpt["state_dict"])
+        start_epoch = int(ckpt.get("epoch", resume_epoch))
+        best_qwk = float(ckpt.get("best_val_qwk", ckpt.get("best_qwk", -1.0)))
+        print(
+            f"Resume (state_dict key): epoch={start_epoch} "
+            f"best_qwk={best_qwk:.4f} from {resume_path.name}"
+        )
+        return start_epoch, best_qwk
+
+    if isinstance(ckpt, dict) and ckpt and all(isinstance(v, torch.Tensor) for v in ckpt.values()):
+        model.load_state_dict(ckpt)
+        print(f"Resume (raw state_dict): epoch={resume_epoch} from {resume_path.name}")
+        return resume_epoch, -1.0
+
+    raise SystemExit(
+        f"unsupported checkpoint format: {resume_path} "
+        "(expected model_state, state_dict key, or raw state_dict tensors)"
+    )
+
+
 def export_onnx(model, path: Path, image_size: int) -> None:
     model.eval()
     cpu_model = model.cpu()
@@ -150,6 +199,18 @@ def main() -> None:
     p.add_argument("--no-amp", action="store_true", help="Mixed precision 비활성")
     p.add_argument("--no-pretrained", action="store_true")
     p.add_argument("--smoke", action="store_true")
+    p.add_argument(
+        "--resume",
+        type=str,
+        default=None,
+        help="이어서 학습할 .pt 체크포인트 경로",
+    )
+    p.add_argument(
+        "--resume_epoch",
+        type=int,
+        default=0,
+        help="이어서 시작할 epoch 번호 (state_dict 전용 저장 시)",
+    )
     args = p.parse_args()
 
     if args.smoke:
@@ -196,22 +257,34 @@ def main() -> None:
         arch=args.arch, pretrained=not args.no_pretrained and not args.smoke
     )
     model.to(device)
+
+    start_epoch = 0
+    best_qwk = -1.0
+    if args.resume:
+        start_epoch, best_qwk = _load_resume_checkpoint(
+            model,
+            _resolve_resume_path(args.resume),
+            device,
+            args.resume_epoch,
+        )
+
     loss_fn = nn.CrossEntropyLoss(weight=_class_weights(train_entries).to(device))
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=max(args.epochs, 1))
-    scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
+    scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
 
-    best_qwk = -1.0
     best_state = None
     stale = 0
+    last_epoch = start_epoch
 
-    for epoch in range(1, args.epochs + 1):
+    for epoch in range(start_epoch + 1, args.epochs + 1):
+        last_epoch = epoch
         model.train()
         running = 0.0
         for xb, yb in train_loader:
             xb, yb = xb.to(device), yb.to(device)
             opt.zero_grad(set_to_none=True)
-            with torch.cuda.amp.autocast(enabled=use_amp):
+            with torch.amp.autocast("cuda", enabled=use_amp):
                 loss = loss_fn(model(xb), yb)
             scaler.scale(loss).backward()
             scaler.step(opt)
@@ -240,11 +313,14 @@ def main() -> None:
     out_pt.parent.mkdir(parents=True, exist_ok=True)
     torch.save(
         {
+            "model_state": model.state_dict(),
             "state_dict": model.state_dict(),
+            "epoch": last_epoch,
+            "best_qwk": best_qwk,
+            "best_val_qwk": best_qwk,
             "arch": arch_key,
             "preprocess": preprocess,
             "image_size": args.image_size,
-            "best_val_qwk": best_qwk,
         },
         out_pt,
     )
