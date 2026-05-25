@@ -199,7 +199,7 @@ def main() -> None:
     loss_fn = nn.CrossEntropyLoss(weight=_class_weights(train_entries).to(device))
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=max(args.epochs, 1))
-    scaler = torch.cuda.amp.GradScaler(enabled=use_amp)
+    scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
 
     best_qwk = -1.0
     best_state = None
@@ -211,7 +211,7 @@ def main() -> None:
         for xb, yb in train_loader:
             xb, yb = xb.to(device), yb.to(device)
             opt.zero_grad(set_to_none=True)
-            with torch.cuda.amp.autocast(enabled=use_amp):
+            with torch.amp.autocast("cuda", enabled=use_amp):
                 loss = loss_fn(model(xb), yb)
             scaler.scale(loss).backward()
             scaler.step(opt)

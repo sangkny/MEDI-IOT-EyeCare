@@ -22,6 +22,10 @@ DR_URL = (
     "Fundus_photo_showing_diabetic_retinopathy_EDA09.JPG"
 )
 
+# HTTP 스모크: 컨테이너 exec 기본 → 호스트 published :8001
+# 호스트 직접 실행: MEDI_API_URL=http://localhost:8001 python3 scripts/e2e_fundus_smoke.py
+API_URL = os.getenv("MEDI_API_URL", "http://host.docker.internal:8001")
+
 
 def _download(url: str, dest: Path) -> None:
     import urllib.request
@@ -159,12 +163,8 @@ async def main() -> None:
     except Exception as exc:
         print("video_skip", exc)
 
-    print("\n=== Step 3/5: HTTP (localhost:8001) ===")
-    # 컨테이너 exec: 호스트 게이트웨이(:8001). API 프로세스 내부: localhost:8000
-    default_base = "http://127.0.0.1:8001"
-    if os.getenv("MEDI_SMOKE_IN_CONTAINER") == "1":
-        default_base = "http://127.0.0.1:8000"
-    base = os.getenv("MEDI_SMOKE_BASE", default_base)
+    print(f"\n=== Step 3/5: HTTP ({API_URL}) ===")
+    base = API_URL.rstrip("/")
     try:
         import httpx
 
