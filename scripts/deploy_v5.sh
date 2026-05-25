@@ -30,6 +30,8 @@ fi
 
 REPO="${REPO:-/home/smartvisionglobal/workspace/Office_Automation/idea-collection/MEDI-IOT-EyeCare}"
 DEV_PC="${DEV_PC:-root@192.168.0.12}"
+GPU_HOST="${GPU_HOST:-root@192.168.0.23}"
+SCP_ID="${SCP_ID:-$HOME/.ssh/id_rsa}"
 DEV_PATH="${DEV_PATH:-/mnt/e/Office_Automation/idea-collection/projects/MEDI-IOT-EyeCare/models}"
 
 cd "$REPO"
