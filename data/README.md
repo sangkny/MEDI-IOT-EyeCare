@@ -12,7 +12,9 @@
 | DRIVE | 40장 | 혈관 세그멘테이션 | `data/DRIVE_raw/` | ✅ 완료 |
 | EyePACS | 35,126장 | 0~4 | `/workspace/dataset/EyePACS_raw/` | ⏳ 해제 중 |
 
-**통합 학습 (v4)**: APTOS + Messidor-2 + IDRiD = **5,235장** → `unified_manifest_v2.json` · val QWK **0.8204**
+**통합 학습 (v4)**: APTOS + Messidor-2 + IDRiD = **5,235장** → `training/manifests/unified_v4.json` · val QWK **0.8204**
+
+Manifest SSOT: `training/make_manifest.py` · 샘플: `training/manifests/sample_synthetic.json` (Git 포함)
 
 ---
 
@@ -38,8 +40,13 @@
 │   ├── DRIVE_raw/
 │   │   ├── training/
 │   │   └── test/
-│   ├── unified_manifest_v2.json      # v4 학습용
-│   └── unified_manifest_eyepacs.json # v5 예정
+│   └── synthetic/                    # download_data.py 합성
+├── training/
+│   ├── make_manifest.py              # manifest 생성 SSOT
+│   └── manifests/
+│       ├── sample_synthetic.json     # Git 포함 (25장)
+│       ├── unified_v4.json           # 로컬 생성 (gitignore)
+│       └── unified_eyepacs.json      # v5 (gitignore)
 ├── models/
 │   ├── retinal_v3.{onnx,pt,meta.json}  # QWK=0.9975 (합성)
 │   └── retinal_v4.{onnx,pt,meta.json}  # QWK=0.8204 (실데이터)
@@ -73,13 +80,30 @@ scp smartvisionglobal@192.168.0.23:~/workspace/Office_Automation/idea-collection
 
 ## 훈련 명령어
 
+### Manifest 생성 (GPU 서버)
+
+```bash
+cd MEDI-IOT-EyeCare
+
+# v4 (EyePACS 제외)
+python3 training/make_manifest.py \
+  --datasets aptos messidor2 idrid \
+  --output training/manifests/unified_v4.json
+
+# v5 (EyePACS 포함)
+python3 training/make_manifest.py \
+  --datasets aptos messidor2 idrid eyepacs \
+  --output training/manifests/unified_eyepacs.json \
+  --eyepacs-dir /home/smartvisionglobal/workspace/dataset/EyePACS_raw
+```
+
 ### retinal_v4 (현재 운영, 5,235장)
 
 ```bash
 # 원격 GPU 서버
 docker compose -f training/docker-compose.train.yml run --rm train-gpu \
   python training/train.py \
-    --manifest data/unified_manifest_v2.json \
+    --manifest training/manifests/unified_v4.json \
     --arch efficientnet_b4 \
     --preprocess clahe \
     --epochs 50 --batch-size 16 \
@@ -94,12 +118,14 @@ docker compose -f training/docker-compose.train.yml run --rm train-gpu \
 find /workspace/dataset/EyePACS_raw/train -name "*.jpeg" | wc -l
 # 기대: 35126
 
-# manifest 재생성 (서버 스크립트)
-python3 /tmp/make_manifest_v2.py   # → unified_manifest_eyepacs.json
+python3 training/make_manifest.py \
+  --datasets aptos messidor2 idrid eyepacs \
+  --output training/manifests/unified_eyepacs.json \
+  --eyepacs-dir /home/smartvisionglobal/workspace/dataset/EyePACS_raw
 
 docker compose -f training/docker-compose.train.yml run --rm train-gpu \
   python training/train.py \
-    --manifest data/unified_manifest_eyepacs.json \
+    --manifest training/manifests/unified_eyepacs.json \
     --arch efficientnet_b4 \
     --preprocess clahe \
     --epochs 50 --batch-size 16 \
