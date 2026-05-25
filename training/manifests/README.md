@@ -30,7 +30,7 @@ python training/make_manifest.py \
 python training/make_manifest.py \
   --datasets aptos messidor2 idrid eyepacs \
   --output training/manifests/unified_eyepacs.json \
-  --eyepacs-dir /home/smartvisionglobal/workspace/dataset/EyePACS_raw
+  --eyepacs-dir /dataset/EyePACS_raw
 ```
 
 ## 학습 연동

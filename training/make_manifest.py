@@ -11,13 +11,14 @@
   python training/make_manifest.py \\
     --datasets aptos messidor2 idrid eyepacs \\
     --output training/manifests/unified_eyepacs.json \\
-    --eyepacs-dir /workspace/dataset/EyePACS_raw
+    --eyepacs-dir /dataset/EyePACS_raw
 """
 from __future__ import annotations
 
 import argparse
 import csv
 import json
+import os
 import random
 from collections import Counter
 from datetime import datetime, timezone
@@ -210,8 +211,11 @@ def main() -> None:
     p.add_argument("--data-root", default="data", help="데이터 루트 (프로젝트 기준)")
     p.add_argument(
         "--eyepacs-dir",
-        default="/home/smartvisionglobal/workspace/dataset/EyePACS_raw",
-        help="EyePACS 루트 (GPU 서버 기본)",
+        default=os.environ.get(
+            "EYEPACS_DIR",
+            "/dataset/EyePACS_raw",
+        ),
+        help="EyePACS 루트 (컨테이너: /dataset/EyePACS_raw, 호스트는 --eyepacs-dir 지정)",
     )
     args = p.parse_args()
 

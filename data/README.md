@@ -94,7 +94,7 @@ python3 training/make_manifest.py \
 python3 training/make_manifest.py \
   --datasets aptos messidor2 idrid eyepacs \
   --output training/manifests/unified_eyepacs.json \
-  --eyepacs-dir /home/smartvisionglobal/workspace/dataset/EyePACS_raw
+  --eyepacs-dir /dataset/EyePACS_raw
 ```
 
 ### retinal_v4 (현재 운영, 5,235장)
@@ -121,7 +121,7 @@ find /workspace/dataset/EyePACS_raw/train -name "*.jpeg" | wc -l
 python3 training/make_manifest.py \
   --datasets aptos messidor2 idrid eyepacs \
   --output training/manifests/unified_eyepacs.json \
-  --eyepacs-dir /home/smartvisionglobal/workspace/dataset/EyePACS_raw
+  --eyepacs-dir /dataset/EyePACS_raw
 
 docker compose -f training/docker-compose.train.yml run --rm train-gpu \
   python training/train.py \
