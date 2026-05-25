@@ -35,6 +35,7 @@ services:
       - ..:/workspace
       - /home/smartvisionglobal/workspace/dataset:/dataset
       - ${KAGGLE_CONFIG_DIR:-~/.kaggle}:/root/.kaggle:ro
+      - /home/smartvisionglobal/.cache/torch:/root/.cache/torch
     environment:
       ARCH: ${ARCH:-efficientnet_b4}
       EPOCHS: ${EPOCHS:-50}
