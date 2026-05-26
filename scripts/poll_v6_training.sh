@@ -3,7 +3,7 @@
 set -euo pipefail
 
 SSH="ssh -i ~/.ssh/id_rsa -o ConnectTimeout=15 root@192.168.0.23"
-LOG="/tmp/retinal_v6_train.log"
+LOG="${V6_TRAIN_LOG:-/tmp/retinal_v6c_train.log}"
 REPO="/home/smartvisionglobal/workspace/Office_Automation/idea-collection/MEDI-IOT-EyeCare"
 INTERVAL="${POLL_INTERVAL_SEC:-600}"
 

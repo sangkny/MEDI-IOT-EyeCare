@@ -7,7 +7,7 @@ SCP="scp -i ~/.ssh/id_rsa"
 GPU_REPO="/home/smartvisionglobal/workspace/Office_Automation/idea-collection/MEDI-IOT-EyeCare"
 DEV_ROOT="/mnt/e/Office_Automation/idea-collection/projects"
 MEDI="$DEV_ROOT/MEDI-IOT-EyeCare"
-LOG="/tmp/retinal_v6_train.log"
+LOG="${V6_TRAIN_LOG:-/tmp/retinal_v6c_train.log}"
 POLL="${POLL_INTERVAL_SEC:-120}"
 
 echo "=== Step 0: v6_se 완료 대기 ==="
