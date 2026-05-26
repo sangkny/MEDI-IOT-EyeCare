@@ -8,10 +8,15 @@ from typing import Any
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect, status
 from pydantic import BaseModel, Field
 
+from services.health_connect_adapter import HealthConnectAdapter
+from services.healthkit_adapter import HealthKitAdapter
+from services.health_sync import get_health_sync
 from services.iot_gateway import get_iot_gateway
 
 log = logging.getLogger("api.iot")
 router = APIRouter()
+_healthkit = HealthKitAdapter()
+_health_connect = HealthConnectAdapter()
 
 
 class DeviceRegisterRequest(BaseModel):
@@ -100,6 +105,121 @@ async def ingest_measurement(body: MeasurementIngestRequest) -> MeasurementRespo
         ontology_passed=m.ontology_passed,
         alerts=m.alerts,
     )
+
+
+class HealthKitIngestBody(BaseModel):
+    patient_id: str
+    device_id: str = "healthkit-mobile"
+    blood_glucose: float | None = None
+    heart_rate: float | None = None
+    systolic: float | None = None
+    diastolic: float | None = None
+    unit: str = "mg/dL"
+    timestamp: str | None = None
+
+
+class HealthConnectIngestBody(BaseModel):
+    patient_id: str
+    device_id: str = "health-connect-mobile"
+    records: list[dict[str, Any]] = Field(default_factory=list)
+    blood_glucose: float | None = None
+    heart_rate: float | None = None
+    unit: str = ""
+    timestamp: str | None = None
+
+
+@router.post("/healthkit", response_model=MeasurementResponse, status_code=status.HTTP_201_CREATED)
+async def ingest_healthkit(body: HealthKitIngestBody) -> MeasurementResponse:
+    """Apple HealthKit 단순 JSON 수신 (W2)."""
+    payload = body.model_dump()
+    samples = _healthkit.to_healthkit_samples(payload)
+    if not samples and body.blood_glucose is not None:
+        g = _healthkit.parse_blood_glucose(payload)
+        samples = [
+            {
+                "type": "HKQuantityTypeIdentifierBloodGlucose",
+                "value": g.value,
+                "unit": g.unit,
+                "start_date": g.timestamp,
+            }
+        ]
+    if not samples:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="no healthkit fields")
+    svc = get_health_sync()
+    try:
+        m = await svc.sync_healthkit(
+            patient_id=body.patient_id,
+            device_id=body.device_id,
+            samples=samples,
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return MeasurementResponse(
+        measurement_id=m.measurement_id,
+        patient_id=m.patient_id,
+        device_id=m.device_id,
+        device_type=m.device_type,
+        recorded_at=m.recorded_at,
+        payload=m.payload,
+        ontology_passed=m.ontology_passed,
+        alerts=m.alerts,
+    )
+
+
+@router.post(
+    "/health-connect",
+    response_model=MeasurementResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def ingest_health_connect(body: HealthConnectIngestBody) -> MeasurementResponse:
+    """Android Health Connect 레코드 수신 (W2)."""
+    records = list(body.records)
+    if body.blood_glucose is not None:
+        records.append(
+            {
+                "record_type": "BloodGlucoseRecord",
+                "value": body.blood_glucose,
+                "unit": body.unit or "mg/dL",
+                "time": body.timestamp,
+            }
+        )
+    if body.heart_rate is not None:
+        records.append(
+            {
+                "record_type": "HeartRateRecord",
+                "value": body.heart_rate,
+                "unit": "count/min",
+                "time": body.timestamp,
+            }
+        )
+    parsed = _health_connect.parse_records(records)
+    if not parsed:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_ENTITY, detail="no health connect records")
+    svc = get_health_sync()
+    try:
+        m = await svc.sync_health_connect(
+            patient_id=body.patient_id,
+            device_id=body.device_id,
+            records=parsed,
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, detail=str(exc)) from exc
+    return MeasurementResponse(
+        measurement_id=m.measurement_id,
+        patient_id=m.patient_id,
+        device_id=m.device_id,
+        device_type=m.device_type,
+        recorded_at=m.recorded_at,
+        payload=m.payload,
+        ontology_passed=m.ontology_passed,
+        alerts=m.alerts,
+    )
+
+
+@router.get("/latest/{patient_id}", response_model=list[MeasurementResponse])
+async def get_latest_iot_alias(patient_id: str, limit: int = 20) -> list[MeasurementResponse]:
+    """최신 IoT 측정 조회 (별칭 — /patients/{id}/latest 와 동일)."""
+    return await get_latest_measurements(patient_id, limit=limit)
 
 
 @router.get("/patients/{patient_id}/latest", response_model=list[MeasurementResponse])
