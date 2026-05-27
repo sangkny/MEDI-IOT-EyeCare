@@ -27,7 +27,7 @@ $SSH "cd $GPU_REPO && python3 -c \"
 import json
 m=json.load(open('models/retinal_v6_se.meta.json'))
 q=float(m.get('best_val_qwk', m.get('qwk', 0)))
-print(f'QWK={q:.4f} arch={m.get(\"arch\")}')
+print('QWK={:.4f} arch={}'.format(q, m.get('arch')))
 if q>=0.85: print('gate: clinical')
 elif q>=0.75: print('gate: deploy ok')
 elif q>=0.80: print('gate: ok')
@@ -35,6 +35,8 @@ else: print('gate: review')
 \""
 
 echo "=== Step 2: scp ==="
+# medi-iot-api 컨테이너는 ./MEDI-IOT-EyeCare 를 /app 으로 마운트한다.
+# 따라서 `.env.local` 의 `MEDI_CNN_MODEL_PATH=models/...` 는 /app/models 를 의미한다.
 mkdir -p "$MEDI/models"
 $SCP "root@192.168.0.23:$GPU_REPO/models/retinal_v6_se.onnx" "$MEDI/models/"
 $SCP "root@192.168.0.23:$GPU_REPO/models/retinal_v6_se.meta.json" "$MEDI/models/"
@@ -46,7 +48,8 @@ sed -i 's|MEDI_CNN_ARCH=.*|MEDI_CNN_ARCH=efficientnet_b4_se|' "$DEV_ROOT/.env.lo
 grep MEDI_CNN "$DEV_ROOT/.env.local"
 
 cd "$DEV_ROOT"
-docker compose -f docker-compose.dev.yml restart medi-iot-api
+# env_file 변경이 restart 로는 반영되지 않을 수 있어 강제 recreate 한다.
+docker compose -f docker-compose.dev.yml up -d --no-deps --force-recreate medi-iot-api
 sleep 18
 
 echo "=== Step 5: E2E ==="
