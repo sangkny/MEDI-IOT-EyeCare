@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """RETFound / ViT-Large 안저 DR 파인튜닝 (TITAN X 12GB, batch=4 권장).
 
-사전학습 가중치 (1.7GB):
-  wget -O models/RETFound_cfp.pth \\
-    'https://huggingface.co/YangLabHKUST/RETFound_MAE/resolve/main/RETFound_cfp.pth'
+사전학습 가중치 (~3.7GB, GPU 서버):
+  models/pretrained/RETFound_mae_natureCFP.pth
+  (HuggingFace: YukunZhou/RETFound_mae_natureCFP)
 
 예:
   python training/train_retfound.py \\
-    --manifest training/manifests/unified_eyepacs.json \\
-    --pretrained models/RETFound_cfp.pth \\
+    --manifest training/manifests/unified_v4.json \\
+    --pretrained models/pretrained/RETFound_mae_natureCFP.pth \\
     --batch-size 4 --epochs 30 --lr 1e-6 \\
     --output models/retinal_v7_retfound.pt
 
@@ -52,9 +52,16 @@ def _build_vit_classifier(
         num_classes=num_classes,
     )
     if pretrained_path and pretrained_path.is_file():
-        state = torch.load(pretrained_path, map_location="cpu", weights_only=False)
-        if isinstance(state, dict) and "model" in state:
-            state = state["model"]
+        ckpt = torch.load(pretrained_path, map_location="cpu", weights_only=False)
+        if isinstance(ckpt, dict) and "model" in ckpt:
+            state = ckpt["model"]
+        elif isinstance(ckpt, dict) and "state_dict" in ckpt:
+            state = ckpt["state_dict"]
+        else:
+            state = ckpt
+        # 분류 헤드는 DR 5-class와 차원이 달라 제거 후 로딩
+        for k in ("head.weight", "head.bias"):
+            state.pop(k, None)
         missing, unexpected = model.load_state_dict(state, strict=False)
         print(
             f"RETFound weights: {pretrained_path.name} "
@@ -66,7 +73,11 @@ def _build_vit_classifier(
 def main() -> None:
     p = argparse.ArgumentParser(description="RETFound / ViT-Large DR fine-tune")
     p.add_argument("--manifest", type=Path, required=True)
-    p.add_argument("--pretrained", type=Path, default=None)
+    p.add_argument(
+        "--pretrained",
+        type=Path,
+        default=ROOT / "models" / "pretrained" / "RETFound_mae_natureCFP.pth",
+    )
     p.add_argument("--epochs", type=int, default=30)
     p.add_argument("--batch-size", dest="batch_size", type=int, default=4)
     p.add_argument("--lr", type=float, default=1e-6)
