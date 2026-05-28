@@ -183,6 +183,46 @@ async def lab_fundus_comprehensive(
     )
 
 
+@router.post(
+    "/fundus/attention",
+    summary="RETFound attention map (multipart, v8+)",
+)
+async def lab_fundus_attention(
+    file: UploadFile = File(...),
+    _: dict = LAB_AUTH,
+) -> dict:
+    """ViT attention 기반 병변 위치 히트맵 (skeleton → v8 ONNX 연동 후 정밀화)."""
+    image_bytes, _ = await _read_and_validate(file)
+    try:
+        from services.retfound_attention import RETFoundAttentionExtractor
+
+        return await asyncio.to_thread(
+            RETFoundAttentionExtractor().extract, image_bytes
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=str(exc)[:200],
+        ) from exc
+    except Exception as exc:
+        log.exception("attention extract failed")
+        raise HTTPException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc)[:200],
+        ) from exc
+
+
+@router.get(
+    "/fundus/attention/{image_id}",
+    summary="RETFound attention by cached image_id (planned)",
+)
+async def lab_fundus_attention_by_id(image_id: str, _: dict = LAB_AUTH) -> dict:
+    raise HTTPException(
+        status.HTTP_501_NOT_IMPLEMENTED,
+        detail=f"image_id cache not implemented yet: {image_id}",
+    )
+
+
 @router.get("/fundus/formats", summary="지원 이미지 포맷 목록")
 async def fundus_formats() -> dict:
     from services.fundus_image_formats import ALLOWED_EXTENSIONS, ALLOWED_MIME_TYPES
