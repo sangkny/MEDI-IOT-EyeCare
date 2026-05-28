@@ -86,6 +86,19 @@ def main() -> None:
     p.add_argument("--output", type=Path, default=ROOT / "models" / "retinal_v7_retfound.pt")
     p.add_argument("--device", default="cuda")
     p.add_argument("--early-stop", dest="early_stop", type=int, default=10)
+    p.add_argument(
+        "--resume",
+        type=Path,
+        default=None,
+        help="이어서 학습할 .pt 체크포인트 경로",
+    )
+    p.add_argument(
+        "--resume-epoch",
+        dest="resume_epoch",
+        type=int,
+        default=0,
+        help="이어서 시작할 epoch 번호",
+    )
     p.add_argument("--skip-onnx", action="store_true")
     args = p.parse_args()
 
@@ -122,11 +135,27 @@ def main() -> None:
     loss_fn = nn.CrossEntropyLoss(weight=_class_weights(train_entries).to(device))
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr)
 
+    start_epoch = 0
     best_qwk = -1.0
     best_state = None
     stale = 0
 
-    for epoch in range(1, args.epochs + 1):
+    if args.resume:
+        resume_path = args.resume if args.resume.is_absolute() else ROOT / args.resume
+        if resume_path.exists():
+            ckpt = torch.load(resume_path, map_location=device, weights_only=False)
+            if isinstance(ckpt, dict) and "model_state" in ckpt:
+                model.load_state_dict(ckpt["model_state"], strict=False)
+                start_epoch = int(ckpt.get("epoch", args.resume_epoch) or 0)
+                best_qwk = float(ckpt.get("best_qwk", -1.0))
+            else:
+                model.load_state_dict(ckpt, strict=False)
+                start_epoch = int(args.resume_epoch or 0)
+                best_qwk = 0.78
+            print(f"Resume: epoch={start_epoch} best_qwk={best_qwk:.4f}")
+
+    last_epoch = start_epoch
+    for epoch in range(start_epoch + 1, args.epochs + 1):
         model.train()
         running = 0.0
         for xb, yb in train_loader:
@@ -149,6 +178,7 @@ def main() -> None:
             stale += 1
         if args.early_stop and stale >= args.early_stop:
             break
+        last_epoch = epoch
 
     if best_state:
         model.load_state_dict(best_state)
@@ -159,6 +189,7 @@ def main() -> None:
         {
             "model_state": model.state_dict(),
             "state_dict": model.state_dict(),
+            "epoch": last_epoch,
             "arch": arch_key,
             "preprocess": preprocess,
             "image_size": args.image_size,
