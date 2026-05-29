@@ -9,13 +9,19 @@
     --tasks dr,glaucoma \\
     --backbone efficientnet_b4 \\
     --epochs 30 --output models/multitask_v1.pt
+
+  # 태스크별 manifest (Phase 1: DR + Glaucoma)
+  python training/train_multitask.py \\
+    --manifests dr:training/manifests/unified_v4.json,glaucoma:training/manifests/glaucoma_refuge.json \\
+    --tasks dr,glaucoma --epochs 50
 """
 from __future__ import annotations
 
 import argparse
 import json
+import random
 import sys
-from collections import Counter
+from collections import Counter, defaultdict
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -53,7 +59,79 @@ TASK_WEIGHTS: dict[str, float] = {
     "myopia": 0.6,
 }
 
+TASK_CONFIG: dict[str, dict] = {
+    "dr": {
+        "num_classes": 5,
+        "metric": "qwk",
+        "weight": 1.0,
+        "icd10": {0: "Z13.5", 1: "E11.311", 2: "E11.321", 3: "E11.341", 4: "E11.351"},
+    },
+    "glaucoma": {
+        "num_classes": 3,
+        "metric": "auc",
+        "weight": 0.8,
+        "icd10": {0: "Z01.00", 1: "H40.10", 2: "H40.11"},
+    },
+    "amd": {
+        "num_classes": 4,
+        "metric": "auc",
+        "weight": 0.8,
+        "icd10": {0: "Z13.5", 1: "H35.30", 2: "H35.31", 3: "H35.32"},
+    },
+    "myopia": {
+        "num_classes": 4,
+        "metric": "auc",
+        "weight": 0.6,
+        "icd10": {},
+    },
+}
+
 SUPPORTED_BACKBONES = ("efficientnet_b4", "efficientnet_b0", "retfound")
+
+
+def parse_manifests_arg(spec: str) -> dict[str, Path]:
+    """``dr:path.json,glaucoma:path.json`` → task → Path."""
+    out: dict[str, Path] = {}
+    for part in spec.split(","):
+        part = part.strip()
+        if not part:
+            continue
+        if ":" not in part:
+            raise ValueError(f"invalid --manifests entry {part!r}; use task:path")
+        task, path = part.split(":", 1)
+        task = task.strip()
+        if task not in TASK_NUM_CLASSES:
+            raise ValueError(f"unknown task {task!r}")
+        out[task] = Path(path.strip())
+    if not out:
+        raise ValueError("--manifests is empty")
+    return out
+
+
+def _load_manifest_split(path: Path, split: str) -> tuple[Path, list[dict]]:
+    manifest_path = path if path.is_absolute() else ROOT / path
+    data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    data_dir = Path(data["data_dir"])
+    entries = data.get(split) or []
+    if split == "val" and not entries:
+        entries = data.get("test") or []
+    return data_dir, entries
+
+
+def load_merged_manifests(
+    manifests: dict[str, Path],
+    *,
+    split: str,
+) -> tuple[Path | None, dict[str, list[dict]]]:
+    """태스크별 manifest train/val 항목 병합. data_dir은 첫 manifest 기준."""
+    by_task: dict[str, list[dict]] = {}
+    data_dir: Path | None = None
+    for task, mpath in manifests.items():
+        ddir, entries = _load_manifest_split(mpath, split)
+        if data_dir is None:
+            data_dir = ddir
+        by_task[task] = entries
+    return data_dir, by_task
 
 
 class EfficientNetFeatureBackbone(nn.Module):
@@ -218,6 +296,76 @@ class MultiTaskManifestDataset(Dataset):
         return transform(img), labels
 
 
+class MultiTaskFundusDataset(Dataset):
+    """태스크별 manifest를 샘플 단위로 통합 (라벨 없는 태스크는 -1)."""
+
+    def __init__(
+        self,
+        entries_by_task: dict[str, list[dict]],
+        data_dir: Path,
+        tasks: list[str],
+        *,
+        image_size: int,
+        preprocess: str,
+        augment: bool,
+    ) -> None:
+        self.data_dir = data_dir
+        self.tasks = tasks
+        self.image_size = image_size
+        self.preprocess = preprocess
+        self.augment = augment
+        self.samples: list[dict] = []
+        for task, entries in entries_by_task.items():
+            key = TASK_LABEL_KEYS[task]
+            for e in entries:
+                labels = {t: -1 for t in tasks}
+                for t in tasks:
+                    k = TASK_LABEL_KEYS[t]
+                    if k in e and e[k] is not None:
+                        labels[t] = int(e[k])
+                if labels.get(task, -1) < 0 and key in e:
+                    labels[task] = int(e[key])
+                self.samples.append(
+                    {"path": e["path"], "labels": labels, "primary_task": task}
+                )
+        random.shuffle(self.samples)
+
+    def __len__(self) -> int:
+        return len(self.samples)
+
+    def __getitem__(self, idx: int):
+        from PIL import Image
+        from torchvision import transforms as T
+
+        s = self.samples[idx]
+        path = self.data_dir / s["path"]
+        img = Image.open(path).convert("RGB")
+        arr = preprocess_fundus_array(__import__("numpy").array(img), mode=self.preprocess)
+        img = Image.fromarray(arr).resize((self.image_size, self.image_size))
+        if self.augment:
+            transform = T.Compose(
+                [
+                    T.RandomHorizontalFlip(),
+                    T.RandomRotation(15),
+                    T.ColorJitter(0.15, 0.15, 0.1),
+                    T.ToTensor(),
+                ]
+            )
+        else:
+            transform = T.ToTensor()
+        return transform(img), s["labels"]
+
+
+def _collate_multitask(batch):
+    imgs, label_dicts = zip(*batch)
+    tasks = list(label_dicts[0].keys())
+    stacked = torch.stack(imgs)
+    batched = {
+        task: torch.tensor([d[task] for d in label_dicts], dtype=torch.long) for task in tasks
+    }
+    return stacked, batched
+
+
 def _sample_weights(entries: list[dict], primary_task: str) -> list[float]:
     key = TASK_LABEL_KEYS[primary_task]
     labeled = [e for e in entries if key in e and e[key] is not None]
@@ -273,7 +421,7 @@ def evaluate_multitask(
     device: torch.device,
     tasks: list[str],
 ) -> dict[str, float]:
-    from sklearn.metrics import roc_auc_score
+    from sklearn.metrics import cohen_kappa_score, roc_auc_score
 
     model.eval()
     metrics: dict[str, float] = {}
@@ -304,11 +452,15 @@ def evaluate_multitask(
             continue
         acc = sum(a == b for a, b in zip(y_true, y_pred)) / len(y_true)
         metrics[f"{task}_acc"] = acc
-        if len(set(y_true)) > 1 and TASK_NUM_CLASSES[task] == 2:
+        if task == "dr" and len(y_true) > 1:
+            metrics[f"{task}_qwk"] = float(
+                cohen_kappa_score(y_true, y_pred, weights="quadratic")
+            )
+        if len(set(y_true)) > 1:
             try:
-                metrics[f"{task}_auc"] = float(roc_auc_score(y_true, y_pred))
+                metrics[f"{task}_auc"] = float(roc_auc_score(y_true, y_pred, multi_class="ovr"))
             except ValueError:
-                metrics[f"{task}_auc"] = 0.0
+                metrics[f"{task}_auc"] = acc
         else:
             metrics[f"{task}_auc"] = acc
     return metrics
@@ -332,7 +484,13 @@ class _ExportPrimaryHead(nn.Module):
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="MEDI multi-task fundus training")
-    parser.add_argument("--manifest", type=Path, required=True)
+    parser.add_argument("--manifest", type=Path, default=None)
+    parser.add_argument(
+        "--manifests",
+        type=str,
+        default=None,
+        help="task:path.json 쉼표 구분 (예: dr:unified_v4.json,glaucoma:glaucoma.json)",
+    )
     parser.add_argument("--backbone", default="efficientnet_b4", choices=list(SUPPORTED_BACKBONES))
     parser.add_argument("--tasks", default="dr,glaucoma,amd", help="쉼표 구분 태스크 목록")
     parser.add_argument("--preprocess", default="clahe", choices=["none", "clahe", "ben_graham", "both"])
@@ -360,12 +518,36 @@ def main() -> None:
         args.image_size = 64
 
     tasks = [t.strip() for t in args.tasks.split(",") if t.strip()]
-    manifest_path = args.manifest if args.manifest.is_absolute() else ROOT / args.manifest
-    data = json.loads(manifest_path.read_text(encoding="utf-8"))
-    data_dir = Path(data["data_dir"])
-    train_entries = data.get("train") or []
-    val_entries = data.get("val") or data.get("test") or []
-    if not train_entries:
+    use_multi_manifest = bool(args.manifests)
+    manifest_map: dict[str, Path] = {}
+    if not args.manifest and not args.manifests:
+        raise SystemExit("provide --manifest or --manifests")
+    if args.manifest and args.manifests:
+        raise SystemExit("use only one of --manifest or --manifests")
+
+    manifest_path: Path | None = None
+    if use_multi_manifest:
+        manifest_map = parse_manifests_arg(args.manifests)
+        for t in tasks:
+            if t not in manifest_map:
+                print(f"warning: task {t!r} not in --manifests; labels may be sparse")
+        data_dir, train_by_task = load_merged_manifests(manifest_map, split="train")
+        _, val_by_task = load_merged_manifests(manifest_map, split="val")
+        train_entries = []
+        val_entries = []
+        manifest_path = next(iter(manifest_map.values()))
+    else:
+        manifest_path = args.manifest if args.manifest.is_absolute() else ROOT / args.manifest
+        data = json.loads(manifest_path.read_text(encoding="utf-8"))
+        data_dir = Path(data["data_dir"])
+        train_entries = data.get("train") or []
+        val_entries = data.get("val") or data.get("test") or []
+
+    if use_multi_manifest:
+        n_train = sum(len(v) for v in train_by_task.values())
+        if n_train == 0:
+            raise SystemExit("merged train split empty")
+    elif not train_entries:
         raise SystemExit("manifest train split empty")
 
     preprocess = resolve_preprocess_mode(args.preprocess)
@@ -382,35 +564,74 @@ def main() -> None:
     n_params = count_parameters(model)
     print(f"MultiTaskEyeCareModel params={n_params:,} tasks={tasks} backbone={args.backbone}")
 
-    train_ds = MultiTaskManifestDataset(
-        train_entries,
-        data_dir,
-        tasks,
-        image_size=args.image_size,
-        preprocess=preprocess,
-        augment=True,
-    )
-    val_ds = MultiTaskManifestDataset(
-        val_entries,
-        data_dir,
-        tasks,
-        image_size=args.image_size,
-        preprocess=preprocess,
-        augment=False,
-    )
+    if use_multi_manifest:
+        train_ds = MultiTaskFundusDataset(
+            train_by_task,
+            data_dir,
+            tasks,
+            image_size=args.image_size,
+            preprocess=preprocess,
+            augment=True,
+        )
+        val_ds = MultiTaskFundusDataset(
+            val_by_task,
+            data_dir,
+            tasks,
+            image_size=args.image_size,
+            preprocess=preprocess,
+            augment=False,
+        )
+        train_entries_for_weights = train_ds.samples
+    else:
+        train_ds = MultiTaskManifestDataset(
+            train_entries,
+            data_dir,
+            tasks,
+            image_size=args.image_size,
+            preprocess=preprocess,
+            augment=True,
+        )
+        val_ds = MultiTaskManifestDataset(
+            val_entries,
+            data_dir,
+            tasks,
+            image_size=args.image_size,
+            preprocess=preprocess,
+            augment=False,
+        )
+        train_entries_for_weights = train_entries
 
     primary_task = tasks[0]
-    sampler = WeightedRandomSampler(
-        weights=_sample_weights(train_entries, primary_task),
-        num_samples=len(train_entries),
-        replacement=True,
-    )
+    if use_multi_manifest:
+        w_entries = [
+            {
+                TASK_LABEL_KEYS[primary_task]: s["labels"].get(primary_task, -1),
+                **{TASK_LABEL_KEYS[t]: s["labels"].get(t) for t in tasks},
+            }
+            for s in train_entries_for_weights
+            if s["labels"].get(primary_task, -1) >= 0
+        ]
+        if not w_entries:
+            w_entries = [{"dr_grade": 0}]
+        sampler = None
+        shuffle_train = True
+    else:
+        w_entries = train_entries
+        sampler = WeightedRandomSampler(
+            weights=_sample_weights(train_entries, primary_task),
+            num_samples=len(train_entries),
+            replacement=True,
+        )
+        shuffle_train = False
+
     train_loader = DataLoader(
         train_ds,
         batch_size=args.batch_size,
         sampler=sampler,
+        shuffle=shuffle_train if sampler is None else False,
         num_workers=4,
         pin_memory=True,
+        collate_fn=_collate_multitask if use_multi_manifest else None,
     )
     val_loader = DataLoader(
         val_ds,
@@ -418,9 +639,16 @@ def main() -> None:
         shuffle=False,
         num_workers=4,
         pin_memory=True,
+        collate_fn=_collate_multitask if use_multi_manifest else None,
     )
 
-    criteria = {task: _task_criterion(train_entries, task, device) for task in tasks}
+    if use_multi_manifest:
+        flat_train = []
+        for t, ents in train_by_task.items():
+            flat_train.extend(ents)
+        criteria = {task: _task_criterion(flat_train, task, device) for task in tasks}
+    else:
+        criteria = {task: _task_criterion(train_entries, task, device) for task in tasks}
     optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=max(args.epochs, 1))
     scaler = torch.amp.GradScaler("cuda", enabled=use_amp)
@@ -452,9 +680,16 @@ def main() -> None:
             running += float(loss.item())
         scheduler.step()
 
-        val_metrics = evaluate_multitask(model, val_loader, device, tasks) if val_entries else {}
-        score_key = f"{primary_task}_acc"
-        val_score = val_metrics.get(score_key, 0.0)
+        has_val = (use_multi_manifest and len(val_ds) > 0) or (
+            not use_multi_manifest and val_entries
+        )
+        val_metrics = evaluate_multitask(model, val_loader, device, tasks) if has_val else {}
+        score_key = (
+            f"{primary_task}_qwk"
+            if primary_task == "dr"
+            else f"{primary_task}_auc"
+        )
+        val_score = val_metrics.get(score_key, val_metrics.get(f"{primary_task}_acc", 0.0))
         metric_str = " ".join(f"{k}={v:.4f}" for k, v in sorted(val_metrics.items()))
         print(
             f"epoch {epoch}/{args.epochs} loss={running / max(len(train_loader), 1):.4f} "
@@ -503,7 +738,11 @@ def main() -> None:
         "preprocess": preprocess,
         "image_size": args.image_size,
         "num_params": n_params,
-        "trained_on": manifest_path.name,
+        "trained_on": (
+            ",".join(f"{k}:{v.name}" for k, v in manifest_map.items())
+            if use_multi_manifest
+            else manifest_path.name
+        ),
         "best_score": round(best_score, 4),
     }
     meta_path = out_pt.with_name(out_pt.stem + ".meta.json")

@@ -12,8 +12,11 @@ from pydantic import BaseModel, Field
 
 from auth.policy import policy_require
 from schemas.integrated_diagnosis import (
+    AMDResult,
     ComprehensiveDiagnosisResponse,
     DiagnosisExplainResponse,
+    GlaucomaResult,
+    MultiIndicationResult,
 )
 from services.fundus_image_formats import (
     normalize_for_cnn,
@@ -159,6 +162,41 @@ async def lab_fundus_explain(
 
 
 @router.post(
+    "/fundus/glaucoma",
+    response_model=GlaucomaResult,
+    summary="녹내장 단독 분석 (Phase 1 skeleton)",
+)
+async def lab_fundus_glaucoma(
+    file: UploadFile = File(...),
+    patient_id: str | None = Form(None),
+    _: dict = LAB_AUTH,
+) -> GlaucomaResult:
+    """Phase 1: EfficientNet-B4 glaucoma head. Phase 2: RETFound CDR."""
+    await _read_and_validate(file)
+    raise HTTPException(
+        status.HTTP_501_NOT_IMPLEMENTED,
+        detail="Glaucoma multitask model not deployed yet (Phase 1 training)",
+    )
+
+
+@router.post(
+    "/fundus/amd",
+    response_model=AMDResult,
+    summary="AMD 단독 분석 (Phase 2 skeleton)",
+)
+async def lab_fundus_amd(
+    file: UploadFile = File(...),
+    _: dict = LAB_AUTH,
+) -> AMDResult:
+    """Phase 2: ADAM/iChallenge 기반 AMD head."""
+    await _read_and_validate(file)
+    raise HTTPException(
+        status.HTTP_501_NOT_IMPLEMENTED,
+        detail="AMD multitask model not deployed yet (Phase 2 training)",
+    )
+
+
+@router.post(
     "/fundus/comprehensive",
     response_model=ComprehensiveDiagnosisResponse,
     summary="Fundus Lab — comprehensive (multipart)",
@@ -170,9 +208,11 @@ async def lab_fundus_comprehensive(
     lat: float | None = Form(37.5665),
     lng: float | None = Form(126.9780),
     include_heatmap: bool = Form(False),
+    tasks: str = Form("dr", description="쉼표 구분: dr,glaucoma,amd"),
     _: dict = LAB_AUTH,
 ):
-    return await _run_lab_analysis(
+    """DR 기본. tasks에 glaucoma/amd 추가 시 멀티헤드 연동 예정."""
+    result = await _run_lab_analysis(
         file,
         lang=lang,
         patient_id=patient_id,
@@ -181,6 +221,23 @@ async def lab_fundus_comprehensive(
         comprehensive=True,
         include_heatmap=include_heatmap,
     )
+    active = [t.strip() for t in tasks.split(",") if t.strip()]
+    if len(active) > 1 or (len(active) == 1 and active[0] != "dr"):
+        if hasattr(result, "model_dump"):
+            d = result.model_dump()
+        elif isinstance(result, dict):
+            d = result
+        else:
+            d = {}
+        d["active_tasks"] = active
+        d["multi_indication"] = MultiIndicationResult(
+            active_tasks=active,
+            primary_finding="dr",
+            referral_urgency="none",
+            audit_trail={"note": "glaucoma/amd heads pending Phase 1–2"},
+        )
+        return d
+    return result
 
 
 @router.post(

@@ -5,6 +5,9 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+GLAUCOMA_GRADE_LABELS = ("normal", "suspect", "glaucoma")
+AMD_GRADE_LABELS = ("normal", "early", "intermediate", "advanced")
+
 
 class LocationInput(BaseModel):
     lat: float = Field(..., ge=-90, le=90, examples=[37.5665])
@@ -99,16 +102,22 @@ class DRResult(BaseModel):
 
 class GlaucomaResult(BaseModel):
     glaucoma_grade: int = Field(..., ge=0, le=2, description="0:정상 1:의심 2:확진")
-    cup_disc_ratio: float = Field(..., ge=0, le=1)
+    grade_label: str = Field(..., description="normal/suspect/glaucoma")
+    cup_disc_ratio: float | None = Field(default=None, ge=0, le=1)
     confidence: float = Field(..., ge=0, le=1)
     icd10_code: str = "H40.1"
-    severity: str = Field(..., description="normal/suspect/glaucoma")
+    severity: str = Field(default="", description="normal/suspect/glaucoma (alias)")
+    referral_urgency: str = Field(
+        default="none",
+        description="immediate/routine/none",
+    )
 
 
 class AMDResult(BaseModel):
     amd_grade: int = Field(..., ge=0, le=3, description="0:정상 1:초기 2:중기 3:말기")
+    grade_label: str = Field(..., description="normal/early/intermediate/advanced")
     drusen_detected: bool
-    subtype: str = Field(..., description="dry/wet/none")
+    subtype: str | None = Field(default=None, description="dry/wet/none")
     confidence: float = Field(..., ge=0, le=1)
     icd10_code: str = "H35.31"
 
@@ -128,6 +137,7 @@ class MultiIndicationResult(BaseModel):
     icd10_codes: dict[str, str] = Field(default_factory=dict)
     primary_finding: str = ""
     referral_urgency: str = Field(default="none", description="immediate/routine/none")
+    audit_trail: dict = Field(default_factory=dict)
 
 
 class ComprehensiveDiagnosisResponse(DiagnosisExplainResponse):
