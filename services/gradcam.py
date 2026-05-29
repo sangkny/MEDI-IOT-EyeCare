@@ -56,6 +56,56 @@ def _load_state_dict(model: Any, ckpt: object, arch: str) -> None:
         raise RuntimeError("GradCAM cannot load weights from checkpoint")
 
 
+def _resolve_target_layer(model: Any) -> Any:
+    """EfficientNet / SE / 일반 CNN — GradCAM hook 대상 Conv2d."""
+    import torch.nn as nn
+
+    if hasattr(model, "features"):
+        last = model.features[-1]
+        if isinstance(last, nn.Conv2d):
+            return last
+        if isinstance(last, nn.Sequential):
+            for sub in reversed(list(last)):
+                if isinstance(sub, nn.Conv2d):
+                    return sub
+        for name, module in reversed(list(model.named_modules())):
+            if name.startswith("features") and isinstance(module, nn.Conv2d):
+                return module
+
+    for module in reversed(list(model.modules())):
+        if isinstance(module, nn.Conv2d):
+            return module
+    return GradCAMPlusPlus._get_last_conv(model)
+
+
+def _resolve_pt_path(config_path: Path, meta: dict) -> Path:
+    """ONNX 추론 경로 → GradCAM용 .pt 체크포인트."""
+    models_dir = config_path.parent
+    pt_name = str(meta.get("pt") or "").strip()
+    if pt_name:
+        candidate = models_dir / pt_name
+        if candidate.is_file():
+            return candidate
+    sibling = config_path.with_suffix(".pt")
+    if sibling.is_file():
+        return sibling
+    arch = str(meta.get("arch") or "")
+    if arch:
+        for pt in sorted(models_dir.glob("retinal_v*.pt"), reverse=True):
+            mp = pt.with_name(pt.stem + ".meta.json")
+            if mp.is_file():
+                import json
+
+                m = json.loads(mp.read_text(encoding="utf-8"))
+                if str(m.get("arch") or "") == arch:
+                    return pt
+    raise FileNotFoundError(
+        f"GradCAM PT checkpoint not found for {config_path.name} "
+        f"(expected {pt_name or sibling.name}). "
+        "Copy .pt alongside .onnx from GPU training output."
+    )
+
+
 class GradCAMPlusPlus:
     """GradCAM++ — 병변 위치 정밀도 향상."""
 
@@ -63,7 +113,7 @@ class GradCAMPlusPlus:
         import torch.nn as nn
 
         self.model = model
-        self.target_layer = target_layer or self._get_last_conv(model)
+        self.target_layer = target_layer or _resolve_target_layer(model)
         if self.target_layer is None:
             raise RuntimeError("GradCAM++: no Conv2d target layer found")
         self.gradients: list[Any] = []
@@ -152,55 +202,67 @@ def generate_annotated_heatmap(
     반환: heatmap_base64, lesion_labels, attention_score, hotspot_regions, gradcam_version
     """
     del lang
-    import cv2
-    import torch
-    from PIL import Image
+    try:
+        import cv2
+        import torch
+        from PIL import Image
 
-    viz = visualizer or GradCAMVisualizer()
-    viz._ensure_model()
-    meta = viz._load_meta()
-    size = int(meta.get("image_size") or meta.get("input_size") or 224)
-    pm = resolve_preprocess_mode(str(meta.get("preprocess") or ""))
+        viz = visualizer or GradCAMVisualizer()
+        viz._ensure_model()
+        meta = viz._load_meta()
+        size = int(meta.get("image_size") or meta.get("input_size") or 224)
+        pm = resolve_preprocess_mode(str(meta.get("preprocess") or ""))
 
-    pil = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-    orig = np.array(pil)
-    arr = preprocess_fundus_array(orig, mode=pm)
-    resized = Image.fromarray(arr).resize((size, size))
-    tensor = torch.from_numpy(np.array(resized)).permute(2, 0, 1).float() / 255.0
-    tensor = tensor.unsqueeze(0).to(viz._device)
-    tensor.requires_grad_(True)
+        pil = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        orig = np.array(pil)
+        arr = preprocess_fundus_array(orig, mode=pm)
+        resized = Image.fromarray(arr).resize((size, size))
+        tensor = torch.from_numpy(np.array(resized)).permute(2, 0, 1).float() / 255.0
+        tensor = tensor.unsqueeze(0).to(viz._device)
+        tensor.requires_grad_(True)
 
-    grade = max(0, min(4, int(dr_grade)))
-    gpp = GradCAMPlusPlus(viz._model, target_layer=viz._target_layer)
-    cam, target_cls = gpp.generate(tensor, target_class=grade)
+        grade = max(0, min(4, int(dr_grade)))
+        gpp = GradCAMPlusPlus(viz._model, target_layer=viz._target_layer)
+        cam, target_cls = gpp.generate(tensor, target_class=grade)
 
-    heat_u8 = (cam * 255).astype(np.uint8)
-    heat_color = cv2.applyColorMap(heat_u8, cv2.COLORMAP_JET)
-    heat_rgb = cv2.cvtColor(heat_color, cv2.COLOR_BGR2RGB)
-    heat_resized = cv2.resize(heat_rgb, (orig.shape[1], orig.shape[0]))
-    overlay = (0.6 * orig.astype(np.float32) + 0.4 * heat_resized.astype(np.float32))
-    overlay = np.clip(overlay, 0, 255).astype(np.uint8)
+        heat_u8 = (cam * 255).astype(np.uint8)
+        heat_color = cv2.applyColorMap(heat_u8, cv2.COLORMAP_JET)
+        heat_rgb = cv2.cvtColor(heat_color, cv2.COLOR_BGR2RGB)
+        heat_resized = cv2.resize(heat_rgb, (orig.shape[1], orig.shape[0]))
+        overlay = (0.6 * orig.astype(np.float32) + 0.4 * heat_resized.astype(np.float32))
+        overlay = np.clip(overlay, 0, 255).astype(np.uint8)
 
-    threshold = float(cam.max()) * 0.8
-    hotspots_y, hotspots_x = np.where(cam > threshold)
-    hotspot_regions: list[dict[str, float]] = []
-    for x, y in zip(hotspots_x[:10], hotspots_y[:10]):
-        hotspot_regions.append(
-            {
-                "x": float(x / max(cam.shape[1], 1)),
-                "y": float(y / max(cam.shape[0], 1)),
-                "intensity": float(cam[y, x]),
-            }
-        )
+        threshold = float(cam.max()) * 0.8
+        hotspots_y, hotspots_x = np.where(cam > threshold)
+        hotspot_regions: list[dict[str, float]] = []
+        for x, y in zip(hotspots_x[:10], hotspots_y[:10]):
+            hotspot_regions.append(
+                {
+                    "x": float(x / max(cam.shape[1], 1)),
+                    "y": float(y / max(cam.shape[0], 1)),
+                    "intensity": float(cam[y, x]),
+                }
+            )
 
-    return {
-        "heatmap_base64": _encode_png_b64(overlay),
-        "lesion_labels": DR_LESION_LABELS.get(grade, DR_LESION_LABELS.get(target_cls, [])),
-        "attention_score": float(cam.max()),
-        "hotspot_regions": hotspot_regions,
-        "gradcam_version": "gradcam++",
-        "gradcam_target_class": target_cls,
-    }
+        return {
+            "heatmap_base64": _encode_png_b64(overlay),
+            "lesion_labels": DR_LESION_LABELS.get(grade, DR_LESION_LABELS.get(target_cls, [])),
+            "attention_score": float(cam.max()),
+            "hotspot_regions": hotspot_regions,
+            "gradcam_version": "gradcam++",
+            "gradcam_target_class": target_cls,
+            "heatmap_error": None,
+        }
+    except Exception as exc:
+        log.exception("GradCAM++ failed")
+        return {
+            "heatmap_base64": "",
+            "lesion_labels": DR_LESION_LABELS.get(max(0, min(4, int(dr_grade))), []),
+            "attention_score": None,
+            "hotspot_regions": [],
+            "gradcam_version": None,
+            "heatmap_error": str(exc)[:500],
+        }
 
 
 class GradCAMVisualizer:
@@ -233,22 +295,16 @@ class GradCAMVisualizer:
 
         meta = self._load_meta()
         arch = resolve_cnn_arch(str(meta.get("arch") or self._config.cnn_arch))
-        path = self._config.cnn_model_path
-        if path.suffix == ".onnx":
-            pt_alt = path.with_suffix(".pt")
-            if pt_alt.is_file():
-                path = pt_alt
-        ckpt: dict | object | None = None
-        if path.is_file() and path.suffix == ".pt":
-            try:
-                ckpt = torch.load(path, map_location="cpu", weights_only=False)
-            except TypeError:
-                ckpt = torch.load(path, map_location="cpu")
-            if isinstance(ckpt, dict) and ckpt.get("arch"):
-                arch = resolve_cnn_arch(str(ckpt["arch"]))
+        cfg_path = self._config.cnn_model_path
+        pt_path = _resolve_pt_path(cfg_path, meta)
+        try:
+            ckpt = torch.load(pt_path, map_location="cpu", weights_only=False)
+        except TypeError:
+            ckpt = torch.load(pt_path, map_location="cpu")
+        if isinstance(ckpt, dict) and ckpt.get("arch"):
+            arch = resolve_cnn_arch(str(ckpt["arch"]))
         model, arch_key = build_dr_classifier(arch=arch, pretrained=False)
-        if path.is_file() and path.suffix == ".pt":
-            _load_state_dict(model, ckpt, arch_key)
+        _load_state_dict(model, ckpt, arch_key)
         device = torch.device(
             self._config.cnn_device if self._config.cnn_device == "cuda" else "cpu"
         )
@@ -256,10 +312,8 @@ class GradCAMVisualizer:
         model.eval()
         self._model = model
         self._device = device
-        if hasattr(model, "features"):
-            self._target_layer = model.features[-1]
-        else:
-            self._target_layer = GradCAMPlusPlus._get_last_conv(model)
+        self._target_layer = _resolve_target_layer(model)
+        log.info("GradCAM loaded PT weights from %s (arch=%s)", pt_path.name, arch_key)
 
     def _generate_sync(self, image_bytes: bytes, dr_grade: int | None = None) -> str:
         grade = 0 if dr_grade is None else int(dr_grade)

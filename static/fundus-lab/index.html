@@ -68,6 +68,8 @@
         <label>Bearer Token (선택 — Lab open 시 불필요)</label>
         <input type="password" id="token" placeholder="JWT" autocomplete="off" />
 
+        <label><input type="checkbox" id="heatmap" checked /> GradCAM++ 히트맵 포함</label>
+
         <button type="submit" id="btn">분석 실행</button>
       </form>
       <img id="preview" alt="preview" />
@@ -77,6 +79,7 @@
       <label>결과</label>
       <div id="status" class="sub"></div>
       <pre id="out">이미지를 선택하고 「분석 실행」을 누르세요.</pre>
+      <img id="heatmapImg" alt="GradCAM heatmap" style="max-width:100%;margin-top:0.75rem;border-radius:8px;display:none;" />
     </div>
   </div>
 
@@ -86,6 +89,7 @@
     const out = document.getElementById('out');
     const status = document.getElementById('status');
     const btn = document.getElementById('btn');
+    const heatmapImg = document.getElementById('heatmapImg');
 
     fileInput.addEventListener('change', () => {
       const f = fileInput.files[0];
@@ -115,6 +119,9 @@
       if (pid) fd.append('patient_id', pid);
       fd.append('lat', document.getElementById('lat').value);
       fd.append('lng', document.getElementById('lng').value);
+      if (document.getElementById('heatmap').checked) {
+        fd.append('include_heatmap', 'true');
+      }
 
       const mode = document.getElementById('mode').value;
       const url = `${apiBase()}/api/v1/lab/fundus/${mode}`;
@@ -129,6 +136,16 @@
         if (!res.ok) throw new Error(data.detail || res.statusText);
         status.innerHTML = `<span class="ok">완료</span> DR grade ${data.dr_grade} · conf ${(data.confidence*100).toFixed(0)}%`;
         out.textContent = JSON.stringify(data, null, 2);
+        const hm = data.heatmap_base64;
+        if (hm) {
+          heatmapImg.src = 'data:image/png;base64,' + hm;
+          heatmapImg.style.display = 'block';
+        } else {
+          heatmapImg.style.display = 'none';
+          if (data.heatmap_error) {
+            status.innerHTML += `<br><span class="err">heatmap: ${data.heatmap_error}</span>`;
+          }
+        }
       } catch (err) {
         status.innerHTML = `<span class="err">오류</span>`;
         out.textContent = String(err.message || err);

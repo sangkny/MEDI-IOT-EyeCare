@@ -126,7 +126,12 @@ async def _run_lab_analysis(
                 )
                 d.update(ann)
             except Exception as exc:
-                d["heatmap_error"] = str(exc)[:200]
+                log.exception("lab heatmap failed")
+                d["heatmap_base64"] = ""
+                d["heatmap_error"] = str(exc)[:500]
+                d["gradcam_version"] = None
+                d["attention_score"] = None
+                d["hotspot_regions"] = []
         return d
     return resp
 
@@ -207,7 +212,7 @@ async def lab_fundus_comprehensive(
     patient_id: str | None = Form(None),
     lat: float | None = Form(37.5665),
     lng: float | None = Form(126.9780),
-    include_heatmap: bool = Form(False),
+    include_heatmap: bool = Form(True),
     tasks: str = Form("dr", description="쉼표 구분: dr,glaucoma,amd"),
     _: dict = LAB_AUTH,
 ):

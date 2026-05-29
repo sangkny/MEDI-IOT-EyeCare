@@ -386,6 +386,19 @@ def load_image_tensor_from_path(
     return T.ToTensor()(img).unsqueeze(0).to(dtype=torch.float32)
 
 
+def resolve_gradcam_pt_path(cnn_model_path: Path, meta: dict | None = None) -> Path:
+    """ONNX 추론 경로에 대응하는 GradCAM용 .pt 체크포인트."""
+    from services.gradcam import _resolve_pt_path
+
+    if meta is None:
+        meta_path = cnn_model_path.with_name(cnn_model_path.stem + ".meta.json")
+        if meta_path.is_file():
+            meta = json.loads(meta_path.read_text(encoding="utf-8"))
+        else:
+            meta = {}
+    return _resolve_pt_path(cnn_model_path, meta)
+
+
 __all__ = [
     "DR_NUM_CLASSES",
     "DEFAULT_IMAGE_SIZE",
@@ -407,6 +420,7 @@ __all__ = [
     "resolve_preprocess_mode",
     "load_manifest_entries",
     "load_image_tensor_from_path",
+    "resolve_gradcam_pt_path",
     "DR_TO_ICD10",
     "DR_TO_SEVERITY",
     "DR_GRADE_CONDITION",
