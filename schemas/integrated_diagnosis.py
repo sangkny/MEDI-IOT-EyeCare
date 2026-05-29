@@ -90,5 +90,51 @@ class ComprehensiveDiagnosisRequest(DiagnosisExplainRequest):
     )
 
 
+class DRResult(BaseModel):
+    dr_grade: int = Field(..., ge=0, le=4)
+    confidence: float = Field(..., ge=0, le=1)
+    icd10_code: str
+    severity: str
+
+
+class GlaucomaResult(BaseModel):
+    glaucoma_grade: int = Field(..., ge=0, le=2, description="0:정상 1:의심 2:확진")
+    cup_disc_ratio: float = Field(..., ge=0, le=1)
+    confidence: float = Field(..., ge=0, le=1)
+    icd10_code: str = "H40.1"
+    severity: str = Field(..., description="normal/suspect/glaucoma")
+
+
+class AMDResult(BaseModel):
+    amd_grade: int = Field(..., ge=0, le=3, description="0:정상 1:초기 2:중기 3:말기")
+    drusen_detected: bool
+    subtype: str = Field(..., description="dry/wet/none")
+    confidence: float = Field(..., ge=0, le=1)
+    icd10_code: str = "H35.31"
+
+
+class MyopiaResult(BaseModel):
+    myopia_grade: int = Field(..., ge=0, le=3, description="0:정상 1:경도 2:중등도 3:고도")
+    confidence: float = Field(..., ge=0, le=1)
+    severity: str
+
+
+class MultiIndicationResult(BaseModel):
+    dr: DRResult | None = None
+    glaucoma: GlaucomaResult | None = None
+    amd: AMDResult | None = None
+    myopia: MyopiaResult | None = None
+    active_tasks: list[str] = Field(default_factory=list)
+    icd10_codes: dict[str, str] = Field(default_factory=dict)
+    primary_finding: str = ""
+    referral_urgency: str = Field(default="none", description="immediate/routine/none")
+
+
 class ComprehensiveDiagnosisResponse(DiagnosisExplainResponse):
     device_recommendations: list[DeviceRecommendation] = Field(default_factory=list)
+    glaucoma_grade: int | None = Field(default=None, ge=0, le=2)
+    amd_grade: int | None = Field(default=None, ge=0, le=3)
+    myopia_grade: int | None = Field(default=None, ge=0, le=3)
+    active_tasks: list[str] = Field(default_factory=list)
+    icd10_codes: dict[str, str] = Field(default_factory=dict)
+    multi_indication: MultiIndicationResult | None = None
