@@ -20,13 +20,123 @@ from services.retinal_cnn import (
 
 log = logging.getLogger("services.gradcam")
 
-DR_LESION_LABELS: dict[int, list[str]] = {
-    0: [],
-    1: ["미세혈관류(MA)"],
-    2: ["출혈(HE)", "경성삼출물(EX)"],
-    3: ["면화반(CWS)", "정맥확장(VB)"],
-    4: ["신생혈관(NV)", "유리체출혈(VH)"],
+DR_LESION_MAP: dict[int, dict[str, Any]] = {
+    0: {
+        "labels": [],
+        "description_ko": "당뇨망막병증 소견 없음",
+        "description_en": "No DR findings",
+    },
+    1: {
+        "labels": ["미세혈관류(MA)"],
+        "hotspot_label": "미세혈관류 의심",
+        "description_ko": "경미한 당뇨망막병증 — 미세혈관류",
+        "description_en": "Mild DR — Microaneurysms",
+        "icd10": "E11.311",
+    },
+    2: {
+        "labels": ["출혈(HE)", "경성삼출물(EX)"],
+        "hotspot_label": "출혈/삼출 의심",
+        "description_ko": "중등도 당뇨망막병증",
+        "description_en": "Moderate DR",
+        "icd10": "E11.321",
+    },
+    3: {
+        "labels": ["면화반(CWS)", "정맥확장(VB)"],
+        "hotspot_label": "면화반/정맥확장",
+        "description_ko": "중증 당뇨망막병증",
+        "description_en": "Severe DR",
+        "icd10": "E11.341",
+    },
+    4: {
+        "labels": ["신생혈관(NV)", "유리체출혈(VH)"],
+        "hotspot_label": "신생혈관 의심",
+        "description_ko": "증식성 당뇨망막병증",
+        "description_en": "Proliferative DR",
+        "icd10": "E11.351",
+    },
 }
+
+# 하위 호환
+DR_LESION_LABELS: dict[int, list[str]] = {
+    k: v.get("labels", []) for k, v in DR_LESION_MAP.items()
+}
+
+
+def classify_hotspot_region(
+    x_norm: float,
+    y_norm: float,
+    eye_side: str = "unknown",
+) -> str:
+    """hotspot 위치 → 해부학적 구역 (정규화 좌표 0~1)."""
+    del eye_side  # 향후 좌/우안 시신경 위치 보정용
+    if 0.35 <= x_norm <= 0.65 and 0.35 <= y_norm <= 0.65:
+        return "황반부(macula)"
+    if y_norm < 0.33:
+        return "상측 혈관궁(superior arcade)"
+    if y_norm > 0.67:
+        return "하측 혈관궁(inferior arcade)"
+    if x_norm < 0.33:
+        return "비측(nasal)"
+    if x_norm > 0.67:
+        return "이측(temporal)"
+    return "중간부(mid-periphery)"
+
+
+def generate_lesion_annotations(
+    hotspots: list[dict[str, Any]],
+    dr_grade: int,
+    attention_score: float,
+    eye_side: str = "unknown",
+    *,
+    lang: str = "ko",
+) -> dict[str, Any]:
+    """hotspot 위치 + DR 등급 → 병변 주석."""
+    grade = max(0, min(4, int(dr_grade)))
+    lesion_info = DR_LESION_MAP.get(grade, {})
+    desc_key = "description_ko" if lang == "ko" else "description_en"
+
+    annotated_hotspots: list[dict[str, Any]] = []
+    for hs in hotspots:
+        region = classify_hotspot_region(hs["x"], hs["y"], eye_side)
+        annotated_hotspots.append(
+            {
+                **hs,
+                "region": region,
+                "lesion_type": lesion_info.get("hotspot_label", "관심 영역"),
+            }
+        )
+
+    labels = list(lesion_info.get("labels", []))
+    if grade > 0 and annotated_hotspots:
+        regions = {classify_hotspot_region(h["x"], h["y"], eye_side) for h in hotspots[:5]}
+        if any("황반" in r for r in regions) and grade >= 2:
+            labels.append("황반부종(DME) 의심")
+
+    high_risk = list(
+        dict.fromkeys(
+            h["region"]
+            for h in annotated_hotspots
+            if float(h.get("intensity", 0)) >= 0.80
+        )
+    )
+
+    return {
+        "lesion_labels": labels,
+        "lesion_description": lesion_info.get(desc_key, ""),
+        "hotspot_regions": annotated_hotspots,
+        "attention_score": attention_score,
+        "high_risk_regions": high_risk,
+    }
+
+
+def _encode_jpeg_b64(rgb: np.ndarray, *, quality: int = 85) -> str:
+    import cv2
+
+    bgr = cv2.cvtColor(rgb, cv2.COLOR_RGB2BGR)
+    ok, buf = cv2.imencode(".jpg", bgr, [cv2.IMWRITE_JPEG_QUALITY, quality])
+    if not ok:
+        raise RuntimeError("JPEG encode failed")
+    return base64.b64encode(buf.tobytes()).decode("ascii")
 
 
 def _encode_png_b64(rgb: np.ndarray) -> str:
@@ -195,13 +305,14 @@ def generate_annotated_heatmap(
     *,
     visualizer: "GradCAMVisualizer | None" = None,
     lang: str = "ko",
+    eye_side: str = "unknown",
+    overlay_alpha: float = 0.45,
 ) -> dict[str, Any]:
     """
-    GradCAM++ 히트맵 + 병변 레이블·핫스팟.
+    GradCAM++ 히트맵 + 병변 레이블·핫스팟 (원본 해상도 오버레이).
 
-    반환: heatmap_base64, lesion_labels, attention_score, hotspot_regions, gradcam_version
+    반환: heatmap_base64, lesion_labels, hotspot_regions, cam_resolution 등
     """
-    del lang
     try:
         import cv2
         import torch
@@ -214,9 +325,12 @@ def generate_annotated_heatmap(
         pm = resolve_preprocess_mode(str(meta.get("preprocess") or ""))
 
         pil = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-        orig = np.array(pil)
-        arr = preprocess_fundus_array(orig, mode=pm)
-        resized = Image.fromarray(arr).resize((size, size))
+        orig_w, orig_h = pil.size
+        orig_np = np.array(pil)
+        proc_np = preprocess_fundus_array(orig_np, mode=pm)
+        proc_h, proc_w = proc_np.shape[:2]
+
+        resized = Image.fromarray(proc_np).resize((size, size))
         tensor = torch.from_numpy(np.array(resized)).permute(2, 0, 1).float() / 255.0
         tensor = tensor.unsqueeze(0).to(viz._device)
         tensor.requires_grad_(True)
@@ -225,39 +339,69 @@ def generate_annotated_heatmap(
         gpp = GradCAMPlusPlus(viz._model, target_layer=viz._target_layer)
         cam, target_cls = gpp.generate(tensor, target_class=grade)
 
-        heat_u8 = (cam * 255).astype(np.uint8)
+        # CAM → 원본(전처리) 해상도 업스케일
+        cam_orig = cv2.resize(cam, (proc_w, proc_h), interpolation=cv2.INTER_CUBIC)
+        cam_orig = (cam_orig - cam_orig.min()) / (cam_orig.max() - cam_orig.min() + 1e-8)
+
+        heat_u8 = (cam_orig * 255).astype(np.uint8)
         heat_color = cv2.applyColorMap(heat_u8, cv2.COLORMAP_JET)
         heat_rgb = cv2.cvtColor(heat_color, cv2.COLOR_BGR2RGB)
-        heat_resized = cv2.resize(heat_rgb, (orig.shape[1], orig.shape[0]))
-        overlay = (0.6 * orig.astype(np.float32) + 0.4 * heat_resized.astype(np.float32))
+
+        base_rgb = proc_np if proc_np.shape[:2] == (proc_h, proc_w) else cv2.resize(
+            proc_np, (proc_w, proc_h)
+        )
+        overlay = (
+            (1.0 - overlay_alpha) * base_rgb.astype(np.float32)
+            + overlay_alpha * heat_rgb.astype(np.float32)
+        )
         overlay = np.clip(overlay, 0, 255).astype(np.uint8)
 
-        threshold = float(cam.max()) * 0.8
-        hotspots_y, hotspots_x = np.where(cam > threshold)
-        hotspot_regions: list[dict[str, float]] = []
+        threshold = float(cam_orig.max()) * 0.80
+        hotspots_y, hotspots_x = np.where(cam_orig > threshold)
+        hotspot_regions: list[dict[str, Any]] = []
         for x, y in zip(hotspots_x[:10], hotspots_y[:10]):
             hotspot_regions.append(
                 {
-                    "x": float(x / max(cam.shape[1], 1)),
-                    "y": float(y / max(cam.shape[0], 1)),
-                    "intensity": float(cam[y, x]),
+                    "x": float(x / max(proc_w, 1)),
+                    "y": float(y / max(proc_h, 1)),
+                    "intensity": float(cam_orig[y, x]),
+                    "x_px": int(x),
+                    "y_px": int(y),
                 }
             )
 
+        attention_score = float(cam_orig.max())
+        lesion_ann = generate_lesion_annotations(
+            hotspot_regions,
+            grade,
+            attention_score,
+            eye_side,
+            lang=lang,
+        )
+
         return {
-            "heatmap_base64": _encode_png_b64(overlay),
-            "lesion_labels": DR_LESION_LABELS.get(grade, DR_LESION_LABELS.get(target_cls, [])),
-            "attention_score": float(cam.max()),
-            "hotspot_regions": hotspot_regions,
+            "heatmap_base64": _encode_jpeg_b64(overlay, quality=85),
+            "heatmap_width": proc_w,
+            "heatmap_height": proc_h,
+            "cam_resolution": f"{proc_w}x{proc_h}",
+            "orig_width": orig_w,
+            "orig_height": orig_h,
             "gradcam_version": "gradcam++",
             "gradcam_target_class": target_cls,
             "heatmap_error": None,
+            **lesion_ann,
         }
     except Exception as exc:
         log.exception("GradCAM++ failed")
+        grade = max(0, min(4, int(dr_grade)))
         return {
             "heatmap_base64": "",
-            "lesion_labels": DR_LESION_LABELS.get(max(0, min(4, int(dr_grade))), []),
+            "heatmap_width": 0,
+            "heatmap_height": 0,
+            "cam_resolution": "",
+            "lesion_labels": DR_LESION_LABELS.get(grade, []),
+            "lesion_description": "",
+            "high_risk_regions": [],
             "attention_score": None,
             "hotspot_regions": [],
             "gradcam_version": None,
@@ -339,9 +483,18 @@ class GradCAMVisualizer:
         self,
         image_bytes: bytes,
         dr_grade: int,
+        *,
+        eye_side: str = "unknown",
+        lang: str = "ko",
     ) -> dict[str, Any]:
         loop = asyncio.get_running_loop()
         return await loop.run_in_executor(
             None,
-            lambda: generate_annotated_heatmap(image_bytes, dr_grade, visualizer=self),
+            lambda: generate_annotated_heatmap(
+                image_bytes,
+                dr_grade,
+                visualizer=self,
+                eye_side=eye_side,
+                lang=lang,
+            ),
         )

@@ -77,6 +77,7 @@ async def _run_lab_analysis(
     lng: float | None,
     comprehensive: bool,
     include_heatmap: bool = False,
+    eye_side: str = "unknown",
 ):
     image_bytes, fmt_label = await _read_and_validate(file)
     loc = None
@@ -122,7 +123,10 @@ async def _run_lab_analysis(
                 from services.gradcam import GradCAMVisualizer
 
                 ann = await GradCAMVisualizer().generate_annotated(
-                    image_bytes, int(d.get("dr_grade", 0))
+                    image_bytes,
+                    int(d.get("dr_grade", 0)),
+                    eye_side=eye_side,
+                    lang=lang,
                 )
                 d.update(ann)
             except Exception as exc:
@@ -213,6 +217,7 @@ async def lab_fundus_comprehensive(
     lat: float | None = Form(37.5665),
     lng: float | None = Form(126.9780),
     include_heatmap: bool = Form(True),
+    eye_side: str = Form("unknown", description="left | right | unknown"),
     tasks: str = Form("dr", description="쉼표 구분: dr,glaucoma,amd"),
     _: dict = LAB_AUTH,
 ):
@@ -225,6 +230,7 @@ async def lab_fundus_comprehensive(
         lng=lng,
         comprehensive=True,
         include_heatmap=include_heatmap,
+        eye_side=eye_side,
     )
     active = [t.strip() for t in tasks.split(",") if t.strip()]
     if len(active) > 1 or (len(active) == 1 and active[0] != "dr"):

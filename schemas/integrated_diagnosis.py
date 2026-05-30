@@ -57,6 +57,10 @@ class HotspotRegion(BaseModel):
     x: float = Field(..., ge=0, le=1)
     y: float = Field(..., ge=0, le=1)
     intensity: float = Field(..., ge=0, le=1)
+    x_px: int | None = None
+    y_px: int | None = None
+    region: str = ""
+    lesion_type: str = ""
 
 
 class DiagnosisExplainResponse(BaseModel):
@@ -79,7 +83,12 @@ class DiagnosisExplainResponse(BaseModel):
         description="4-에이전트 결정 감사 추적 (scores, summaries)",
     )
     heatmap_base64: str | None = None
+    heatmap_width: int | None = None
+    heatmap_height: int | None = None
+    cam_resolution: str | None = None
     lesion_labels: list[str] = Field(default_factory=list)
+    lesion_description: str = ""
+    high_risk_regions: list[str] = Field(default_factory=list)
     attention_score: float | None = None
     hotspot_regions: list[HotspotRegion] = Field(default_factory=list)
     gradcam_version: str | None = None

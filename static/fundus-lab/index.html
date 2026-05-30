@@ -15,20 +15,25 @@
     .card { background: var(--card); border-radius: 10px; padding: 1rem 1.25rem; }
     label { display: block; font-size: 0.8rem; color: var(--muted); margin: 0.6rem 0 0.25rem; }
     input, select, textarea { width: 100%; padding: 0.5rem; border-radius: 6px; border: 1px solid #334155; background: #0f172a; color: var(--text); }
-    input[type=file] { padding: 0.35rem; }
+    input[type=file], input[type=checkbox] { width: auto; }
     button { margin-top: 1rem; background: var(--accent); color: #fff; border: none; padding: 0.65rem 1.2rem; border-radius: 8px; cursor: pointer; font-weight: 600; }
     button:disabled { opacity: 0.5; cursor: not-allowed; }
     #preview { max-width: 100%; max-height: 280px; margin-top: 0.75rem; border-radius: 8px; display: none; }
-    pre { background: #0f172a; padding: 0.75rem; border-radius: 8px; overflow: auto; font-size: 0.75rem; max-height: 420px; white-space: pre-wrap; }
+    pre { background: #0f172a; padding: 0.75rem; border-radius: 8px; overflow: auto; font-size: 0.75rem; max-height: 320px; white-space: pre-wrap; }
     .formats { font-size: 0.8rem; color: var(--muted); }
     .badge { display: inline-block; background: #334155; padding: 0.15rem 0.5rem; border-radius: 4px; margin: 0.1rem; font-size: 0.75rem; }
+    .lesion-badge { background:#fee2e2; color:#991b1b; padding:2px 8px; border-radius:4px; font-size:12px; margin:2px; display:inline-block; }
     .err { color: #f87171; }
     .ok { color: #4ade80; }
+    .heatmap-wrap { position:relative; margin-top:0.75rem; display:none; }
+    .heatmap-wrap img { width:100%; border-radius:8px; display:block; }
+    #hotspot-markers { position:absolute; inset:0; pointer-events:none; }
+    .hotspot-dot { position:absolute; width:12px; height:12px; border-radius:50%; background:rgba(255,50,50,0.85); border:2px solid white; transform:translate(-50%,-50%); pointer-events:auto; cursor:help; }
   </style>
 </head>
 <body>
   <h1>MEDI Fundus Lab</h1>
-  <p class="sub">안저 사진 업로드 → CNN DR 등급 · LLM 설명 · (선택) 병원·MEDI-EYE 추천</p>
+  <p class="sub">안저 사진 업로드 → CNN DR 등급 · GradCAM++ · LLM 설명</p>
   <p class="formats">
     지원 포맷:
     <span class="badge">JPEG</span><span class="badge">PNG</span><span class="badge">TIFF</span>
@@ -45,6 +50,13 @@
         <select id="mode">
           <option value="explain">explain (CNN + LLM)</option>
           <option value="comprehensive" selected>comprehensive (+ 병원 + MEDI-EYE)</option>
+        </select>
+
+        <label>눈 (eye_side)</label>
+        <select id="eye_side">
+          <option value="unknown">unknown</option>
+          <option value="left">left (좌안)</option>
+          <option value="right">right (우안)</option>
         </select>
 
         <label>언어</label>
@@ -78,8 +90,14 @@
     <div class="card">
       <label>결과</label>
       <div id="status" class="sub"></div>
+      <div id="lesion-labels"></div>
+      <p id="lesion-description" class="sub"></p>
+      <p id="high-risk" class="sub"></p>
+      <div class="heatmap-wrap" id="heatmap-wrap">
+        <img id="heatmapImg" alt="GradCAM heatmap" />
+        <div id="hotspot-markers"></div>
+      </div>
       <pre id="out">이미지를 선택하고 「분석 실행」을 누르세요.</pre>
-      <img id="heatmapImg" alt="GradCAM heatmap" style="max-width:100%;margin-top:0.75rem;border-radius:8px;display:none;" />
     </div>
   </div>
 
@@ -90,6 +108,8 @@
     const status = document.getElementById('status');
     const btn = document.getElementById('btn');
     const heatmapImg = document.getElementById('heatmapImg');
+    const heatmapWrap = document.getElementById('heatmap-wrap');
+    const hotspotMarkers = document.getElementById('hotspot-markers');
 
     fileInput.addEventListener('change', () => {
       const f = fileInput.files[0];
@@ -103,6 +123,26 @@
       return b || window.location.origin;
     }
 
+    function renderLesionLabels(labels, description) {
+      const el = document.getElementById('lesion-labels');
+      el.innerHTML = (labels || []).map(l => `<span class="lesion-badge">${l}</span>`).join('')
+        || '<span class="sub">병변 레이블 없음</span>';
+      document.getElementById('lesion-description').textContent = description || '';
+    }
+
+    function renderHotspots(hotspots) {
+      hotspotMarkers.innerHTML = '';
+      (hotspots || []).slice(0, 5).forEach(hs => {
+        if ((hs.intensity || 0) < 0.80) return;
+        const marker = document.createElement('div');
+        marker.className = 'hotspot-dot';
+        marker.style.left = `${(hs.x || 0) * 100}%`;
+        marker.style.top = `${(hs.y || 0) * 100}%`;
+        marker.title = `${hs.region || ''}: ${hs.lesion_type || ''}`;
+        hotspotMarkers.appendChild(marker);
+      });
+    }
+
     document.getElementById('form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const f = fileInput.files[0];
@@ -111,10 +151,12 @@
       status.textContent = '업로드·분석 중…';
       status.className = 'sub';
       out.textContent = '';
+      heatmapWrap.style.display = 'none';
 
       const fd = new FormData();
       fd.append('file', f);
       fd.append('lang', document.getElementById('lang').value);
+      fd.append('eye_side', document.getElementById('eye_side').value);
       const pid = document.getElementById('patient_id').value.trim();
       if (pid) fd.append('patient_id', pid);
       fd.append('lat', document.getElementById('lat').value);
@@ -134,17 +176,18 @@
         const res = await fetch(url, { method: 'POST', body: fd, headers });
         const data = await res.json();
         if (!res.ok) throw new Error(data.detail || res.statusText);
-        status.innerHTML = `<span class="ok">완료</span> DR grade ${data.dr_grade} · conf ${(data.confidence*100).toFixed(0)}%`;
+        status.innerHTML = `<span class="ok">완료</span> DR ${data.dr_grade} · conf ${(data.confidence*100).toFixed(0)}% · ${data.cam_resolution || ''}`;
+        renderLesionLabels(data.lesion_labels, data.lesion_description);
+        document.getElementById('high-risk').textContent = data.high_risk_regions?.length
+          ? `고위험 구역: ${data.high_risk_regions.join(', ')}` : '';
         out.textContent = JSON.stringify(data, null, 2);
         const hm = data.heatmap_base64;
         if (hm) {
-          heatmapImg.src = 'data:image/png;base64,' + hm;
-          heatmapImg.style.display = 'block';
-        } else {
-          heatmapImg.style.display = 'none';
-          if (data.heatmap_error) {
-            status.innerHTML += `<br><span class="err">heatmap: ${data.heatmap_error}</span>`;
-          }
+          heatmapImg.onload = () => renderHotspots(data.hotspot_regions);
+          heatmapImg.src = 'data:image/jpeg;base64,' + hm;
+          heatmapWrap.style.display = 'block';
+        } else if (data.heatmap_error) {
+          status.innerHTML += `<br><span class="err">heatmap: ${data.heatmap_error}</span>`;
         }
       } catch (err) {
         status.innerHTML = `<span class="err">오류</span>`;
