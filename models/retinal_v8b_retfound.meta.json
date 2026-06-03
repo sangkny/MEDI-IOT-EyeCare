@@ -1,0 +1,25 @@
+{
+  "arch": "retfound",
+  "preprocess": "none",
+  "image_size": 224,
+  "onnx": "retinal_v8b_retfound.onnx",
+  "pt": "retinal_v8b_retfound.pt",
+  "version": "train-kit-v1",
+  "trained_on": "unified_eyeq_good.json",
+  "epochs": 100,
+  "resume_from": "retinal_v8_retfound.pt",
+  "resume_epoch": 34,
+  "lr": 3e-06,
+  "batch_size": 4,
+  "best_val_qwk": 0.7105,
+  "qwk": 0.7105,
+  "data_count": 13582,
+  "datasets": [
+    "eyepacs_good",
+    "aptos",
+    "messidor2",
+    "idrid"
+  ],
+  "created_at": "2026-06-03T05:44:04.222277+00:00",
+  "notes": "EyeQ Good 13,582 resume v8 ep34"
+}
