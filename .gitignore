@@ -38,3 +38,4 @@ training/manifests/*_eyepacs.json
 !training/manifests/sample_*.json
 !training/manifests/README.md
 # CI workflow 는 추적 (.github/workflows/ci.yml) — Appendix F cicd-guide.md
+models/pretrained/
