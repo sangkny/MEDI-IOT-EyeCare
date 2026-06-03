@@ -23,7 +23,7 @@ docker run --rm --entrypoint bash \
     python3 training/make_manifest.py \
       --task glaucoma \
       --data-root /dataset/$DATASET_NAME \
-      --sources g1020 refuge origa \
+      --sources g1020,refuge,origa \
       --val-ratio 0.10 \
       --test-ratio 0.10 \
       --output $OUTPUT
