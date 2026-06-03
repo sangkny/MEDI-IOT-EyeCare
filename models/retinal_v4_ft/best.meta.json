@@ -1,0 +1,14 @@
+{
+  "arch": "efficientnet_b4_se",
+  "preprocess": "clahe",
+  "image_size": 224,
+  "onnx": "best.onnx",
+  "pt": "best.pt",
+  "version": "v4-finetune-v1",
+  "trained_on": "unified_v4.json",
+  "epochs": 50,
+  "best_val_qwk": 0.8204,
+  "qwk": 0.8204,
+  "mixup": 0.4,
+  "label_smoothing": 0.1
+}
