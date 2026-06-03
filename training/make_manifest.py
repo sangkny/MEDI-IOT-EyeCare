@@ -16,19 +16,98 @@ import random
 from pathlib import Path
 
 
+def _first_existing_dir(candidates: list[Path]) -> Path | None:
+    for path in candidates:
+        if path.is_dir():
+            return path
+    return None
+
+
+def _parse_glaucoma_label(raw: str | int | float | None) -> int | None:
+    if raw is None:
+        return None
+    text = str(raw).strip().lower()
+    if text in {"1", "1.0", "true", "yes", "g", "glaucoma", "rg", "positive", "pos"}:
+        return 1
+    if text in {"0", "0.0", "false", "no", "n", "normal", "nrg", "negative", "neg"}:
+        return 0
+    try:
+        value = int(float(text))
+        if value in (0, 1):
+            return value
+    except ValueError:
+        pass
+    return None
+
+
+def _glaucoma_sample(data_root: Path, img: Path, label: int, source: str) -> dict:
+    return {
+        "path": str(img.relative_to(data_root)),
+        "glaucoma_grade": label,
+        "label": label,
+        "source": source,
+        "task": "glaucoma",
+    }
+
+
 def load_refuge(data_root: Path) -> list[dict]:
     """
-    REFUGE: 1,200장
-    라벨: glaucoma(1)/normal(0) — Glaucoma 폴더명 또는 CSV 기준
-    태스크: glaucoma
+    REFUGE (glaucoma-datasets): train/val/test + index.json
+    JSON: {idx: {ImgName, Label, ...}} · 이미지: {split}/Images/{ImgName}
     """
-    base = data_root / "REFUGE_raw"
+    base = _first_existing_dir(
+        [
+            data_root / "REFUGE",
+            data_root / "Glaucoma_raw" / "REFUGE",
+            data_root / "REFUGE_raw",
+        ]
+    )
+    if base is None:
+        return []
+
     samples: list[dict] = []
-    if not base.is_dir():
+    for split in ("train", "val", "test"):
+        split_dir = base / split
+        index_path = split_dir / "index.json"
+        if not index_path.is_file():
+            continue
+        img_dir = split_dir / "Images"
+        if not img_dir.is_dir():
+            img_dir = split_dir / "images"
+        entries = json.loads(index_path.read_text(encoding="utf-8"))
+        if isinstance(entries, dict):
+            rows = entries.values()
+        elif isinstance(entries, list):
+            rows = entries
+        else:
+            continue
+        for row in rows:
+            if not isinstance(row, dict):
+                continue
+            name = (row.get("ImgName") or row.get("imgname") or row.get("filename") or "").strip()
+            label = _parse_glaucoma_label(row.get("Label", row.get("label")))
+            if not name or label is None:
+                continue
+            img = img_dir / name
+            if not img.is_file():
+                stem = Path(name).stem
+                for ext in (".jpg", ".jpeg", ".png", ".JPG", ".JPEG", ""):
+                    candidate = img_dir / (name if ext == "" else stem + ext)
+                    if candidate.is_file():
+                        img = candidate
+                        break
+            if img.is_file():
+                samples.append(_glaucoma_sample(data_root, img, label, "refuge"))
+
+    if samples:
         return samples
 
+    # 레거시: REFUGE_raw/Training400 … 폴더명 기반
+    legacy = data_root / "REFUGE_raw"
+    if not legacy.is_dir():
+        return samples
     for split_dir in ("Training400", "Validation400", "Test400"):
-        split_path = base / split_dir
+        split_path = legacy / split_dir
         if not split_path.is_dir():
             continue
         for img in split_path.rglob("*.jpg"):
@@ -39,14 +118,7 @@ def load_refuge(data_root: Path) -> list[dict]:
                 label = 0
             else:
                 label = 1 if "g" in img.stem.lower() else 0
-            samples.append(
-                {
-                    "path": str(img.relative_to(data_root)),
-                    "glaucoma_grade": label,
-                    "source": "refuge",
-                    "task": "glaucoma",
-                }
-            )
+            samples.append(_glaucoma_sample(data_root, img, label, "refuge"))
     return samples
 
 
@@ -136,51 +208,16 @@ def load_odir(data_root: Path) -> list[dict]:
     return samples
 
 
-def _first_existing_dir(candidates: list[Path]) -> Path | None:
-    for path in candidates:
-        if path.is_dir():
-            return path
-    return None
-
-
-def _parse_glaucoma_label(raw: str | int | float | None) -> int | None:
-    if raw is None:
-        return None
-    text = str(raw).strip().lower()
-    if text in {"1", "1.0", "true", "yes", "g", "glaucoma", "rg", "positive", "pos"}:
-        return 1
-    if text in {"0", "0.0", "false", "no", "n", "normal", "nrg", "negative", "neg"}:
-        return 0
-    try:
-        value = int(float(text))
-        if value in (0, 1):
-            return value
-    except ValueError:
-        pass
-    return None
-
-
-def _glaucoma_sample(data_root: Path, img: Path, label: int, source: str) -> dict:
-    return {
-        "path": str(img.relative_to(data_root)),
-        "glaucoma_grade": label,
-        "label": label,
-        "source": source,
-        "task": "glaucoma",
-    }
-
-
 def load_g1020(data_root: Path) -> list[dict]:
     """
-    G1020: G1020/G1020.csv + G1020/Images/*.jpg
-    라벨: CSV glaucoma 컬럼 (0/1)
-    경로: Glaucoma_raw/G1020 (arnavjain1/glaucoma-datasets)
+    G1020: G1020/G1020.csv — imageID, binaryLabels (0=normal, 1=glaucoma)
+    이미지: G1020/Images/{imageID}
     """
     base = _first_existing_dir(
         [
+            data_root / "G1020",
             data_root / "Glaucoma_raw" / "G1020",
             data_root / "G1020_raw" / "G1020",
-            data_root / "G1020",
         ]
     )
     if base is None:
@@ -188,51 +225,76 @@ def load_g1020(data_root: Path) -> list[dict]:
 
     csv_path = base / "G1020.csv"
     if not csv_path.is_file():
-        for alt in ("g1020.csv", "labels.csv"):
-            candidate = base / alt
-            if candidate.is_file():
-                csv_path = candidate
-                break
-        else:
-            return []
+        return []
 
     img_dir = base / "Images"
     if not img_dir.is_dir():
         img_dir = base / "images"
 
-    label_keys = ("glaucoma", "Glaucoma", "label", "Label", "class", "Class", "diagnosis")
-    name_keys = ("image", "Image", "filename", "Filename", "file", "name", "img", "path")
+    samples: list[dict] = []
+    with csv_path.open(encoding="utf-8-sig", newline="") as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            image_id = (row.get("imageID") or row.get("ImageID") or row.get("image") or "").strip()
+            label = _parse_glaucoma_label(
+                row.get("binaryLabels", row.get("BinaryLabels", row.get("glaucoma")))
+            )
+            if not image_id or label is None:
+                continue
+            img = img_dir / image_id
+            if not img.is_file():
+                stem = Path(image_id).stem
+                for ext in (".jpg", ".jpeg", ".png", ".JPG", ".JPEG", ""):
+                    candidate = img_dir / (image_id if ext == "" else stem + ext)
+                    if candidate.is_file():
+                        img = candidate
+                        break
+            if img.is_file():
+                samples.append(_glaucoma_sample(data_root, img, label, "g1020"))
+    return samples
+
+
+def load_origa(data_root: Path) -> list[dict]:
+    """
+    ORIGA: ORIGA/OrigaList.csv — Filename, Glaucoma (0/1)
+    이미지: ORIGA/Images/{Filename}
+    """
+    base = _first_existing_dir(
+        [
+            data_root / "ORIGA",
+            data_root / "Glaucoma_raw" / "ORIGA",
+            data_root / "ORIGA_raw",
+        ]
+    )
+    if base is None:
+        return []
+
+    csv_path = base / "OrigaList.csv"
+    if not csv_path.is_file():
+        return []
+
+    img_dir = base / "Images"
+    if not img_dir.is_dir():
+        img_dir = base / "images"
 
     samples: list[dict] = []
     with csv_path.open(encoding="utf-8-sig", newline="") as f:
         reader = csv.DictReader(f)
-        if not reader.fieldnames:
-            return samples
-        fields = {c.lower(): c for c in reader.fieldnames}
-        label_col = next((fields[k.lower()] for k in label_keys if k.lower() in fields), None)
-        name_col = next((fields[k.lower()] for k in name_keys if k.lower() in fields), None)
-        if label_col is None or name_col is None:
-            return samples
-
         for row in reader:
-            label = _parse_glaucoma_label(row.get(label_col))
-            if label is None:
+            filename = (row.get("Filename") or row.get("filename") or "").strip()
+            label = _parse_glaucoma_label(row.get("Glaucoma", row.get("glaucoma")))
+            if not filename or label is None:
                 continue
-            name = (row.get(name_col) or "").strip()
-            if not name:
-                continue
-            stem = Path(name).stem
-            img = None
-            for ext in (".jpg", ".jpeg", ".png", ".JPG", ".JPEG", ".PNG", ""):
-                candidate = img_dir / (name if ext == "" else stem + ext)
-                if candidate.is_file():
-                    img = candidate
-                    break
-            if img is None and img_dir.is_dir():
-                matches = list(img_dir.glob(f"{stem}.*"))
-                img = matches[0] if matches else None
-            if img is not None:
-                samples.append(_glaucoma_sample(data_root, img, label, "g1020"))
+            img = img_dir / filename
+            if not img.is_file():
+                stem = Path(filename).stem
+                for ext in (".jpg", ".jpeg", ".png", ".tif", ".TIF", ""):
+                    candidate = img_dir / (filename if ext == "" else stem + ext)
+                    if candidate.is_file():
+                        img = candidate
+                        break
+            if img.is_file():
+                samples.append(_glaucoma_sample(data_root, img, label, "origa"))
     return samples
 
 
@@ -324,21 +386,32 @@ def load_refuge2(data_root: Path) -> list[dict]:
     return samples
 
 
+GLAUCOMA_LOADERS: dict[str, object] = {
+    "g1020": load_g1020,
+    "refuge": load_refuge,
+    "origa": load_origa,
+}
+
+
 def build_glaucoma_manifest(
     dataset_root: Path,
     output_path: Path,
     *,
-    val_ratio: float = 0.15,
-    test_ratio: float = 0.15,
+    sources: tuple[str, ...] | None = None,
+    val_ratio: float = 0.10,
+    test_ratio: float = 0.10,
     seed: int = 42,
 ) -> dict:
-    """G1020 + REFUGE2(존재 시) → glaucoma_v1 manifest."""
+    """G1020 + REFUGE + ORIGA → glaucoma_v1 (train 80% / val 10% / test 10%)."""
     data_root = dataset_root.expanduser().resolve()
-    loaders = (("g1020", load_g1020), ("refuge2", load_refuge2))
+    source_names = sources or tuple(GLAUCOMA_LOADERS.keys())
     all_samples: list[dict] = []
     counts: dict[str, int] = {}
-    for name, loader in loaders:
-        loaded = loader(data_root)
+    for name in source_names:
+        loader = GLAUCOMA_LOADERS.get(name)
+        if loader is None:
+            raise ValueError(f"unknown glaucoma source={name!r}; choose from {sorted(GLAUCOMA_LOADERS)}")
+        loaded = loader(data_root)  # type: ignore[operator]
         counts[name] = len(loaded)
         all_samples.extend(loaded)
 
@@ -358,23 +431,34 @@ def build_glaucoma_manifest(
         test_ratio=test_ratio,
         seed=seed,
     )
-    pos = sum(1 for s in all_samples if int(s.get("glaucoma_grade", s.get("label", 0))) == 1)
-    neg = len(all_samples) - pos
+    for chunk, split_name in ((train, "train"), (val, "val"), (test, "test")):
+        for sample in chunk:
+            sample["split"] = split_name
+
+    combined = train + val + test
+    pos = sum(1 for s in combined if int(s.get("label", s.get("glaucoma_grade", 0))) == 1)
+    neg = len(combined) - pos
+    total = len(combined)
+    pct_g = (pos / total * 100.0) if total else 0.0
+    pct_n = (neg / total * 100.0) if total else 0.0
 
     manifest = {
         "data_dir": str(data_root),
         "task": "glaucoma",
         "version": 1,
         "sources": counts,
-        "total": len(all_samples),
+        "total": total,
         "stats": {
-            "total": len(all_samples),
+            "total": total,
             "glaucoma": pos,
             "normal": neg,
+            "glaucoma_pct": round(pct_g, 2),
+            "normal_pct": round(pct_n, 2),
             "train": len(train),
             "val": len(val),
             "test": len(test),
         },
+        "samples": combined,
         "train": train,
         "val": val,
         "test": test,
@@ -384,7 +468,7 @@ def build_glaucoma_manifest(
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
     print(
-        f"OK {out} total={len(all_samples)} glaucoma={pos} normal={neg} "
+        f"OK {out} total={total} glaucoma={pos} ({pct_g:.1f}%) normal={neg} ({pct_n:.1f}%) "
         f"train={len(train)} val={len(val)} test={len(test)} sources={counts}"
     )
     return manifest
@@ -418,6 +502,7 @@ LOADERS = {
     "refuge": load_refuge,
     "refuge2": load_refuge2,
     "g1020": load_g1020,
+    "origa": load_origa,
     "airogs": load_airogs,
     "adam": load_adam_amd,
     "odir": load_odir,
@@ -451,12 +536,12 @@ def main() -> None:
         "--task",
         choices=("multi", "glaucoma"),
         default="multi",
-        help="glaucoma: G1020+REFUGE2 전용 manifest",
+        help="glaucoma: G1020+REFUGE+ORIGA manifest",
     )
     parser.add_argument(
         "--sources",
         default="refuge,brazil,adam,odir",
-        help="쉼표 구분: refuge,refuge2,g1020,airogs,adam,odir,brazil",
+        help="multi: refuge,brazil,... · glaucoma: g1020,refuge,origa",
     )
     parser.add_argument("--output", type=Path, default=Path("training/manifests/multi_indication.json"))
     parser.add_argument("--val-ratio", type=float, default=0.15)
@@ -467,9 +552,15 @@ def main() -> None:
     data_root = args.data_root.expanduser().resolve()
 
     if args.task == "glaucoma":
+        src = tuple(
+            s.strip()
+            for s in args.sources.replace(",", " ").split()
+            if s.strip()
+        )
         build_glaucoma_manifest(
             data_root,
             args.output,
+            sources=src or None,
             val_ratio=args.val_ratio,
             test_ratio=args.test_ratio,
             seed=args.seed,
