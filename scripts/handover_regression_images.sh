@@ -30,17 +30,21 @@ for eye in left right; do
     -F "lang=ko" \
     -F "include_heatmap=true" \
     -F "eye_side=${eye}" \
-    | python3 -c "
-import sys,json,base64,os
-d=json.load(sys.stdin)
-print('DR',d.get('dr_grade'),'conf',round(d.get('confidence',0),4))
-print('lesion',d.get('lesion_labels'))
-print('decision',d.get('audit_trail',{}).get('decision'))
-hm=d.get('heatmap_base64','')
+    -o "/tmp/medi_${eye}_comp.json"
+  python3 - "$eye" "$MEDI" <<'PY'
+import base64, json, os, sys
+eye, medi_dir = sys.argv[1], sys.argv[2]
+d = json.load(open(f"/tmp/medi_{eye}_comp.json"))
+print("DR", d.get("dr_grade"), "conf", round(d.get("confidence", 0), 4))
+print("lesion", d.get("lesion_labels"))
+print("decision", d.get("audit_trail", {}).get("decision"))
+hm = d.get("heatmap_base64") or ""
 if hm:
-    fn=f'heatmap_{eye}_latest.jpg'
-    open(fn,'wb').write(base64.b64decode(hm))
-    print('saved',fn,os.path.getsize(fn))
-" || echo "fail ${eye}"
+    fn = os.path.join(medi_dir, f"heatmap_{eye}_latest.jpg")
+    raw = base64.b64decode(hm)
+    with open(fn, "wb") as f:
+        f.write(raw)
+    print("saved", fn, len(raw))
+PY
 done
 echo "OK handover_regression_images"
