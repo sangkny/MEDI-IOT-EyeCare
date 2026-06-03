@@ -1,0 +1,10 @@
+{
+  "arch": "efficientnet_b4_multitask",
+  "dr_manifest": "unified_v4.json",
+  "glaucoma_manifest": "glaucoma_v1.json",
+  "best_val_qwk": 0.8328,
+  "best_val_auc": 0.7236,
+  "epochs": 60,
+  "dr_loss_weight": 0.6,
+  "glaucoma_loss_weight": 0.4
+}
