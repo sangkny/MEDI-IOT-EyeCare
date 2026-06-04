@@ -50,7 +50,12 @@ def _glaucoma_sample(data_root: Path, img: Path, label: int, source: str) -> dic
     }
 
 
-def load_refuge(data_root: Path) -> list[dict]:
+def load_refuge(
+    data_root: Path,
+    *,
+    extra_root: Path | None = None,
+    manifest_root: Path | None = None,
+) -> list[dict]:
     """
     REFUGE (glaucoma-datasets): train/val/test + index.json
     JSON: {idx: {ImgName, Label, ...}} · 이미지: {split}/Images/{ImgName}
@@ -65,6 +70,7 @@ def load_refuge(data_root: Path) -> list[dict]:
     if base is None:
         return []
 
+    path_root = manifest_root or data_root
     samples: list[dict] = []
     for split in ("train", "val", "test"):
         split_dir = base / split
@@ -97,7 +103,7 @@ def load_refuge(data_root: Path) -> list[dict]:
                         img = candidate
                         break
             if img.is_file():
-                samples.append(_glaucoma_sample(data_root, img, label, "refuge"))
+                samples.append(_glaucoma_sample(path_root, img, label, "refuge"))
 
     if samples:
         return samples
@@ -118,16 +124,63 @@ def load_refuge(data_root: Path) -> list[dict]:
                 label = 0
             else:
                 label = 1 if "g" in img.stem.lower() else 0
-            samples.append(_glaucoma_sample(data_root, img, label, "refuge"))
+            samples.append(_glaucoma_sample(path_root, img, label, "refuge"))
     return samples
 
 
-def load_airogs(data_root: Path) -> list[dict]:
+def _airogs_light_dirs(data_root: Path, extra_root: Path | None) -> list[Path]:
+    names = (
+        "eyepac-light-v2-512-jpg",
+        "AIROGS-light-v2-512-jpg",
+        "airogs-light-v2-512-jpg",
+    )
+    candidates: list[Path] = []
+    for root in (extra_root, data_root):
+        if root is None:
+            continue
+        for name in names:
+            candidates.append(root / "airogs" / name)
+            candidates.append(root / "AIROGS" / name)
+            candidates.append(root / name)
+    return candidates
+
+
+def _load_airogs_folder(base: Path, manifest_root: Path) -> list[dict]:
+    """AIROGS-light-v2: train|val/{RG,NRG}/*.jpg — RG=1, NRG=0."""
+    samples: list[dict] = []
+    for split in ("train", "val", "test"):
+        split_dir = base / split
+        if not split_dir.is_dir():
+            continue
+        for folder_name, label in (("RG", 1), ("NRG", 0)):
+            folder = split_dir / folder_name
+            if not folder.is_dir():
+                continue
+            for ext in ("*.jpg", "*.jpeg", "*.png", "*.JPG", "*.JPEG"):
+                for img in folder.glob(ext):
+                    sample = _glaucoma_sample(manifest_root, img, label, "airogs")
+                    sample["split"] = split
+                    samples.append(sample)
+    return samples
+
+
+def load_airogs(
+    data_root: Path,
+    *,
+    extra_root: Path | None = None,
+    manifest_root: Path | None = None,
+) -> list[dict]:
     """
-    AIROGS: 101,442장
-    라벨: RG(1)/NRG(0)
-    태스크: glaucoma
+    AIROGS-light-v2 (폴더): train|val/{RG,NRG} — RG=1, NRG=0
+    레거시 CSV: AIROGS_raw/train_labels.csv
     """
+    root = manifest_root or data_root
+    for base in _airogs_light_dirs(data_root, extra_root):
+        if base.is_dir():
+            loaded = _load_airogs_folder(base, root)
+            if loaded:
+                return loaded
+
     csv_path = data_root / "AIROGS_raw" / "train_labels.csv"
     img_dir = data_root / "AIROGS_raw" / "images"
     samples: list[dict] = []
@@ -138,14 +191,62 @@ def load_airogs(data_root: Path) -> list[dict]:
         for row in csv.DictReader(f):
             img = img_dir / f"{row['challenge_id']}.jpg"
             if img.is_file():
-                samples.append(
-                    {
-                        "path": str(img.relative_to(data_root)),
-                        "glaucoma_grade": 1 if row.get("class", "").upper() == "RG" else 0,
-                        "source": "airogs",
-                        "task": "glaucoma",
-                    }
-                )
+                label = 1 if row.get("class", "").upper() == "RG" else 0
+                samples.append(_glaucoma_sample(root, img, label, "airogs"))
+    return samples
+
+
+def load_rimone(
+    data_root: Path,
+    *,
+    extra_root: Path | None = None,
+    manifest_root: Path | None = None,
+) -> list[dict]:
+    """
+    RIM-ONE-DL (partitioned_randomly):
+      training_set/{glaucoma,normal} → split=train
+      test_set/{glaucoma,normal} → split=test
+    """
+    root = manifest_root or data_root
+    base = _first_existing_dir(
+        [
+            *((
+                extra_root / "rimone" / "RIM-ONE_DL_images" / "partitioned_randomly",
+                extra_root / "RIM-ONE" / "RIM-ONE_DL_images" / "partitioned_randomly",
+            )
+            if extra_root
+            else ()),
+            data_root / "Glaucoma_extra" / "rimone" / "RIM-ONE_DL_images" / "partitioned_randomly",
+            data_root / "rimone" / "RIM-ONE_DL_images" / "partitioned_randomly",
+        ]
+    )
+    if base is None:
+        return []
+
+    samples: list[dict] = []
+    split_map = (
+        ("training_set", "train"),
+        ("test_set", "test"),
+        ("validation_set", "val"),
+    )
+    for folder_name, split_name in split_map:
+        split_dir = base / folder_name
+        if not split_dir.is_dir():
+            continue
+        for sub_name, label in (
+            ("glaucoma", 1),
+            ("normal", 0),
+            ("Glaucoma", 1),
+            ("Normal", 0),
+        ):
+            folder = split_dir / sub_name
+            if not folder.is_dir():
+                continue
+            for ext in ("*.jpg", "*.jpeg", "*.png", "*.JPG", "*.JPEG", "*.bmp"):
+                for img in folder.glob(ext):
+                    sample = _glaucoma_sample(root, img, label, "rimone")
+                    sample["split"] = split_name
+                    samples.append(sample)
     return samples
 
 
@@ -208,7 +309,12 @@ def load_odir(data_root: Path) -> list[dict]:
     return samples
 
 
-def load_g1020(data_root: Path) -> list[dict]:
+def load_g1020(
+    data_root: Path,
+    *,
+    extra_root: Path | None = None,
+    manifest_root: Path | None = None,
+) -> list[dict]:
     """
     G1020: G1020/G1020.csv — imageID, binaryLabels (0=normal, 1=glaucoma)
     이미지: G1020/Images/{imageID}
@@ -223,6 +329,7 @@ def load_g1020(data_root: Path) -> list[dict]:
     if base is None:
         return []
 
+    path_root = manifest_root or data_root
     csv_path = base / "G1020.csv"
     if not csv_path.is_file():
         return []
@@ -250,11 +357,16 @@ def load_g1020(data_root: Path) -> list[dict]:
                         img = candidate
                         break
             if img.is_file():
-                samples.append(_glaucoma_sample(data_root, img, label, "g1020"))
+                samples.append(_glaucoma_sample(path_root, img, label, "g1020"))
     return samples
 
 
-def load_origa(data_root: Path) -> list[dict]:
+def load_origa(
+    data_root: Path,
+    *,
+    extra_root: Path | None = None,
+    manifest_root: Path | None = None,
+) -> list[dict]:
     """
     ORIGA: ORIGA/OrigaList.csv — Filename, Glaucoma (0/1)
     이미지: ORIGA/Images/{Filename}
@@ -269,6 +381,7 @@ def load_origa(data_root: Path) -> list[dict]:
     if base is None:
         return []
 
+    path_root = manifest_root or data_root
     csv_path = base / "OrigaList.csv"
     if not csv_path.is_file():
         return []
@@ -294,7 +407,7 @@ def load_origa(data_root: Path) -> list[dict]:
                         img = candidate
                         break
             if img.is_file():
-                samples.append(_glaucoma_sample(data_root, img, label, "origa"))
+                samples.append(_glaucoma_sample(path_root, img, label, "origa"))
     return samples
 
 
@@ -390,20 +503,74 @@ GLAUCOMA_LOADERS: dict[str, object] = {
     "g1020": load_g1020,
     "refuge": load_refuge,
     "origa": load_origa,
+    "airogs": load_airogs,
+    "rimone": load_rimone,
 }
+
+
+def _resolve_manifest_root(primary: Path, extra: Path | None) -> Path:
+    primary = primary.expanduser().resolve()
+    if extra is None:
+        return primary
+    extra = extra.expanduser().resolve()
+    if primary.parent == extra.parent:
+        return primary.parent
+    return primary
+
+
+def _assign_splits(
+    samples: list[dict],
+    *,
+    val_ratio: float,
+    test_ratio: float,
+    seed: int,
+) -> tuple[list[dict], list[dict], list[dict]]:
+    preset_train: list[dict] = []
+    preset_val: list[dict] = []
+    preset_test: list[dict] = []
+    unpreset: list[dict] = []
+
+    for sample in samples:
+        split = sample.get("split")
+        if split == "train":
+            preset_train.append(sample)
+        elif split == "val":
+            preset_val.append(sample)
+        elif split == "test":
+            preset_test.append(sample)
+        else:
+            unpreset.append(sample)
+
+    train_u, val_u, test_u = split_samples(
+        unpreset,
+        val_ratio=val_ratio,
+        test_ratio=test_ratio,
+        seed=seed,
+    )
+    train = preset_train + train_u
+    val = preset_val + val_u
+    test = preset_test + test_u
+    for chunk, split_name in ((train, "train"), (val, "val"), (test, "test")):
+        for sample in chunk:
+            sample["split"] = split_name
+    return train, val, test
 
 
 def build_glaucoma_manifest(
     dataset_root: Path,
     output_path: Path,
     *,
+    extra_root: Path | None = None,
     sources: tuple[str, ...] | None = None,
     val_ratio: float = 0.10,
     test_ratio: float = 0.10,
     seed: int = 42,
+    version: int = 1,
 ) -> dict:
-    """G1020 + REFUGE + ORIGA → glaucoma_v1 (train 80% / val 10% / test 10%)."""
+    """Glaucoma manifest — v1: G1020+REFUGE+ORIGA · v2: +AIROGS+RIM-ONE (~10,809)."""
     data_root = dataset_root.expanduser().resolve()
+    extra = extra_root.expanduser().resolve() if extra_root else None
+    manifest_root = _resolve_manifest_root(data_root, extra)
     source_names = sources or tuple(GLAUCOMA_LOADERS.keys())
     all_samples: list[dict] = []
     counts: dict[str, int] = {}
@@ -411,7 +578,7 @@ def build_glaucoma_manifest(
         loader = GLAUCOMA_LOADERS.get(name)
         if loader is None:
             raise ValueError(f"unknown glaucoma source={name!r}; choose from {sorted(GLAUCOMA_LOADERS)}")
-        loaded = loader(data_root)  # type: ignore[operator]
+        loaded = loader(data_root, extra_root=extra, manifest_root=manifest_root)  # type: ignore[operator]
         counts[name] = len(loaded)
         all_samples.extend(loaded)
 
@@ -425,16 +592,12 @@ def build_glaucoma_manifest(
         deduped.append(sample)
     all_samples = deduped
 
-    train, val, test = split_samples(
+    train, val, test = _assign_splits(
         all_samples,
         val_ratio=val_ratio,
         test_ratio=test_ratio,
         seed=seed,
     )
-    for chunk, split_name in ((train, "train"), (val, "val"), (test, "test")):
-        for sample in chunk:
-            sample["split"] = split_name
-
     combined = train + val + test
     pos = sum(1 for s in combined if int(s.get("label", s.get("glaucoma_grade", 0))) == 1)
     neg = len(combined) - pos
@@ -443,9 +606,9 @@ def build_glaucoma_manifest(
     pct_n = (neg / total * 100.0) if total else 0.0
 
     manifest = {
-        "data_dir": str(data_root),
+        "data_dir": str(manifest_root),
         "task": "glaucoma",
-        "version": 1,
+        "version": version,
         "sources": counts,
         "total": total,
         "stats": {
@@ -531,17 +694,23 @@ def split_samples(
 
 def main() -> None:
     parser = argparse.ArgumentParser(description="Build multi-indication manifest")
-    parser.add_argument("--data-root", type=Path, required=True, help="~/workspace/dataset")
+    parser.add_argument("--data-root", type=Path, required=True, help="~/workspace/dataset/Glaucoma_raw")
+    parser.add_argument(
+        "--extra-root",
+        type=Path,
+        default=None,
+        help="추가 Glaucoma 데이터 (예: /dataset/Glaucoma_extra)",
+    )
     parser.add_argument(
         "--task",
         choices=("multi", "glaucoma"),
         default="multi",
-        help="glaucoma: G1020+REFUGE+ORIGA manifest",
+        help="glaucoma: G1020+REFUGE+ORIGA(+AIROGS+RIM-ONE) manifest",
     )
     parser.add_argument(
         "--sources",
         default="refuge,brazil,adam,odir",
-        help="multi: refuge,brazil,... · glaucoma: g1020,refuge,origa",
+        help="multi: refuge,brazil,... · glaucoma: g1020,refuge,origa,airogs,rimone",
     )
     parser.add_argument("--output", type=Path, default=Path("training/manifests/multi_indication.json"))
     parser.add_argument("--val-ratio", type=float, default=0.15)
@@ -560,10 +729,12 @@ def main() -> None:
         build_glaucoma_manifest(
             data_root,
             args.output,
+            extra_root=args.extra_root,
             sources=src or None,
             val_ratio=args.val_ratio,
             test_ratio=args.test_ratio,
             seed=args.seed,
+            version=2 if args.extra_root else 1,
         )
         return
 

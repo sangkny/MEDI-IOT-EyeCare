@@ -9,9 +9,11 @@ import pytest
 
 from training.make_manifest import (
     build_glaucoma_manifest,
+    load_airogs,
     load_g1020,
     load_origa,
     load_refuge,
+    load_rimone,
 )
 
 pytestmark = pytest.mark.unit
@@ -102,3 +104,85 @@ def test_build_glaucoma_manifest_splits(tmp_path: Path) -> None:
     assert sum(1 for s in samples if s["split"] == "val") == 2  # 10%
     assert sum(1 for s in samples if s["split"] == "train") == 20  # 나머지 ~83%
     assert manifest["stats"]["glaucoma"] + manifest["stats"]["normal"] == 24
+
+
+def _write_airogs_light(tmp_path: Path) -> Path:
+    base = tmp_path / "Glaucoma_extra" / "airogs" / "eyepac-light-v2-512-jpg"
+    for split, rg, nrg in (("train", 3, 3), ("val", 1, 1)):
+        (base / split / "RG").mkdir(parents=True)
+        (base / split / "NRG").mkdir(parents=True)
+        for i in range(rg):
+            (base / split / "RG" / f"rg_{split}_{i}.jpg").write_bytes(b"\xff\xd8\xff\xd9")
+        for i in range(nrg):
+            (base / split / "NRG" / f"nrg_{split}_{i}.jpg").write_bytes(b"\xff\xd8\xff\xd9")
+    return tmp_path
+
+
+def _write_rimone(tmp_path: Path) -> Path:
+    base = (
+        tmp_path
+        / "Glaucoma_extra"
+        / "rimone"
+        / "RIM-ONE_DL_images"
+        / "partitioned_randomly"
+    )
+    for split, gl, nr in (("training_set", 2, 2), ("test_set", 1, 1)):
+        (base / split / "glaucoma").mkdir(parents=True)
+        (base / split / "normal").mkdir(parents=True)
+        for i in range(gl):
+            (base / split / "glaucoma" / f"g_{split}_{i}.jpg").write_bytes(b"\xff\xd8\xff\xd9")
+        for i in range(nr):
+            (base / split / "normal" / f"n_{split}_{i}.jpg").write_bytes(b"\xff\xd8\xff\xd9")
+    return tmp_path
+
+
+def test_load_airogs_light_v2(tmp_path: Path) -> None:
+    root = _write_airogs_light(tmp_path)
+    extra = root / "Glaucoma_extra"
+    manifest_root = root
+    samples = load_airogs(
+        root / "Glaucoma_raw",
+        extra_root=extra,
+        manifest_root=manifest_root,
+    )
+    assert len(samples) == 8
+    assert all(s["source"] == "airogs" for s in samples)
+    assert sum(1 for s in samples if s["label"] == 1) == 4
+    assert all("split" in s for s in samples)
+
+
+def test_load_rimone(tmp_path: Path) -> None:
+    root = _write_rimone(tmp_path)
+    extra = root / "Glaucoma_extra"
+    samples = load_rimone(
+        root / "Glaucoma_raw",
+        extra_root=extra,
+        manifest_root=root,
+    )
+    assert len(samples) == 6
+    assert sum(1 for s in samples if s["split"] == "train") == 4
+    assert sum(1 for s in samples if s["split"] == "test") == 2
+
+
+def test_build_glaucoma_v2_extra_root(tmp_path: Path) -> None:
+    raw = tmp_path / "Glaucoma_raw"
+    raw.mkdir()
+    _write_g1020(raw, n=4)
+    _write_airogs_light(tmp_path)
+    _write_rimone(tmp_path)
+    out = tmp_path / "glaucoma_v2.json"
+    manifest = build_glaucoma_manifest(
+        raw,
+        out,
+        extra_root=tmp_path / "Glaucoma_extra",
+        sources=("g1020", "airogs", "rimone"),
+        val_ratio=0.10,
+        test_ratio=0.10,
+        seed=42,
+        version=2,
+    )
+    assert manifest["version"] == 2
+    assert manifest["data_dir"] == str(tmp_path.resolve())
+    assert manifest["total"] == 4 + 8 + 6
+    assert "airogs" in manifest["sources"]
+    assert "rimone" in manifest["sources"]
