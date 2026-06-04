@@ -28,22 +28,28 @@ docker run --gpus all --rm \
       --data-root /dataset/Glaucoma_raw \
       --extra-root /dataset/Glaucoma_extra \
       --sources g1020,refuge,origa,airogs,rimone \
-      --val-ratio 0.10 \
-      --test-ratio 0.10 \
+      --val-ratio 0.15 \
+      --test-ratio 0.15 \
       --output $OUTPUT
     python3 <<'PY'
 import json
+from collections import Counter
 m = json.load(open(\"$OUTPUT\"))
 total = m[\"total\"]
 samples = m[\"samples\"]
 glaucoma = sum(1 for s in samples if s[\"label\"] == 1)
 normal = sum(1 for s in samples if s[\"label\"] == 0)
+val_samples = [s for s in samples if s[\"split\"] == \"val\"]
+val_airogs = sum(1 for s in val_samples if s.get(\"source\") == \"airogs\")
 print(f\"총 {total}장 | glaucoma: {glaucoma} ({glaucoma/total*100:.1f}%) | normal: {normal} ({normal/total*100:.1f}%)\")
 print(f\"train: {sum(1 for s in samples if s['split']=='train')}\")
-print(f\"val:   {sum(1 for s in samples if s['split']=='val')}\")
+print(f\"val:   {len(val_samples)} (airogs in val: {val_airogs})\")
 print(f\"test:  {sum(1 for s in samples if s['split']=='test')}\")
+print(\"val by source:\", dict(Counter(s.get(\"source\") for s in val_samples)))
 print(\"sources:\", m.get(\"sources\"))
 print(\"data_dir:\", m.get(\"data_dir\"))
+if val_airogs == 0:
+    raise SystemExit(\"FAIL: val set has no AIROGS samples\")
 PY
   "
 

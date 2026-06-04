@@ -566,8 +566,12 @@ def build_glaucoma_manifest(
     test_ratio: float = 0.10,
     seed: int = 42,
     version: int = 1,
+    unified_split: bool | None = None,
 ) -> dict:
-    """Glaucoma manifest — v1: G1020+REFUGE+ORIGA · v2: +AIROGS+RIM-ONE (~10,809)."""
+    """Glaucoma manifest — v1: G1020+REFUGE+ORIGA · v2: +AIROGS+RIM-ONE.
+
+    unified_split=True (v2 기본): 소스 native split 무시, 전체 셔플 후 train/val/test 재분리.
+    """
     data_root = dataset_root.expanduser().resolve()
     extra = extra_root.expanduser().resolve() if extra_root else None
     manifest_root = _resolve_manifest_root(data_root, extra)
@@ -592,12 +596,26 @@ def build_glaucoma_manifest(
         deduped.append(sample)
     all_samples = deduped
 
-    train, val, test = _assign_splits(
-        all_samples,
-        val_ratio=val_ratio,
-        test_ratio=test_ratio,
-        seed=seed,
-    )
+    use_unified = unified_split if unified_split is not None else (version >= 2 or extra is not None)
+    if use_unified:
+        for sample in all_samples:
+            sample.pop("split", None)
+        train, val, test = split_samples(
+            all_samples,
+            val_ratio=val_ratio,
+            test_ratio=test_ratio,
+            seed=seed,
+        )
+        for chunk, split_name in ((train, "train"), (val, "val"), (test, "test")):
+            for sample in chunk:
+                sample["split"] = split_name
+    else:
+        train, val, test = _assign_splits(
+            all_samples,
+            val_ratio=val_ratio,
+            test_ratio=test_ratio,
+            seed=seed,
+        )
     combined = train + val + test
     pos = sum(1 for s in combined if int(s.get("label", s.get("glaucoma_grade", 0))) == 1)
     neg = len(combined) - pos
@@ -735,6 +753,7 @@ def main() -> None:
             test_ratio=args.test_ratio,
             seed=args.seed,
             version=2 if args.extra_root else 1,
+            unified_split=True if args.extra_root else None,
         )
         return
 

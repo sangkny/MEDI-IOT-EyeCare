@@ -176,13 +176,17 @@ def test_build_glaucoma_v2_extra_root(tmp_path: Path) -> None:
         out,
         extra_root=tmp_path / "Glaucoma_extra",
         sources=("g1020", "airogs", "rimone"),
-        val_ratio=0.10,
-        test_ratio=0.10,
+        val_ratio=0.15,
+        test_ratio=0.15,
         seed=42,
         version=2,
+        unified_split=True,
     )
     assert manifest["version"] == 2
     assert manifest["data_dir"] == str(tmp_path.resolve())
     assert manifest["total"] == 4 + 8 + 6
     assert "airogs" in manifest["sources"]
     assert "rimone" in manifest["sources"]
+    val_samples = [s for s in manifest["samples"] if s["split"] == "val"]
+    assert any(s["source"] == "airogs" for s in val_samples)
+    assert sum(1 for s in val_samples if s["source"] == "airogs") >= 1
