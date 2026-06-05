@@ -173,19 +173,49 @@ async def lab_fundus_explain(
 @router.post(
     "/fundus/glaucoma",
     response_model=GlaucomaResult,
-    summary="녹내장 단독 분석 (Phase 1 skeleton)",
+    summary="녹내장 단독 분석 (retinal_glaucoma_v2)",
 )
 async def lab_fundus_glaucoma(
     file: UploadFile = File(...),
     patient_id: str | None = Form(None),
     _: dict = LAB_AUTH,
 ) -> GlaucomaResult:
-    """Phase 1: EfficientNet-B4 glaucoma head. Phase 2: RETFound CDR."""
-    await _read_and_validate(file)
-    raise HTTPException(
-        status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Glaucoma multitask model not deployed yet (Phase 1 training)",
-    )
+    """EfficientNet-B4 + Focal Loss (v2, val AUC≈0.946). DecisionGate confidence≥0.80."""
+    image_bytes, _ = await _read_and_validate(file)
+    try:
+        from services.diagnosis_pipeline import apply_four_agent_glaucoma_decision
+        from services.glaucoma_cnn import (
+            get_glaucoma_backend,
+            predict_glaucoma_from_image_bytes,
+            prediction_to_result,
+        )
+
+        pred = await predict_glaucoma_from_image_bytes(image_bytes)
+        onto, audit, mode = await apply_four_agent_glaucoma_decision(
+            probability=pred.probability,
+            confidence=pred.confidence,
+            label=pred.label,
+            glaucoma_grade=pred.glaucoma_grade,
+            patient_id=patient_id,
+        )
+        return prediction_to_result(
+            pred,
+            model_used=f"cnn({get_glaucoma_backend().model_label()})",
+            ontology_passed=onto,
+            decision_mode=mode,
+            audit_trail=audit,
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Glaucoma model not found: {exc}",
+        ) from exc
+    except Exception as exc:
+        log.exception("lab glaucoma failed")
+        raise HTTPException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc)[:200],
+        ) from exc
 
 
 @router.post(

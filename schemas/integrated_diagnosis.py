@@ -112,6 +112,12 @@ class DRResult(BaseModel):
 class GlaucomaResult(BaseModel):
     glaucoma_grade: int = Field(..., ge=0, le=2, description="0:정상 1:의심 2:확진")
     grade_label: str = Field(..., description="normal/suspect/glaucoma")
+    label: str = Field(..., description="normal | glaucoma (이진)")
+    probability: float = Field(..., ge=0, le=1, description="glaucoma 양성 확률 (sigmoid)")
+    risk_level: Literal["LOW", "MODERATE", "HIGH"] = Field(
+        ...,
+        description="LOW(<0.3) / MODERATE(0.3~0.7) / HIGH(>0.7)",
+    )
     cup_disc_ratio: float | None = Field(default=None, ge=0, le=1)
     confidence: float = Field(..., ge=0, le=1)
     icd10_code: str = "H40.1"
@@ -120,6 +126,16 @@ class GlaucomaResult(BaseModel):
         default="none",
         description="immediate/routine/none",
     )
+    model_used: str = Field(default="", description="예: cnn(efficientnet_b4_glaucoma)")
+    decision_mode: str = Field(
+        default="legacy",
+        description="legacy | four_agent | gate",
+    )
+    ontology_passed: bool = Field(
+        default=True,
+        description="4-에이전트·DecisionGate 통과 여부",
+    )
+    audit_trail: dict = Field(default_factory=dict)
 
 
 class AMDResult(BaseModel):
