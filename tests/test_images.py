@@ -304,6 +304,8 @@ class TestImageUploadAPI:
 
 @pytest.mark.integration
 @pytest.mark.requires_llm
+@pytest.mark.slow
+@pytest.mark.requires_lm_studio
 class TestImageAnalysis:
     """
     목적: 업로드된 이미지에 대한 VISION 모델 분석 검증

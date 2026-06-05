@@ -67,13 +67,17 @@ def test_train_smoke_writes_artifacts(tmp_path) -> None:
         lr=1e-3,
         image_size=64,
         arch="efficientnet_b4",
+        preprocess="clahe",
         synthetic_samples=8,
     )
     assert tr.train_and_export(args) == 0
     assert (out / "retinal_v1.pt").is_file()
-    assert (out / "retinal_v1.onnx").is_file()
     meta = json.loads((out / "retinal_v1.meta.json").read_text(encoding="utf-8"))
     assert meta.get("arch") == "efficientnet_b4"
+    assert meta.get("preprocess") == "clahe"
+    onnx_path = out / "retinal_v1.onnx"
+    if __import__("importlib").util.find_spec("onnx"):
+        assert onnx_path.is_file(), "onnx package present but export did not write file"
 
 
 @pytest.mark.skipif(

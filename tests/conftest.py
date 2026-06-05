@@ -5,6 +5,8 @@ GHA CI:  ``pytest -m unit`` (DB/Redis/uvicorn/ONNX/LLM 불필요)
 """
 from __future__ import annotations
 
+import os
+
 import pytest
 
 # ── 파일 단위 기본 마커 (모듈명, tests.test_* ) ───────────────
@@ -89,6 +91,20 @@ def _add_marker(item: pytest.Item, marker: str) -> None:
         item.add_marker(getattr(pytest.mark, marker))
 
 
+def _lm_studio_ready() -> bool:
+    """LM Studio ``/v1/models`` 200 + 비어있지 않은 data[] (CI skip 가드)."""
+    try:
+        import httpx
+
+        base = os.getenv("LLM_BASE_URL", "http://host.docker.internal:8000/v1")
+        r = httpx.get(f"{base}/models", timeout=2.0)
+        if r.status_code != 200:
+            return False
+        return bool((r.json() or {}).get("data"))
+    except Exception:
+        return False
+
+
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     """파일·클래스 규칙으로 마커 자동 부여 (파일 상단 pytestmark 와 동기)."""
     for item in items:
@@ -135,3 +151,11 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
         if mod == "test_e2e" and cls is None:
             _add_marker(item, "integration")
             _add_marker(item, "requires_db")
+
+    if not _lm_studio_ready():
+        skip_lm = pytest.mark.skip(
+            reason="LM Studio 미가동 — requires_lm_studio (VISION 분석 테스트)"
+        )
+        for item in items:
+            if "requires_lm_studio" in {m.name for m in item.iter_markers()}:
+                item.add_marker(skip_lm)

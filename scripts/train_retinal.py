@@ -115,7 +115,7 @@ def train_and_export(args: argparse.Namespace) -> int:
 
     maybe_warn_foundation_skip()
     arch_key = resolve_cnn_arch(args.arch)
-    preprocess = resolve_preprocess_mode(args.preprocess)
+    preprocess = resolve_preprocess_mode(getattr(args, "preprocess", "clahe"))
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model, arch_key = build_dr_classifier(arch=arch_key, pretrained=not args.smoke)
     model = model.to(device)
@@ -158,20 +158,29 @@ def train_and_export(args: argparse.Namespace) -> int:
         },
         pt_path,
     )
-    _export_onnx(model.cpu(), onnx_path, args.image_size)
+    onnx_exported = False
+    try:
+        _export_onnx(model.cpu(), onnx_path, args.image_size)
+        onnx_exported = True
+    except Exception as exc:
+        if not getattr(args, "smoke", False):
+            raise
+        print(f"[train_retinal] WARN: smoke ONNX export skipped: {exc}")
     meta = {
         "pt": str(pt_path),
-        "onnx": str(onnx_path),
         "arch": arch_key,
         "num_classes": DR_NUM_CLASSES,
         "image_size": args.image_size,
         "preprocess": preprocess,
         "smoke": bool(args.smoke),
     }
+    if onnx_exported:
+        meta["onnx"] = str(onnx_path)
     (out_dir / "retinal_v1.meta.json").write_text(
         json.dumps(meta, indent=2), encoding="utf-8"
     )
-    print(f"[train_retinal] saved {pt_path} and {onnx_path}")
+    saved = f"{pt_path}" + (f" and {onnx_path}" if onnx_exported else "")
+    print(f"[train_retinal] saved {saved}")
     return 0
 
 
