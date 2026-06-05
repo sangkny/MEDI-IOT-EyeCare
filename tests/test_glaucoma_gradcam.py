@@ -8,6 +8,7 @@ import pytest
 
 from services.gradcam import (
     GradCAMService,
+    _normalize_glaucoma_state_dict,
     generate_glaucoma_annotated_heatmap,
     generate_glaucoma_lesion_annotations,
 )
@@ -26,6 +27,21 @@ def test_glaucoma_lesion_annotations_structure() -> None:
         assert "confidence" in a
         assert "region" in a
         assert 0.0 <= a["confidence"] <= 1.0
+
+
+def test_normalize_glaucoma_state_dict_head_to_classifier() -> None:
+    pytest.importorskip("torch")
+    import torch
+
+    sd = {
+        "features.0.weight": torch.zeros(1),
+        "head.weight": torch.zeros(1, 1),
+        "head.bias": torch.zeros(1),
+    }
+    mapped = _normalize_glaucoma_state_dict(sd)
+    assert "classifier.1.weight" in mapped
+    assert "classifier.1.bias" in mapped
+    assert "head.weight" not in mapped
 
 
 def test_gradcam_service_detect_model_type() -> None:

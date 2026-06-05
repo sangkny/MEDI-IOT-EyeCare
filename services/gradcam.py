@@ -610,10 +610,37 @@ def _resolve_glaucoma_pt_path(onnx_path: Path, meta: dict) -> Path | None:
 
 def _build_glaucoma_classifier():
     """이진 녹내장 분류기 (EfficientNet-B4, logit 1)."""
-    import torch
-
     model, _ = build_dr_classifier(arch="efficientnet_b4", num_classes=1, pretrained=False)
     return model
+
+
+def _normalize_glaucoma_state_dict(ckpt: object) -> dict:
+    """train_glaucoma.py head.* → torchvision EfficientNet classifier.1.* 매핑."""
+    import torch
+
+    if isinstance(ckpt, dict) and "model_state" in ckpt:
+        sd = ckpt["model_state"]
+    elif isinstance(ckpt, dict) and "state_dict" in ckpt:
+        sd = ckpt["state_dict"]
+    elif isinstance(ckpt, dict) and ckpt and all(
+        isinstance(v, torch.Tensor) for v in ckpt.values()
+    ):
+        sd = ckpt
+    else:
+        raise RuntimeError("Glaucoma checkpoint has no loadable state_dict")
+
+    out: dict = {}
+    for k, v in sd.items():
+        key = k[7:] if k.startswith("module.") else k
+        key = key.replace("head.", "classifier.1.")
+        out[key] = v
+    return out
+
+
+def _load_glaucoma_weights(model: Any, ckpt: object) -> None:
+    """Glaucoma PT — head→classifier.1 키 변환 후 로드."""
+    sd = _normalize_glaucoma_state_dict(ckpt)
+    model.load_state_dict(sd, strict=True)
 
 
 def _probability_guided_cam(
@@ -675,7 +702,7 @@ def generate_glaucoma_annotated_heatmap(
                 ckpt = torch.load(pt_path, map_location="cpu", weights_only=False)
             except TypeError:
                 ckpt = torch.load(pt_path, map_location="cpu")
-            _load_state_dict(model, ckpt, "efficientnet_b4")
+            _load_glaucoma_weights(model, ckpt)
             device = torch.device("cpu")
             model.to(device).eval()
             target_layer = _resolve_target_layer(model)

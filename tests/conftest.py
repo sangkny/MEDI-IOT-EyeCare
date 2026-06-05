@@ -13,6 +13,7 @@ _UNIT_MODULES = frozenset({
     "test_fundus_formats",
     "test_fundus_video",
     "test_glaucoma_cnn",
+    "test_glaucoma_critic",
     "test_glaucoma_gradcam",
     "test_image_storage",
     "test_integrated_diagnosis",
