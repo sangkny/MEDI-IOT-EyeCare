@@ -16,6 +16,7 @@ def build_glaucoma_ontology_payload(
     icd10_code: str = "",
     referral_urgency: str = "none",
     eye: str | None = None,
+    cup_disc_ratio: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     laterality = None
     if eye:
@@ -38,6 +39,7 @@ def build_glaucoma_ontology_payload(
         "model_used": model_used,
         "laterality": laterality,
         "finding_side": laterality,
+        "cup_disc_ratio": cup_disc_ratio,
     }
 
 

@@ -109,6 +109,32 @@ class DRResult(BaseModel):
     severity: str
 
 
+class CupDiscRatioDetail(BaseModel):
+    value: float = Field(..., ge=0, le=1)
+    category: Literal["normal", "suspect", "glaucoma"]
+    method: str = Field(..., description="probability_based | segmentation_based")
+    confidence_interval: list[float] = Field(
+        default_factory=list,
+        description="[low, high] 신뢰구간",
+    )
+    clinical_note: str = ""
+
+
+class GlaucomaLesionAnnotation(BaseModel):
+    type: str
+    confidence: float = Field(..., ge=0, le=1)
+    region: str = ""
+
+
+class GlaucomaHeatmap(BaseModel):
+    image_base64: str = ""
+    resolution: str = "original"
+    lesion_annotations: list[GlaucomaLesionAnnotation] = Field(default_factory=list)
+    hotspot_regions: list[str] = Field(default_factory=list)
+    gradcam_version: str | None = None
+    heatmap_error: str | None = None
+
+
 class GlaucomaResult(BaseModel):
     glaucoma_grade: int = Field(..., ge=0, le=2, description="0:정상 1:의심 2:확진")
     grade_label: str = Field(..., description="normal/suspect/glaucoma")
@@ -118,7 +144,8 @@ class GlaucomaResult(BaseModel):
         ...,
         description="LOW(<0.3) / MODERATE(0.3~0.7) / HIGH(>0.7)",
     )
-    cup_disc_ratio: float | None = Field(default=None, ge=0, le=1)
+    cup_disc_ratio: CupDiscRatioDetail | None = None
+    heatmap: GlaucomaHeatmap | None = None
     confidence: float = Field(..., ge=0, le=1)
     icd10_code: str = "H40.1"
     severity: str = Field(default="", description="normal/suspect/glaucoma (alias)")
@@ -134,6 +161,10 @@ class GlaucomaResult(BaseModel):
     ontology_passed: bool = Field(
         default=True,
         description="Glaucoma SEMANTIC ontology 통과 여부 (GLAU-SEM 룰)",
+    )
+    decision: str | None = Field(
+        default=None,
+        description="APPROVE | REVISE | REJECT (audit_trail.decision)",
     )
     audit_trail: dict = Field(default_factory=dict)
 

@@ -9,7 +9,12 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
-from schemas.integrated_diagnosis import GlaucomaResult
+from schemas.integrated_diagnosis import (
+    CupDiscRatioDetail,
+    GlaucomaHeatmap,
+    GlaucomaLesionAnnotation,
+    GlaucomaResult,
+)
 from services.retinal_cnn import (
     DEFAULT_IMAGE_SIZE,
     preprocess_fundus_bytes,
@@ -91,6 +96,9 @@ def prediction_to_result(
     ontology_passed: bool = True,
     decision_mode: str = "legacy",
     audit_trail: dict | None = None,
+    cup_disc_ratio: dict | CupDiscRatioDetail | None = None,
+    heatmap: dict | GlaucomaHeatmap | None = None,
+    decision: str | None = None,
 ) -> GlaucomaResult:
     referral = (
         "immediate"
@@ -100,6 +108,33 @@ def prediction_to_result(
         else "none"
     )
     icd = "H40.1" if pred.glaucoma_grade >= 1 else ""
+    audit = audit_trail or {}
+    cdr_out: CupDiscRatioDetail | None = None
+    if cup_disc_ratio is not None:
+        if isinstance(cup_disc_ratio, CupDiscRatioDetail):
+            cdr_out = cup_disc_ratio
+        else:
+            cdr_out = CupDiscRatioDetail(**cup_disc_ratio)
+    hm_out: GlaucomaHeatmap | None = None
+    if heatmap is not None:
+        if isinstance(heatmap, GlaucomaHeatmap):
+            hm_out = heatmap
+        else:
+            lesions = [
+                GlaucomaLesionAnnotation(**a)
+                if isinstance(a, dict)
+                else a
+                for a in heatmap.get("lesion_annotations", [])
+            ]
+            hm_out = GlaucomaHeatmap(
+                image_base64=heatmap.get("image_base64", ""),
+                resolution=heatmap.get("resolution", "original"),
+                lesion_annotations=lesions,
+                hotspot_regions=list(heatmap.get("hotspot_regions") or []),
+                gradcam_version=heatmap.get("gradcam_version"),
+                heatmap_error=heatmap.get("heatmap_error"),
+            )
+    resolved_decision = decision or audit.get("decision")
     return GlaucomaResult(
         glaucoma_grade=pred.glaucoma_grade,
         grade_label=pred.grade_label,
@@ -107,14 +142,16 @@ def prediction_to_result(
         probability=pred.probability,
         confidence=pred.confidence,
         risk_level=pred.risk_level,
-        cup_disc_ratio=None,
+        cup_disc_ratio=cdr_out,
+        heatmap=hm_out,
         icd10_code=icd or "H40.0",
         severity=pred.grade_label,
         referral_urgency=referral,
         model_used=model_used,
         decision_mode=decision_mode,
         ontology_passed=ontology_passed,
-        audit_trail=audit_trail or {},
+        decision=resolved_decision,
+        audit_trail=audit,
     )
 
 

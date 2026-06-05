@@ -179,26 +179,38 @@ async def lab_fundus_glaucoma(
     file: UploadFile = File(...),
     patient_id: str | None = Form(None),
     eye: str | None = Form(None),
+    include_heatmap: bool = Form(True),
     _: dict = LAB_AUTH,
 ) -> GlaucomaResult:
     """EfficientNet-B4 + Focal Loss (v2, val AUC≈0.946). Gate min conf 기본 0.65."""
     image_bytes, _ = await _read_and_validate(file)
     try:
+        import numpy as np
+
+        from services.cdr_estimator import get_cdr_estimator
         from services.diagnosis_pipeline import apply_four_agent_glaucoma_decision
         from services.glaucoma_cnn import (
             get_glaucoma_backend,
+            get_glaucoma_model_path,
             predict_glaucoma_from_image_bytes,
             prediction_to_result,
         )
         from services.glaucoma_ontology import build_glaucoma_ontology_payload
+        from services.gradcam import GradCAMService
 
         pred = await predict_glaucoma_from_image_bytes(image_bytes)
         model_used = f"cnn({get_glaucoma_backend().model_label()})"
+
+        estimator = get_cdr_estimator()
+        cdr = await estimator.estimate(np.zeros((1, 1, 3), dtype=np.uint8), pred.probability)
+        cdr_dict = cdr.to_dict()
+
         draft = prediction_to_result(
             pred,
             model_used=model_used,
             ontology_passed=True,
             decision_mode="pending",
+            cup_disc_ratio=cdr_dict,
         )
         ontology_payload = build_glaucoma_ontology_payload(
             pred,
@@ -206,6 +218,7 @@ async def lab_fundus_glaucoma(
             icd10_code=draft.icd10_code,
             referral_urgency=draft.referral_urgency,
             eye=eye,
+            cup_disc_ratio=cdr_dict,
         )
         onto, audit, mode = await apply_four_agent_glaucoma_decision(
             probability=pred.probability,
@@ -215,12 +228,37 @@ async def lab_fundus_glaucoma(
             patient_id=patient_id,
             ontology_payload=ontology_payload,
         )
+
+        heatmap_data: dict | None = None
+        if include_heatmap:
+            try:
+                svc = GradCAMService()
+                heatmap_data = await svc.generate_glaucoma_heatmap(
+                    image_bytes,
+                    str(get_glaucoma_model_path()),
+                    pred.probability,
+                    glaucoma_grade=pred.glaucoma_grade,
+                    eye_side=eye or "unknown",
+                )
+            except Exception as exc:
+                log.exception("lab glaucoma heatmap failed")
+                heatmap_data = {
+                    "image_base64": "",
+                    "resolution": "",
+                    "lesion_annotations": [],
+                    "hotspot_regions": [],
+                    "heatmap_error": str(exc)[:500],
+                }
+
         return prediction_to_result(
             pred,
             model_used=model_used,
             ontology_passed=onto,
             decision_mode=mode,
             audit_trail=audit,
+            cup_disc_ratio=cdr_dict,
+            heatmap=heatmap_data,
+            decision=audit.get("decision"),
         )
     except FileNotFoundError as exc:
         raise HTTPException(
