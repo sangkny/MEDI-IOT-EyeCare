@@ -1,0 +1,16 @@
+{
+  "arch": "efficientnet_b4_glaucoma",
+  "manifest": "glaucoma_v2.json",
+  "preprocess": "clahe",
+  "image_size": 224,
+  "focal_alpha": 0.5,
+  "focal_gamma": 2.0,
+  "best_val_auc": 0.946,
+  "best_val_f1": 0.8618,
+  "best_val_sensitivity": 0.8706,
+  "best_val_specificity": 0.8784,
+  "test_auc": 0.9441,
+  "test_f1": 0.8503,
+  "epochs": 80,
+  "target_auc": 0.9
+}
