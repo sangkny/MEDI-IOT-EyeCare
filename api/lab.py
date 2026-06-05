@@ -13,10 +13,9 @@ from pydantic import BaseModel, Field
 from auth.policy import policy_require
 from schemas.integrated_diagnosis import (
     AMDResult,
-    ComprehensiveDiagnosisResponse,
+    ComprehensiveFundusResponse,
     DiagnosisExplainResponse,
     GlaucomaResult,
-    MultiIndicationResult,
 )
 from services.fundus_image_formats import (
     normalize_for_cnn,
@@ -292,8 +291,8 @@ async def lab_fundus_amd(
 
 @router.post(
     "/fundus/comprehensive",
-    response_model=ComprehensiveDiagnosisResponse,
-    summary="Fundus Lab — comprehensive (multipart)",
+    response_model=ComprehensiveFundusResponse,
+    summary="Fundus Lab — DR + Glaucoma 통합 분석",
 )
 async def lab_fundus_comprehensive(
     file: UploadFile = File(...),
@@ -302,38 +301,44 @@ async def lab_fundus_comprehensive(
     lat: float | None = Form(37.5665),
     lng: float | None = Form(126.9780),
     include_heatmap: bool = Form(True),
+    eye: str | None = Form(None, description="left | right (alias eye_side)"),
     eye_side: str = Form("unknown", description="left | right | unknown"),
-    tasks: str = Form("dr", description="쉼표 구분: dr,glaucoma,amd"),
+    tasks: str = Form("dr,glaucoma", description="쉼표 구분: dr,glaucoma,amd"),
     _: dict = LAB_AUTH,
-):
-    """DR 기본. tasks에 glaucoma/amd 추가 시 멀티헤드 연동 예정."""
-    result = await _run_lab_analysis(
-        file,
-        lang=lang,
-        patient_id=patient_id,
-        lat=lat,
-        lng=lng,
-        comprehensive=True,
-        include_heatmap=include_heatmap,
-        eye_side=eye_side,
-    )
-    active = [t.strip() for t in tasks.split(",") if t.strip()]
-    if len(active) > 1 or (len(active) == 1 and active[0] != "dr"):
-        if hasattr(result, "model_dump"):
-            d = result.model_dump()
-        elif isinstance(result, dict):
-            d = result
-        else:
-            d = {}
-        d["active_tasks"] = active
-        d["multi_indication"] = MultiIndicationResult(
-            active_tasks=active,
-            primary_finding="dr",
-            referral_urgency="none",
-            audit_trail={"note": "glaucoma/amd heads pending Phase 1–2"},
+) -> ComprehensiveFundusResponse:
+    """DR + Glaucoma 동시 분석 · overall_assessment 종합 판정."""
+    image_bytes, fmt_label = await _read_and_validate(file)
+    loc = None
+    if lat is not None and lng is not None:
+        loc = (lat, lng)
+    active = [t.strip().lower() for t in tasks.split(",") if t.strip()]
+    eye_eff = eye or eye_side
+    try:
+        from services.comprehensive_fundus import run_comprehensive_fundus
+
+        result = await run_comprehensive_fundus(
+            image_bytes,
+            lang=lang,
+            patient_id=patient_id,
+            location=loc,
+            eye=eye_eff,
+            include_heatmap=include_heatmap,
+            tasks=active,
         )
-        return d
-    return result
+        if fmt_label and result.input_format is None:
+            return result.model_copy(update={"input_format": fmt_label})
+        return result
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Model unavailable: {exc}",
+        ) from exc
+    except Exception as exc:
+        log.exception("comprehensive fundus failed")
+        raise HTTPException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc)[:200],
+        ) from exc
 
 
 @router.post(

@@ -196,6 +196,49 @@ class MultiIndicationResult(BaseModel):
     audit_trail: dict = Field(default_factory=dict)
 
 
+class DRComprehensiveSummary(BaseModel):
+    grade: int = Field(..., ge=0, le=4, alias="dr_grade")
+    confidence: float = Field(..., ge=0, le=1)
+    icd10_code: str = ""
+    severity: str = ""
+    decision: str | None = None
+    ontology_passed: bool = False
+    decision_mode: str = "legacy"
+    model_used: str = ""
+    audit_trail: dict = Field(default_factory=dict)
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class OverallAssessment(BaseModel):
+    referral_urgency: str = Field(
+        default="none",
+        description="none | routine | immediate | urgent",
+    )
+    primary_concern: str = Field(
+        default="none",
+        description="glaucoma | diabetic_retinopathy | none",
+    )
+    findings: list[str] = Field(default_factory=list)
+    recommendation: str = ""
+
+
+class ComprehensiveFundusResponse(BaseModel):
+    """DR + Glaucoma 통합 Lab 응답."""
+
+    dr: DRComprehensiveSummary
+    glaucoma: GlaucomaResult | None = None
+    heatmap: dict = Field(
+        default_factory=dict,
+        description='{"dr": {...}, "glaucoma": {...}}',
+    )
+    overall_assessment: OverallAssessment
+    active_tasks: list[str] = Field(default_factory=list)
+    input_format: str | None = None
+    nearby_hospitals: list[HospitalRecommendation] = Field(default_factory=list)
+    device_recommendations: list[DeviceRecommendation] = Field(default_factory=list)
+
+
 class ComprehensiveDiagnosisResponse(DiagnosisExplainResponse):
     device_recommendations: list[DeviceRecommendation] = Field(default_factory=list)
     glaucoma_grade: int | None = Field(default=None, ge=0, le=2)

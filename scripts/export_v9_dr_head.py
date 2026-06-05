@@ -63,15 +63,16 @@ def main() -> None:
     out.parent.mkdir(parents=True, exist_ok=True)
 
     dummy = torch.randn(1, 3, args.image_size, args.image_size)
-    torch.onnx.export(
-        model,
-        dummy,
-        str(out),
-        input_names=["input"],
-        output_names=["output"],
-        dynamic_axes={"input": {0: "batch"}, "output": {0: "batch"}},
-        opset_version=17,
-    )
+    export_kw: dict = {
+        "input_names": ["input"],
+        "output_names": ["output"],
+        "dynamic_axes": {"input": {0: "batch"}, "output": {0: "batch"}},
+        "opset_version": 14,
+    }
+    try:
+        torch.onnx.export(model, dummy, str(out), dynamo=False, **export_kw)
+    except TypeError:
+        torch.onnx.export(model, dummy, str(out), **export_kw)
 
     val_qwk = src_meta.get("best_val_qwk") or ckpt.get("best_val_qwk")
     meta = {

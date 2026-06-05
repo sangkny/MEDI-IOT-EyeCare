@@ -1,0 +1,12 @@
+{
+  "arch": "efficientnet_b4",
+  "source": "retinal_v9_multitask",
+  "source_checkpoint": "best.pt",
+  "preprocess": "clahe",
+  "image_size": 224,
+  "onnx": "retinal_v9_dr.onnx",
+  "best_val_qwk": 0.8328,
+  "baseline_v4_qwk": 0.8204,
+  "version": "v9_dr_head",
+  "note": "DR head only from v9 multitask; Glaucoma head excluded"
+}
