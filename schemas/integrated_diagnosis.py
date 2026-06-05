@@ -133,7 +133,7 @@ class GlaucomaResult(BaseModel):
     )
     ontology_passed: bool = Field(
         default=True,
-        description="4-에이전트·DecisionGate 통과 여부",
+        description="Glaucoma SEMANTIC ontology 통과 여부 (GLAU-SEM 룰)",
     )
     audit_trail: dict = Field(default_factory=dict)
 

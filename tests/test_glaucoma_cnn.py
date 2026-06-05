@@ -39,40 +39,89 @@ def test_prediction_to_result_fields() -> None:
     assert result.confidence >= 0.8
 
 
-def test_decision_gate_reject() -> None:
+def test_decision_gate_hard_reject() -> None:
     import asyncio
 
     from services.diagnosis_pipeline import apply_four_agent_glaucoma_decision
+    from services.glaucoma_ontology import build_glaucoma_ontology_payload
 
+    pred = glaucoma_prediction_from_probability(0.48)
+    draft = prediction_to_result(pred)
+    payload = build_glaucoma_ontology_payload(
+        pred,
+        model_used="cnn(efficientnet_b4_glaucoma)",
+        icd10_code=draft.icd10_code,
+        referral_urgency=draft.referral_urgency,
+    )
     onto, audit, mode = asyncio.run(
         apply_four_agent_glaucoma_decision(
-            probability=0.55,
-            confidence=0.55,
-            label="glaucoma",
-            glaucoma_grade=1,
+            probability=pred.probability,
+            confidence=pred.confidence,
+            label=pred.label,
+            glaucoma_grade=pred.glaucoma_grade,
             patient_id="test-patient",
+            ontology_payload=payload,
         )
     )
     assert onto is False
     assert audit["decision"] == "REJECT"
     assert mode == "gate"
-    assert audit["threshold"] == 0.80
+    assert audit["threshold"] == 0.65
+
+
+def test_decision_gate_revise_band() -> None:
+    import asyncio
+
+    from services.diagnosis_pipeline import apply_four_agent_glaucoma_decision
+    from services.glaucoma_ontology import build_glaucoma_ontology_payload
+
+    pred = glaucoma_prediction_from_probability(0.60)
+    draft = prediction_to_result(pred)
+    payload = build_glaucoma_ontology_payload(
+        pred,
+        model_used="cnn(efficientnet_b4_glaucoma)",
+        icd10_code=draft.icd10_code,
+        referral_urgency=draft.referral_urgency,
+    )
+    onto, audit, mode = asyncio.run(
+        apply_four_agent_glaucoma_decision(
+            probability=pred.probability,
+            confidence=pred.confidence,
+            label=pred.label,
+            glaucoma_grade=pred.glaucoma_grade,
+            patient_id="test-patient",
+            ontology_payload=payload,
+        )
+    )
+    assert onto is True
+    assert audit["decision"] == "REVISE"
+    assert mode == "gate"
 
 
 def test_decision_gate_high_confidence_passes_gate() -> None:
     import asyncio
 
     from services.diagnosis_pipeline import apply_four_agent_glaucoma_decision
+    from services.glaucoma_ontology import build_glaucoma_ontology_payload
 
+    pred = glaucoma_prediction_from_probability(0.85)
+    draft = prediction_to_result(pred)
+    payload = build_glaucoma_ontology_payload(
+        pred,
+        model_used="cnn(efficientnet_b4_glaucoma)",
+        icd10_code=draft.icd10_code,
+        referral_urgency=draft.referral_urgency,
+    )
     _, audit, mode = asyncio.run(
         apply_four_agent_glaucoma_decision(
-            probability=0.85,
-            confidence=0.85,
-            label="glaucoma",
-            glaucoma_grade=2,
+            probability=pred.probability,
+            confidence=pred.confidence,
+            label=pred.label,
+            glaucoma_grade=pred.glaucoma_grade,
             patient_id="test-patient",
+            ontology_payload=payload,
         )
     )
-    assert audit.get("threshold") == 0.80
+    assert audit.get("threshold") == 0.65
     if mode == "gate":
         assert audit["decision"] != "REJECT"

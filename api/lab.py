@@ -178,9 +178,10 @@ async def lab_fundus_explain(
 async def lab_fundus_glaucoma(
     file: UploadFile = File(...),
     patient_id: str | None = Form(None),
+    eye: str | None = Form(None),
     _: dict = LAB_AUTH,
 ) -> GlaucomaResult:
-    """EfficientNet-B4 + Focal Loss (v2, val AUC≈0.946). DecisionGate confidence≥0.80."""
+    """EfficientNet-B4 + Focal Loss (v2, val AUC≈0.946). Gate min conf 기본 0.65."""
     image_bytes, _ = await _read_and_validate(file)
     try:
         from services.diagnosis_pipeline import apply_four_agent_glaucoma_decision
@@ -189,18 +190,34 @@ async def lab_fundus_glaucoma(
             predict_glaucoma_from_image_bytes,
             prediction_to_result,
         )
+        from services.glaucoma_ontology import build_glaucoma_ontology_payload
 
         pred = await predict_glaucoma_from_image_bytes(image_bytes)
+        model_used = f"cnn({get_glaucoma_backend().model_label()})"
+        draft = prediction_to_result(
+            pred,
+            model_used=model_used,
+            ontology_passed=True,
+            decision_mode="pending",
+        )
+        ontology_payload = build_glaucoma_ontology_payload(
+            pred,
+            model_used=model_used,
+            icd10_code=draft.icd10_code,
+            referral_urgency=draft.referral_urgency,
+            eye=eye,
+        )
         onto, audit, mode = await apply_four_agent_glaucoma_decision(
             probability=pred.probability,
             confidence=pred.confidence,
             label=pred.label,
             glaucoma_grade=pred.glaucoma_grade,
             patient_id=patient_id,
+            ontology_payload=ontology_payload,
         )
         return prediction_to_result(
             pred,
-            model_used=f"cnn({get_glaucoma_backend().model_label()})",
+            model_used=model_used,
             ontology_passed=onto,
             decision_mode=mode,
             audit_trail=audit,
