@@ -1,0 +1,16 @@
+{
+  "arch": "efficientnet_b4_myopia",
+  "task": "myopia",
+  "manifest": "myopia_v1.json",
+  "preprocess": "clahe",
+  "image_size": 224,
+  "onnx": "retinal_myopia_v1.onnx",
+  "source_checkpoint": "best.pt",
+  "pt": "best.pt",
+  "best_val_auc": 0.946,
+  "test_auc": 0.9885,
+  "epochs": 80,
+  "focal_alpha": 0.75,
+  "focal_gamma": 2.0,
+  "version": "myopia_v1"
+}
