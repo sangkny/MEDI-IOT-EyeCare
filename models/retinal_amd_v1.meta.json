@@ -1,0 +1,16 @@
+{
+  "arch": "efficientnet_b4_amd",
+  "task": "amd",
+  "manifest": "amd_v1.json",
+  "preprocess": "clahe",
+  "image_size": 224,
+  "onnx": "retinal_amd_v1.onnx",
+  "source_checkpoint": "best.pt",
+  "pt": "best.pt",
+  "best_val_auc": 0.9803,
+  "test_auc": 0.967,
+  "epochs": 80,
+  "focal_alpha": 0.75,
+  "focal_gamma": 2.0,
+  "version": "amd_v1"
+}
