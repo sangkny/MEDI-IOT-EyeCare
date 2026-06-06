@@ -277,18 +277,94 @@ async def lab_fundus_glaucoma(
 @router.post(
     "/fundus/amd",
     response_model=AMDResult,
-    summary="AMD 단독 분석 (Phase 2 skeleton)",
+    summary="AMD 단독 분석 (retinal_amd_v1)",
 )
 async def lab_fundus_amd(
     file: UploadFile = File(...),
+    patient_id: str | None = Form(None),
+    eye: str | None = Form(None),
+    include_heatmap: bool = Form(True),
     _: dict = LAB_AUTH,
 ) -> AMDResult:
-    """Phase 2: ADAM/iChallenge 기반 AMD head."""
-    await _read_and_validate(file)
-    raise HTTPException(
-        status.HTTP_501_NOT_IMPLEMENTED,
-        detail="AMD model not deployed yet (Phase 2 — ADAM training in progress)",
-    )
+    """EfficientNet-B4 + Focal Loss (amd_v1, val AUC≈0.9803). Gate min conf 기본 0.65."""
+    image_bytes, _ = await _read_and_validate(file)
+    try:
+        from services.amd_cnn import (
+            get_amd_backend,
+            get_amd_model_path,
+            predict_amd_from_image_bytes,
+            prediction_to_result,
+        )
+        from services.amd_ontology import build_amd_ontology_payload
+        from services.diagnosis_pipeline import apply_four_agent_amd_decision
+        from services.gradcam import GradCAMService
+
+        pred = await predict_amd_from_image_bytes(image_bytes)
+        model_used = f"cnn({get_amd_backend().model_label()})"
+
+        draft = prediction_to_result(
+            pred,
+            model_used=model_used,
+            ontology_passed=True,
+            decision_mode="pending",
+        )
+        ontology_payload = build_amd_ontology_payload(
+            pred,
+            model_used=model_used,
+            icd10_code=draft.icd10_code,
+            referral_urgency=draft.referral_urgency,
+            eye=eye,
+        )
+        onto, audit, mode = await apply_four_agent_amd_decision(
+            probability=pred.probability,
+            confidence=pred.confidence,
+            label=pred.label,
+            amd_grade=pred.amd_grade,
+            patient_id=patient_id,
+            ontology_payload=ontology_payload,
+        )
+
+        heatmap_data: dict | None = None
+        if include_heatmap:
+            try:
+                svc = GradCAMService()
+                heatmap_data = await svc.generate_amd_heatmap(
+                    image_bytes,
+                    str(get_amd_model_path()),
+                    pred.probability,
+                    amd_grade=pred.amd_grade,
+                    eye_side=eye or "unknown",
+                )
+            except Exception as exc:
+                log.exception("lab amd heatmap failed")
+                heatmap_data = {
+                    "image_base64": "",
+                    "resolution": "",
+                    "lesion_annotations": [],
+                    "hotspot_regions": [],
+                    "heatmap_error": str(exc)[:500],
+                }
+
+        return prediction_to_result(
+            pred,
+            model_used=model_used,
+            ontology_passed=onto,
+            decision_mode=mode,
+            audit_trail=audit,
+            heatmap=heatmap_data,
+            decision=audit.get("decision"),
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"AMD model not found: {exc}",
+        ) from exc
+    except Exception as exc:
+        log.exception("lab amd failed")
+        raise HTTPException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc)[:200],
+        ) from exc
 
 
 @router.post(
@@ -340,10 +416,10 @@ async def lab_fundus_comprehensive(
     include_heatmap: bool = Form(True),
     eye: str | None = Form(None, description="left | right (alias eye_side)"),
     eye_side: str = Form("unknown", description="left | right | unknown"),
-    tasks: str = Form("dr,glaucoma", description="쉼표 구분: dr,glaucoma,amd"),
+    tasks: str = Form("dr,glaucoma,amd", description="쉼표 구분: dr,glaucoma,amd"),
     _: dict = LAB_AUTH,
 ) -> ComprehensiveFundusResponse:
-    """DR + Glaucoma 동시 분석 · overall_assessment 종합 판정."""
+    """DR + Glaucoma + AMD 동시 분석 · overall_assessment 종합 판정."""
     image_bytes, fmt_label = await _read_and_validate(file)
     loc = None
     if lat is not None and lng is not None:

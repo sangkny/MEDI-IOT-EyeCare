@@ -26,6 +26,7 @@ _UNIT_MODULES = frozenset({
     "test_glaucoma_manifest",
     "test_glaucoma_train",
     "test_multitask_model",
+    "test_amd_cnn",
     "test_real_image",
     "test_retinal_preprocess",
     "test_vision_router",

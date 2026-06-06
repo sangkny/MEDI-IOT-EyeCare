@@ -169,9 +169,25 @@ class GlaucomaResult(BaseModel):
     audit_trail: dict = Field(default_factory=dict)
 
 
+class AMDLesionAnnotation(BaseModel):
+    type: str
+    confidence: float = Field(..., ge=0, le=1)
+    region: str = ""
+
+
+class AMDHeatmap(BaseModel):
+    image_base64: str = ""
+    resolution: str = "original"
+    lesion_annotations: list[AMDLesionAnnotation] = Field(default_factory=list)
+    hotspot_regions: list[str] = Field(default_factory=list)
+    gradcam_version: str | None = None
+    heatmap_error: str | None = None
+
+
 class AMDResult(BaseModel):
     amd_grade: int = Field(..., ge=0, le=3, description="0:정상 1:초기 2:중기 3:말기")
     grade_label: str = Field(..., description="normal/early/intermediate/advanced")
+    label: str = Field(default="normal", description="normal | amd (이진)")
     probability: float = Field(default=0.0, ge=0, le=1, description="AMD 양성 확률")
     risk_level: Literal["LOW", "MODERATE", "HIGH"] = Field(default="LOW")
     drusen_detected: bool = False
@@ -182,10 +198,30 @@ class AMDResult(BaseModel):
     subtype: str | None = Field(default=None, description="dry/wet/none (legacy alias)")
     vision_impact: str | None = Field(
         default=None,
-        description="none/mild/moderate/severe",
+        description="minimal/moderate/severe",
     )
     confidence: float = Field(..., ge=0, le=1)
     icd10_code: str = "H35.31"
+    severity: str = Field(default="", description="normal/early/intermediate/advanced")
+    referral_urgency: str = Field(
+        default="none",
+        description="none/routine/urgent/immediate",
+    )
+    heatmap: AMDHeatmap | None = None
+    model_used: str = Field(default="", description="예: cnn(efficientnet_b4_amd)")
+    decision_mode: str = Field(
+        default="legacy",
+        description="legacy | four_agent | gate",
+    )
+    ontology_passed: bool = Field(
+        default=True,
+        description="AMD SEMANTIC ontology 통과 여부 (AMD-SEM 룰)",
+    )
+    decision: str | None = Field(
+        default=None,
+        description="APPROVE | REVISE | REJECT (audit_trail.decision)",
+    )
+    audit_trail: dict = Field(default_factory=dict)
 
 
 class MyopiaResult(BaseModel):
@@ -247,20 +283,21 @@ class OverallAssessment(BaseModel):
     )
     primary_concern: str = Field(
         default="none",
-        description="glaucoma | diabetic_retinopathy | none",
+        description="glaucoma | diabetic_retinopathy | amd | none",
     )
     findings: list[str] = Field(default_factory=list)
     recommendation: str = ""
 
 
 class ComprehensiveFundusResponse(BaseModel):
-    """DR + Glaucoma 통합 Lab 응답."""
+    """DR + Glaucoma + AMD 통합 Lab 응답."""
 
     dr: DRComprehensiveSummary
     glaucoma: GlaucomaResult | None = None
+    amd: AMDResult | None = None
     heatmap: dict = Field(
         default_factory=dict,
-        description='{"dr": {...}, "glaucoma": {...}}',
+        description='{"dr": {...}, "glaucoma": {...}, "amd": {...}}',
     )
     overall_assessment: OverallAssessment
     active_tasks: list[str] = Field(default_factory=list)
