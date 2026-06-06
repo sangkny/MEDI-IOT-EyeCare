@@ -23,6 +23,20 @@ def _get_pipeline():
     return _pipeline
 
 
+def _dr_decision_gate_min() -> float:
+    try:
+        return float(os.getenv("MEDI_CNN_DECISION_MIN_CONF", "0.80"))
+    except ValueError:
+        return 0.80
+
+
+def _dr_decision_reject_max() -> float:
+    try:
+        return float(os.getenv("MEDI_CNN_DECISION_REJECT_MAX", "0.50"))
+    except ValueError:
+        return 0.50
+
+
 async def apply_four_agent_decision(
     *,
     dr_grade: int,
@@ -33,18 +47,37 @@ async def apply_four_agent_decision(
     ontology_passed_legacy: bool,
     patient_id: str | None,
 ) -> tuple[bool, dict, str]:
+    """Ontology legacy + DecisionGate + four_agent.
+
+    - confidence >= gate_min (기본 0.80): APPROVE (four_agent 또는 legacy)
+    - reject_max ~ gate_min (기본 0.50~0.80): REVISE (DR grade >= 1 포함)
+    - confidence < reject_max and dr_grade == 0: REJECT
     """
-    four_agent 활성 시 run_decision으로 ontology_passed·audit_trail 산출.
-    비활성 시 legacy 값 유지.
-    """
+    gate_min = _dr_decision_gate_min()
+    reject_max = _dr_decision_reject_max()
+    audit: dict[str, Any] = {
+        "threshold": gate_min,
+        "reject_max": reject_max,
+        "confidence": confidence,
+    }
+
+    if confidence < reject_max and dr_grade == 0:
+        audit.update(mode="gate", decision="REJECT", reason="below_reject_max")
+        return False, audit, "gate"
+
+    if confidence < gate_min:
+        audit.update(mode="gate", decision="REVISE", reason="below_gate_min")
+        return True, audit, "gate"
+
     AgentFeatureFlags, AgentPipeline = _get_pipeline()
     req_id = patient_id or "medi-anonymous"
     if not AgentFeatureFlags.is_four_agent_enabled(req_id):
-        return (
-            ontology_passed_legacy,
-            {"mode": "legacy", "ontology_passed_legacy": ontology_passed_legacy},
-            "legacy",
+        audit.update(
+            mode="legacy",
+            decision="APPROVE",
+            ontology_passed_legacy=ontology_passed_legacy,
         )
+        return ontology_passed_legacy, audit, "legacy"
 
     artifact = {
         "dr_grade": dr_grade,
@@ -59,17 +92,17 @@ async def apply_four_agent_decision(
         pr = await pipe.run_decision(artifact, "medical", request_id=req_id)
     except Exception as exc:
         log.warning("four_agent decision failed, fallback legacy: %s", exc)
-        return (
-            ontology_passed_legacy,
-            {"mode": "legacy", "error": str(exc)[:200]},
-            "legacy",
-        )
+        audit.update(mode="legacy", decision="APPROVE", error=str(exc)[:200])
+        return ontology_passed_legacy, audit, "legacy"
 
     decision = pr.decision.decision
-    ontology_passed = decision != "REJECT"
-    audit = dict(pr.audit_trail or {})
+    audit = {**audit, **dict(pr.audit_trail or {})}
     audit.setdefault("mode", pr.mode)
-    audit.setdefault("decision", decision)
+    if decision == "REJECT" and confidence >= gate_min:
+        decision = "REVISE"
+        audit["decision_softened"] = True
+    audit["decision"] = decision
+    ontology_passed = decision != "REJECT"
     return ontology_passed, audit, pr.mode
 
 

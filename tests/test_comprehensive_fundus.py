@@ -60,6 +60,37 @@ def test_dr_summary_grade_field() -> None:
     assert "dr_grade" not in d or d.get("grade") == 2
 
 
+def test_dr_summary_from_explain_revise_fallback() -> None:
+    from services.comprehensive_fundus import _dr_summary_from_explain
+
+    summary = _dr_summary_from_explain(
+        {
+            "dr_grade": 1,
+            "confidence": 0.390,
+            "icd10_code": "H36.0",
+            "severity": "mild",
+            "audit_trail": {"decision": "REVISE", "mode": "gate"},
+        }
+    )
+    assert summary.decision == "REVISE"
+    assert summary.grade == 1
+
+
+def test_dr_summary_from_explain_none_becomes_revise() -> None:
+    from services.comprehensive_fundus import _dr_summary_from_explain
+
+    summary = _dr_summary_from_explain(
+        {
+            "dr_grade": 1,
+            "confidence": 0.390,
+            "icd10_code": "H36.0",
+            "severity": "mild",
+            "audit_trail": {},
+        }
+    )
+    assert summary.decision == "REVISE"
+
+
 def test_overall_assessment_amd_primary() -> None:
     dr = DRComprehensiveSummary(
         grade=0,
