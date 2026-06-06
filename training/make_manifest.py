@@ -436,6 +436,43 @@ def _odir_row_filenames(row: dict) -> list[str]:
     return names
 
 
+def _odir_fundus_filenames(row: dict) -> list[str]:
+    """ODIR 좌/우 안저 파일명만 (ID·filename 중복 열거 방지)."""
+    names: list[str] = []
+    seen: set[str] = set()
+    for key in ("Left-Fundus", "Right-Fundus", "left", "right"):
+        raw = (row.get(key) or "").strip()
+        if not raw or raw.lower() in {"nan", "none"}:
+            continue
+        name = Path(raw).name
+        if name in seen:
+            continue
+        seen.add(name)
+        names.append(name)
+    if names:
+        return names
+    for key in ("filename", "Filename", "Image"):
+        raw = (row.get(key) or "").strip()
+        if raw and raw.lower() not in {"nan", "none"}:
+            return [Path(raw).name]
+    return []
+
+
+def _odir_one_hot_flag(row: dict, fieldnames: list[str], col: str) -> int | None:
+    """ODIR full_df 단일 플래그 (N, M, D, …) — 정확한 컬럼명만."""
+    key_map = {name.upper(): name for name in fieldnames}
+    col_key = key_map.get(col.upper())
+    if col_key is None:
+        return None
+    raw = row.get(col_key)
+    if raw in (None, ""):
+        return 0
+    try:
+        return int(float(raw))
+    except ValueError:
+        return None
+
+
 def _resolve_odir_image(img_dir: Path, filename: str) -> Path | None:
     candidates = [img_dir / filename, img_dir / Path(filename).name]
     stem = Path(filename).stem
@@ -622,7 +659,10 @@ def load_odir_myopia(
     *,
     manifest_root: Path | None = None,
 ) -> list[dict]:
-    """ODIR — M=1(myopia), N=1 and M=0(normal)."""
+    """ODIR — M=1(myopia), N=1 and M=0(normal) only.
+
+    다른 질환(D/G/C/A/…) 행은 제외. 좌/우 안저 각 1장씩만 포함.
+    """
     base = base_path.expanduser().resolve()
     path_root = manifest_root or base
     odir_base = _find_odir_root(base)
@@ -641,23 +681,35 @@ def load_odir_myopia(
         return []
 
     samples: list[dict] = []
+    seen_paths: set[str] = set()
     with csv_path.open(encoding="utf-8-sig", newline="") as f:
         reader = csv.DictReader(f)
         if not reader.fieldnames:
             return samples
+        fieldnames = list(reader.fieldnames)
+        upper_cols = {name.upper() for name in fieldnames}
+        if "M" not in upper_cols or "N" not in upper_cols:
+            return samples
         for row in reader:
-            myopia = _odir_binary(row, "M", "MYA", "Myopia", "myopia")
-            normal = _odir_binary(row, "N", "Normal", "normal")
-            if myopia == 1:
+            m_flag = _odir_one_hot_flag(row, fieldnames, "M")
+            n_flag = _odir_one_hot_flag(row, fieldnames, "N")
+            if m_flag is None or n_flag is None:
+                continue
+            if m_flag == 1:
                 label = 1
-            elif normal == 1 and myopia == 0:
+            elif n_flag == 1 and m_flag == 0:
                 label = 0
             else:
                 continue
-            for filename in _odir_row_filenames(row):
+            for filename in _odir_fundus_filenames(row):
                 img = _resolve_odir_image(img_dir, filename)
-                if img is not None:
-                    samples.append(_myopia_sample(path_root, img, label, "odir_myopia"))
+                if img is None:
+                    continue
+                rel = str(img.relative_to(path_root))
+                if rel in seen_paths:
+                    continue
+                seen_paths.add(rel)
+                samples.append(_myopia_sample(path_root, img, label, "odir_myopia"))
     return samples
 
 
@@ -666,7 +718,7 @@ def load_rfmid_myopia(
     *,
     manifest_root: Path | None = None,
 ) -> list[dict]:
-    """RFMiD — MYA=1(myopia), Disease_Risk=0 and MYA=0(normal)."""
+    """RFMiD — MYA=1(myopia), Disease_Risk=0 and MYA=0(normal) only."""
     base = base_path.expanduser().resolve()
     path_root = manifest_root or base
     train_dir, csv_path = _find_rfmid_training(base)
@@ -674,6 +726,7 @@ def load_rfmid_myopia(
         return []
 
     samples: list[dict] = []
+    seen_paths: set[str] = set()
     with csv_path.open(encoding="utf-8-sig", newline="") as f:
         reader = csv.DictReader(f)
         if not reader.fieldnames:
@@ -682,11 +735,14 @@ def load_rfmid_myopia(
         id_col = fields.get("ID", reader.fieldnames[0])
         mya_col = fields.get("MYA")
         risk_col = fields.get("DISEASE_RISK")
+        if mya_col is None or risk_col is None:
+            return samples
         for row in reader:
-            if mya_col is None or risk_col is None:
+            try:
+                mya = int(float(row.get(mya_col) or 0))
+                risk = int(float(row.get(risk_col) or 0))
+            except ValueError:
                 continue
-            mya = _odir_binary(row, mya_col)
-            risk = _odir_binary(row, risk_col)
             if mya == 1:
                 label = 1
             elif risk == 0 and mya == 0:
@@ -697,8 +753,13 @@ def load_rfmid_myopia(
             if not image_id:
                 continue
             img = _resolve_rfmid_image(train_dir, image_id)
-            if img is not None:
-                samples.append(_myopia_sample(path_root, img, label, "rfmid_myopia"))
+            if img is None:
+                continue
+            rel = str(img.relative_to(path_root))
+            if rel in seen_paths:
+                continue
+            seen_paths.add(rel)
+            samples.append(_myopia_sample(path_root, img, label, "rfmid_myopia"))
     return samples
 
 
