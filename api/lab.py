@@ -405,7 +405,7 @@ async def lab_fundus_screening(
 @router.post(
     "/fundus/comprehensive",
     response_model=ComprehensiveFundusResponse,
-    summary="Fundus Lab — DR + Glaucoma 통합 분석",
+    summary="Fundus Lab — DR + Glaucoma + AMD 통합 분석",
 )
 async def lab_fundus_comprehensive(
     file: UploadFile = File(...),
