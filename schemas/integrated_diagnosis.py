@@ -278,17 +278,53 @@ class MyopiaResult(BaseModel):
     audit_trail: dict = Field(default_factory=dict)
 
 
-class ScreeningResult(BaseModel):
-    """전체 안과 스크리닝 (DR+Glaucoma+AMD+근시 등) — Phase 4+."""
+class ScreeningFinding(BaseModel):
+    """다질환 스크리닝 단일 소견."""
 
-    findings: list[str] = Field(default_factory=list)
+    disease: str = Field(..., description="질환 약어 (dr, armd, crvo, …)")
+    probability: float = Field(..., ge=0, le=1)
+    risk_level: str = Field(default="low", description="low | moderate | high | urgent")
+    icd10: str = Field(default="", description="매핑 ICD-10 (가능 시)")
+
+
+class ScreeningResult(BaseModel):
+    """전체 안과 스크리닝 (RFMiD 28-class + ODIR 보조) — Phase 4+."""
+
+    findings: list[ScreeningFinding] = Field(default_factory=list)
+    urgent_diseases: list[str] = Field(
+        default_factory=list,
+        description="즉시 의뢰 필요 질환 (crao, brao, crvo, …)",
+    )
+    total_diseases_detected: int = Field(default=0, ge=0)
+    recommendations: list[str] = Field(default_factory=list)
     urgent_referral: bool = False
     priority_diseases: list[str] = Field(
         default_factory=list,
-        description="우선 의뢰 질환 (glaucoma, dr, amd, myopia, ...)",
+        description="우선 의뢰 질환 (legacy alias)",
     )
     referral_urgency: str = Field(default="none", description="none/routine/immediate")
     model_used: str = ""
+
+
+class SlitLampResult(BaseModel):
+    """세극등 전안부 진단 (Phase 6 stub)."""
+
+    findings: list[ScreeningFinding] = Field(default_factory=list)
+    modality: str = Field(default="slitlamp")
+    model_used: str = ""
+    referral_urgency: str = Field(default="none")
+    recommendations: list[str] = Field(default_factory=list)
+
+
+class OCTResult(BaseModel):
+    """OCT 망막 단층 분석 (Phase 7 stub)."""
+
+    findings: list[ScreeningFinding] = Field(default_factory=list)
+    modality: str = Field(default="oct")
+    model_used: str = ""
+    macula_metrics: dict = Field(default_factory=dict)
+    referral_urgency: str = Field(default="none")
+    recommendations: list[str] = Field(default_factory=list)
 
 
 class MultiIndicationResult(BaseModel):

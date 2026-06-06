@@ -17,7 +17,9 @@ from schemas.integrated_diagnosis import (
     DiagnosisExplainResponse,
     GlaucomaResult,
     MyopiaResult,
+    OCTResult,
     ScreeningResult,
+    SlitLampResult,
 )
 from services.fundus_image_formats import (
     normalize_for_cnn,
@@ -463,18 +465,71 @@ async def lab_fundus_myopia(
 @router.post(
     "/fundus/screening",
     response_model=ScreeningResult,
-    summary="전체 안과 스크리닝 (Phase 4 skeleton)",
+    summary="다질환 안저 스크리닝 (Phase 4 — RFMiD 28-class)",
 )
 async def lab_fundus_screening(
     file: UploadFile = File(...),
-    tasks: str = Form("dr,glaucoma,amd,myopia", description="쉼표 구분 태스크"),
+    tasks: str = Form("multidisease", description="쉼표 구분 태스크 (multidisease)"),
+    threshold: float = Form(0.5, ge=0.0, le=1.0, description="양성 임계값"),
     _: dict = LAB_AUTH,
 ) -> ScreeningResult:
-    """다질환 통합 스크리닝 — RFMiD/ODIR 멀티헤드 (모델 준비 중)."""
+    """RFMiD+ODIR 멀티레이블 스크리닝 — 모델 배포 전 501."""
     await _read_and_validate(file)
     raise HTTPException(
         status.HTTP_501_NOT_IMPLEMENTED,
-        detail=f"Multidisease screening not deployed yet (tasks={tasks})",
+        detail=(
+            "Multidisease screening not deployed yet "
+            f"(tasks={tasks}, threshold={threshold}). "
+            "Train: scripts/start_multidisease_train.sh"
+        ),
+    )
+
+
+@router.post(
+    "/slitlamp/dryeye",
+    response_model=SlitLampResult,
+    summary="안구건조증 세극등 진단 (Phase 6 예약)",
+)
+async def lab_slitlamp_dryeye(
+    file: UploadFile = File(...),
+    _: dict = LAB_AUTH,
+) -> SlitLampResult:
+    await _read_and_validate(file)
+    raise HTTPException(
+        status.HTTP_501_NOT_IMPLEMENTED,
+        detail="Slit-lamp dry eye model planned for Phase 6 (CASIA-2 / ocular surface datasets)",
+    )
+
+
+@router.post(
+    "/slitlamp/cataract",
+    response_model=SlitLampResult,
+    summary="백내장 세극등 진단 (Phase 6 예약)",
+)
+async def lab_slitlamp_cataract(
+    file: UploadFile = File(...),
+    _: dict = LAB_AUTH,
+) -> SlitLampResult:
+    await _read_and_validate(file)
+    raise HTTPException(
+        status.HTTP_501_NOT_IMPLEMENTED,
+        detail="Slit-lamp cataract model planned for Phase 6 (ODIR-C + slit-lamp datasets)",
+    )
+
+
+@router.post(
+    "/oct/macula",
+    response_model=OCTResult,
+    summary="황반 OCT 분석 (Phase 7 예약)",
+)
+async def lab_oct_macula(
+    file: UploadFile = File(...),
+    _: dict = LAB_AUTH,
+) -> OCTResult:
+    await _read_and_validate(file)
+    raise HTTPException(
+        status.HTTP_501_NOT_IMPLEMENTED,
+        detail="OCT macula analysis planned for Phase 7 (Duke OCT / Kermany dataset)",
     )
 
 

@@ -787,13 +787,156 @@ MULTIDISEASE_RFMID_KEYS = (
     "CRVO",
 )
 
+# Phase 4 훈련 헤드 — 희귀 18종 제외, 샘플 충분 28종 (RFMiD CSV 약어 소문자)
+MULTIDISEASE_TRAIN_CLASSES: tuple[str, ...] = (
+    "dr",
+    "armd",
+    "mh",
+    "dn",
+    "mya",
+    "brvo",
+    "tsln",
+    "erm",
+    "ls",
+    "ms",
+    "csr",
+    "odc",
+    "crvo",
+    "hr",
+    "odp",
+    "ode",
+    "aion",
+    "rt",
+    "rs",
+    "crs",
+    "edn",
+    "rpec",
+    "mhl",
+    "rp",
+    "cws",
+    "cb",
+    "odpm",
+    "prh",
+)
+
+# ODIR 8-class → 28-class train 매핑 (glaucoma/cataract/other/normal은 별도 단독 모델)
+ODIR_TO_TRAIN_LABELS: dict[str, str] = {
+    "dr": "dr",
+    "amd": "armd",
+    "myopia": "mya",
+    "htn": "hr",
+}
+
+# RFMiD CSV 전체 45 질환 약어 (Disease_Risk 제외) — ch39 SSOT
+RFMID_ALL_DISEASE_COLUMNS: tuple[str, ...] = (
+    "DR",
+    "ARMD",
+    "MH",
+    "DN",
+    "MYA",
+    "BRVO",
+    "TSLN",
+    "ERM",
+    "LS",
+    "MS",
+    "CSR",
+    "ODC",
+    "CRVO",
+    "TV",
+    "AH",
+    "ODP",
+    "ODE",
+    "ST",
+    "AION",
+    "PT",
+    "RT",
+    "RS",
+    "CRS",
+    "EDN",
+    "RPEC",
+    "MHL",
+    "RP",
+    "CWS",
+    "CB",
+    "ODPM",
+    "PRH",
+    "MNF",
+    "HR",
+    "CRAO",
+    "TD",
+    "CME",
+    "PTCR",
+    "CF",
+    "VH",
+    "MCA",
+    "VS",
+    "BRAO",
+    "PLQ",
+    "HPED",
+    "CL",
+)
+
+
+def _train_labels_from_rfmid(raw: dict[str, int]) -> dict[str, int]:
+    return {name: int(raw.get(name, 0)) for name in MULTIDISEASE_TRAIN_CLASSES}
+
+
+def _train_labels_from_odir(odir_labels: dict[str, int]) -> dict[str, int]:
+    out = {name: 0 for name in MULTIDISEASE_TRAIN_CLASSES}
+    for odir_key, train_key in ODIR_TO_TRAIN_LABELS.items():
+        if int(odir_labels.get(odir_key, 0)) == 1:
+            out[train_key] = 1
+    return out
+
+
+def _multidisease_class_stats(samples: list[dict]) -> dict[str, int]:
+    stats: dict[str, int] = {name: 0 for name in MULTIDISEASE_TRAIN_CLASSES}
+    for sample in samples:
+        labels = sample.get("labels") or {}
+        for name in MULTIDISEASE_TRAIN_CLASSES:
+            if int(labels.get(name, 0)) == 1:
+                stats[name] += 1
+    return stats
+
+
+def _iter_rfmid_label_sets(rfmid_base: Path) -> list[tuple[Path, Path]]:
+    """Training / Validation / Test — 최대 3,200장."""
+    configs = [
+        ("Training_set", ("RFMiD_Training_Labels.csv",)),
+        ("Validation_set", ("RFMiD_Validation_Labels.csv",)),
+        (
+            "Test_set",
+            ("RFMiD_Testing_Labels.csv", "RFMiD_Test_Labels.csv"),
+        ),
+    ]
+    out: list[tuple[Path, Path]] = []
+    for subdir, csv_names in configs:
+        img_dir = rfmid_base / subdir
+        if not img_dir.is_dir():
+            continue
+        csv_path: Path | None = None
+        for name in csv_names:
+            for candidate in (img_dir / name, rfmid_base / name):
+                if candidate.is_file():
+                    csv_path = candidate
+                    break
+            if csv_path is not None:
+                break
+        if csv_path is not None:
+            out.append((img_dir, csv_path))
+    if not out:
+        train_dir, csv_path = _find_rfmid_training(rfmid_base)
+        if train_dir is not None and csv_path is not None:
+            out.append((train_dir, csv_path))
+    return out
+
 
 def load_odir_multidisease(
     base_path: Path,
     *,
     manifest_root: Path | None = None,
 ) -> list[dict]:
-    """ODIR 8-class multi-label (N,D,G,C,A,H,M,O)."""
+    """ODIR 8-class multi-label (N,D,G,C,A,H,M,O) → 28-class train labels."""
     base = base_path.expanduser().resolve()
     path_root = manifest_root or base
     odir_base = _find_odir_root(base)
@@ -802,32 +945,44 @@ def load_odir_multidisease(
 
     csv_path = odir_base / "full_df.csv"
     if not csv_path.is_file():
-        return []
+        for alt in ("labels.csv", "label.csv"):
+            candidate = odir_base / alt
+            if candidate.is_file():
+                csv_path = candidate
+                break
     img_dir = _find_odir_image_dir(odir_base)
-    if img_dir is None:
+    if not csv_path.is_file() or img_dir is None:
         return []
 
     samples: list[dict] = []
+    seen_paths: set[str] = set()
     with csv_path.open(encoding="utf-8-sig", newline="") as f:
         reader = csv.DictReader(f)
         if not reader.fieldnames:
             return samples
         for row in reader:
-            labels = {
+            odir_labels = {
                 name: _odir_binary(row, key, name, name.upper())
                 for key, name in MULTIDISEASE_ODIR_KEYS.items()
             }
-            for filename in _odir_row_filenames(row):
+            train_labels = _train_labels_from_odir(odir_labels)
+            for filename in _odir_fundus_filenames(row):
                 img = _resolve_odir_image(img_dir, filename)
-                if img is not None:
-                    samples.append(
-                        {
-                            "path": str(img.relative_to(path_root)),
-                            "source": "odir",
-                            "task": "multidisease",
-                            "labels": labels,
-                        }
-                    )
+                if img is None:
+                    continue
+                rel = str(img.relative_to(path_root))
+                if rel in seen_paths:
+                    continue
+                seen_paths.add(rel)
+                samples.append(
+                    {
+                        "path": rel,
+                        "source": "odir",
+                        "task": "multidisease",
+                        "labels": train_labels,
+                        "odir_labels": odir_labels,
+                    }
+                )
     return samples
 
 
@@ -836,42 +991,49 @@ def load_rfmid_multidisease(
     *,
     manifest_root: Path | None = None,
 ) -> list[dict]:
-    """RFMiD Training_set — CSV header 전체 질환 멀티레이블."""
+    """RFMiD Training+Validation+Test — 45 질환 멀티레이블 → 28-class train."""
     base = base_path.expanduser().resolve()
     path_root = manifest_root or base
-    train_dir, csv_path = _find_rfmid_training(base)
-    if train_dir is None or csv_path is None:
+    rfmid_base = _find_rfmid_root(base)
+    if rfmid_base is None:
         return []
 
     skip_cols = {"ID", "Disease_Risk", "DISEASE_RISK"}
     samples: list[dict] = []
-    with csv_path.open(encoding="utf-8-sig", newline="") as f:
-        reader = csv.DictReader(f)
-        if not reader.fieldnames:
-            return samples
-        id_col = reader.fieldnames[0]
-        disease_cols = [c for c in reader.fieldnames if c.upper() not in skip_cols]
-        for row in reader:
-            image_id = (row.get(id_col) or "").strip()
-            if not image_id:
+    seen_paths: set[str] = set()
+    for train_dir, csv_path in _iter_rfmid_label_sets(rfmid_base):
+        with csv_path.open(encoding="utf-8-sig", newline="") as f:
+            reader = csv.DictReader(f)
+            if not reader.fieldnames:
                 continue
-            img = _resolve_rfmid_image(train_dir, image_id)
-            if img is None:
-                continue
-            labels: dict[str, int] = {}
-            for col in disease_cols:
-                try:
-                    labels[col.lower()] = int(float(row.get(col) or 0))
-                except ValueError:
-                    labels[col.lower()] = 0
-            samples.append(
-                {
-                    "path": str(img.relative_to(path_root)),
-                    "source": "rfmid",
-                    "task": "multidisease",
-                    "labels": labels,
-                }
-            )
+            id_col = reader.fieldnames[0]
+            disease_cols = [c for c in reader.fieldnames if c.upper() not in skip_cols]
+            for row in reader:
+                image_id = (row.get(id_col) or "").strip()
+                if not image_id:
+                    continue
+                img = _resolve_rfmid_image(train_dir, image_id)
+                if img is None:
+                    continue
+                rel = str(img.relative_to(path_root))
+                if rel in seen_paths:
+                    continue
+                seen_paths.add(rel)
+                raw: dict[str, int] = {}
+                for col in disease_cols:
+                    try:
+                        raw[col.lower()] = int(float(row.get(col) or 0))
+                    except ValueError:
+                        raw[col.lower()] = 0
+                samples.append(
+                    {
+                        "path": rel,
+                        "source": "rfmid",
+                        "task": "multidisease",
+                        "labels": _train_labels_from_rfmid(raw),
+                        "rfmid_labels": raw,
+                    }
+                )
     return samples
 
 
@@ -1785,6 +1947,16 @@ def build_multidisease_manifest(
         counts[name] = len(loaded)
         all_samples.extend(loaded)
 
+    seen_paths: set[str] = set()
+    deduped: list[dict] = []
+    for sample in all_samples:
+        key = sample["path"]
+        if key in seen_paths:
+            continue
+        seen_paths.add(key)
+        deduped.append(sample)
+    all_samples = deduped
+
     train, val, test = split_samples(
         all_samples,
         val_ratio=val_ratio,
@@ -1795,21 +1967,17 @@ def build_multidisease_manifest(
         for sample in chunk:
             sample["split"] = split_name
     combined = train + val + test
+    class_stats = _multidisease_class_stats(combined)
     manifest = {
         "data_dir": str(manifest_root),
         "task": "multidisease",
         "sources": counts,
         "total": len(combined),
-        "key_diseases": [
-            "dr",
-            "amd",
-            "glaucoma",
-            "cataract",
-            "myopia",
-            "brvo",
-            "mh",
-            "htn",
-        ],
+        "label_classes": list(MULTIDISEASE_TRAIN_CLASSES),
+        "num_classes": len(MULTIDISEASE_TRAIN_CLASSES),
+        "rfmid_disease_columns": list(RFMID_ALL_DISEASE_COLUMNS),
+        "expected_sources": {"rfmid": 3200, "odir": 14392},
+        "class_stats": class_stats,
         "samples": combined,
         "train": train,
         "val": val,
