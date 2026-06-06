@@ -1,0 +1,16 @@
+{
+  "arch": "efficientnet_b4_myopia",
+  "manifest": "myopia_v1.json",
+  "preprocess": "clahe",
+  "image_size": 224,
+  "focal_alpha": 0.75,
+  "focal_gamma": 2.0,
+  "best_val_auc": 0.946,
+  "best_val_f1": 0.8393,
+  "best_val_sensitivity": 0.8246,
+  "best_val_specificity": 0.9789,
+  "test_auc": 0.9885,
+  "test_f1": 0.8824,
+  "epochs": 80,
+  "target_auc": 0.9
+}
