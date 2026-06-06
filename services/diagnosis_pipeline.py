@@ -296,3 +296,91 @@ async def apply_four_agent_amd_decision(
         audit["decision_softened"] = True
     audit["decision"] = decision
     return ont_passed, audit, pr.mode
+
+
+MYOPIA_UNCERTAIN_LOW = 0.45
+MYOPIA_UNCERTAIN_HIGH = 0.55
+
+
+def _myopia_decision_gate_min() -> float:
+    try:
+        return float(os.getenv("MEDI_MYOPIA_DECISION_MIN_CONF", "0.65"))
+    except ValueError:
+        return 0.65
+
+
+async def apply_four_agent_myopia_decision(
+    *,
+    probability: float,
+    confidence: float,
+    label: str,
+    myopia_grade: int,
+    patient_id: str | None,
+    ontology_payload: dict[str, Any] | None = None,
+) -> tuple[bool, dict, str]:
+    """Ontology(SEMANTIC) + DecisionGate(기본 0.65) + four_agent."""
+    from services.myopia_ontology import validate_myopia_ontology
+
+    gate_min = _myopia_decision_gate_min()
+    audit: dict[str, Any] = {
+        "threshold": gate_min,
+        "uncertain_band": [MYOPIA_UNCERTAIN_LOW, MYOPIA_UNCERTAIN_HIGH],
+        "confidence": confidence,
+        "probability": probability,
+    }
+
+    ont_passed = True
+    if ontology_payload:
+        validation = await validate_myopia_ontology(ontology_payload)
+        ont_passed = validation.passed
+        audit["ontology_passed"] = ont_passed
+        audit["ontology_errors"] = _ontology_issues_summary(validation)
+        audit["ontology_warnings"] = len(getattr(validation, "warnings", []) or [])
+
+    if not ont_passed:
+        audit.update(mode="ontology", decision="REJECT")
+        return False, audit, "ontology"
+
+    if MYOPIA_UNCERTAIN_LOW <= probability <= MYOPIA_UNCERTAIN_HIGH:
+        audit.update(mode="gate", decision="REJECT", reason="uncertain_probability")
+        return False, audit, "gate"
+
+    if confidence < gate_min:
+        audit.update(mode="gate", decision="REVISE", reason="below_gate_min")
+        return True, audit, "gate"
+
+    AgentFeatureFlags, AgentPipeline = _get_pipeline()
+    req_id = patient_id or "medi-anonymous"
+    if not AgentFeatureFlags.is_four_agent_enabled(req_id):
+        audit.update(mode="legacy", decision="APPROVE")
+        return True, audit, "legacy"
+
+    artifact = {
+        "task": "myopia",
+        "condition": "pathological_myopia" if label == "myopia" else "normal_fundus",
+        "myopia_grade": myopia_grade,
+        "confidence": confidence,
+        "probability": probability,
+        "icd10": ontology_payload.get("icd10_code", "H52.1") if ontology_payload else "H52.1",
+        "icd10_code": ontology_payload.get("icd10_code", "H52.1") if ontology_payload else "H52.1",
+        "explanation": f"Myopia CNN: {label} (p={probability:.3f})",
+    }
+    if ontology_payload:
+        artifact.update(ontology_payload)
+
+    pipe = AgentPipeline(domain="medical", task_id=f"medi-myopia-{req_id[:12]}")
+    try:
+        pr = await pipe.run_decision(artifact, "medical", request_id=req_id)
+    except Exception as exc:
+        log.warning("four_agent myopia decision failed, legacy approve: %s", exc)
+        audit.update(mode="gate", decision="APPROVE", error=str(exc)[:200])
+        return True, audit, "gate"
+
+    decision = pr.decision.decision
+    audit = {**audit, **dict(pr.audit_trail or {})}
+    audit.setdefault("mode", pr.mode)
+    if decision == "REJECT" and ont_passed and confidence >= gate_min:
+        decision = "REVISE"
+        audit["decision_softened"] = True
+    audit["decision"] = decision
+    return ont_passed, audit, pr.mode

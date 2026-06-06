@@ -370,18 +370,94 @@ async def lab_fundus_amd(
 @router.post(
     "/fundus/myopia",
     response_model=MyopiaResult,
-    summary="근시 단독 분석 (Phase 3 skeleton)",
+    summary="근시 단독 분석 (retinal_myopia_v1)",
 )
 async def lab_fundus_myopia(
     file: UploadFile = File(...),
+    patient_id: str | None = Form(None),
+    eye: str | None = Form(None),
+    include_heatmap: bool = Form(True),
     _: dict = LAB_AUTH,
 ) -> MyopiaResult:
-    """Phase 3: PALM/ODIR 근시 subset 기반 myopia head."""
-    await _read_and_validate(file)
-    raise HTTPException(
-        status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Myopia model not deployed yet (Phase 3 — PALM training planned)",
-    )
+    """EfficientNet-B4 + Focal Loss (myopia_v1, val AUC≈0.9460). Gate min conf 기본 0.65."""
+    image_bytes, _ = await _read_and_validate(file)
+    try:
+        from services.myopia_cnn import (
+            get_myopia_backend,
+            get_myopia_model_path,
+            predict_myopia_from_image_bytes,
+            prediction_to_result,
+        )
+        from services.myopia_ontology import build_myopia_ontology_payload
+        from services.diagnosis_pipeline import apply_four_agent_myopia_decision
+        from services.gradcam import GradCAMService
+
+        pred = await predict_myopia_from_image_bytes(image_bytes)
+        model_used = f"cnn({get_myopia_backend().model_label()})"
+
+        draft = prediction_to_result(
+            pred,
+            model_used=model_used,
+            ontology_passed=True,
+            decision_mode="pending",
+        )
+        ontology_payload = build_myopia_ontology_payload(
+            pred,
+            model_used=model_used,
+            icd10_code=draft.icd10_code,
+            referral_urgency=draft.referral_urgency,
+            eye=eye,
+        )
+        onto, audit, mode = await apply_four_agent_myopia_decision(
+            probability=pred.probability,
+            confidence=pred.confidence,
+            label=pred.label,
+            myopia_grade=pred.myopia_grade,
+            patient_id=patient_id,
+            ontology_payload=ontology_payload,
+        )
+
+        heatmap_data: dict | None = None
+        if include_heatmap:
+            try:
+                svc = GradCAMService()
+                heatmap_data = await svc.generate_myopia_heatmap(
+                    image_bytes,
+                    str(get_myopia_model_path()),
+                    pred.probability,
+                    myopia_grade=pred.myopia_grade,
+                    eye_side=eye or "unknown",
+                )
+            except Exception as exc:
+                log.exception("lab myopia heatmap failed")
+                heatmap_data = {
+                    "image_base64": "",
+                    "resolution": "",
+                    "lesion_annotations": [],
+                    "hotspot_regions": [],
+                    "heatmap_error": str(exc)[:500],
+                }
+
+        return prediction_to_result(
+            pred,
+            model_used=model_used,
+            ontology_passed=onto,
+            decision_mode=mode,
+            audit_trail=audit,
+            heatmap=heatmap_data,
+            decision=audit.get("decision"),
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Myopia model not found: {exc}",
+        ) from exc
+    except Exception as exc:
+        log.exception("lab myopia failed")
+        raise HTTPException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc)[:200],
+        ) from exc
 
 
 @router.post(
@@ -405,7 +481,7 @@ async def lab_fundus_screening(
 @router.post(
     "/fundus/comprehensive",
     response_model=ComprehensiveFundusResponse,
-    summary="Fundus Lab — DR + Glaucoma + AMD 통합 분석",
+    summary="Fundus Lab — DR + Glaucoma + AMD + Myopia 통합 분석",
 )
 async def lab_fundus_comprehensive(
     file: UploadFile = File(...),
@@ -416,10 +492,10 @@ async def lab_fundus_comprehensive(
     include_heatmap: bool = Form(True),
     eye: str | None = Form(None, description="left | right (alias eye_side)"),
     eye_side: str = Form("unknown", description="left | right | unknown"),
-    tasks: str = Form("dr,glaucoma,amd", description="쉼표 구분: dr,glaucoma,amd"),
+    tasks: str = Form("dr,glaucoma,amd,myopia", description="쉼표 구분: dr,glaucoma,amd,myopia"),
     _: dict = LAB_AUTH,
 ) -> ComprehensiveFundusResponse:
-    """DR + Glaucoma + AMD 동시 분석 · overall_assessment 종합 판정."""
+    """DR + Glaucoma + AMD + Myopia 동시 분석 · overall_assessment 종합 판정."""
     image_bytes, fmt_label = await _read_and_validate(file)
     loc = None
     if lat is not None and lng is not None:

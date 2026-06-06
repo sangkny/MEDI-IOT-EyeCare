@@ -224,17 +224,58 @@ class AMDResult(BaseModel):
     audit_trail: dict = Field(default_factory=dict)
 
 
+class MyopiaLesionAnnotation(BaseModel):
+    type: str
+    confidence: float = Field(..., ge=0, le=1)
+    region: str = ""
+
+
+class MyopiaHeatmap(BaseModel):
+    image_base64: str = ""
+    resolution: str = "original"
+    lesion_annotations: list[MyopiaLesionAnnotation] = Field(default_factory=list)
+    hotspot_regions: list[str] = Field(default_factory=list)
+    gradcam_version: str | None = None
+    heatmap_error: str | None = None
+
+
 class MyopiaResult(BaseModel):
-    myopia_grade: int = Field(..., ge=0, le=3, description="0:정상 1:경도 2:중등도 3:고도")
-    probability: float = Field(default=0.0, ge=0, le=1)
+    myopia_grade: int = Field(..., ge=0, le=3, description="0:정상 1:경도 2:중등도 3:고도/병적")
+    grade_label: str = Field(default="normal", description="normal/mild/moderate/high")
+    label: str = Field(default="normal", description="normal | myopia (이진)")
+    probability: float = Field(default=0.0, ge=0, le=1, description="근시 양성 확률")
+    risk_level: Literal["LOW", "MODERATE", "HIGH"] = Field(default="LOW")
     axial_length_estimate: float | None = Field(
         default=None,
-        description="추정 안축장(mm) — Phase 3 모델",
+        description="추정 안축장(mm)",
     )
-    risk_level: Literal["LOW", "MODERATE", "HIGH"] = Field(default="LOW")
     pathological: bool = Field(default=False, description="병적 근시 여부")
+    vision_impact: str | None = Field(
+        default=None,
+        description="minimal/moderate/severe",
+    )
     confidence: float = Field(..., ge=0, le=1)
-    severity: str = ""
+    icd10_code: str = Field(default="", description="H52.1(근시) / H44.2(병적근시)")
+    severity: str = Field(default="", description="normal/mild/moderate/high")
+    referral_urgency: str = Field(
+        default="none",
+        description="none/routine/urgent/immediate",
+    )
+    heatmap: MyopiaHeatmap | None = None
+    model_used: str = Field(default="", description="예: cnn(efficientnet_b4_myopia)")
+    decision_mode: str = Field(
+        default="legacy",
+        description="legacy | four_agent | gate",
+    )
+    ontology_passed: bool = Field(
+        default=True,
+        description="MYO-SEM ontology 통과 여부",
+    )
+    decision: str | None = Field(
+        default=None,
+        description="APPROVE | REVISE | REJECT",
+    )
+    audit_trail: dict = Field(default_factory=dict)
 
 
 class ScreeningResult(BaseModel):
@@ -283,21 +324,22 @@ class OverallAssessment(BaseModel):
     )
     primary_concern: str = Field(
         default="none",
-        description="glaucoma | diabetic_retinopathy | amd | none",
+        description="glaucoma | diabetic_retinopathy | amd | myopia | none",
     )
     findings: list[str] = Field(default_factory=list)
     recommendation: str = ""
 
 
 class ComprehensiveFundusResponse(BaseModel):
-    """DR + Glaucoma + AMD 통합 Lab 응답."""
+    """DR + Glaucoma + AMD + Myopia 통합 Lab 응답."""
 
     dr: DRComprehensiveSummary
     glaucoma: GlaucomaResult | None = None
     amd: AMDResult | None = None
+    myopia: MyopiaResult | None = None
     heatmap: dict = Field(
         default_factory=dict,
-        description='{"dr": {...}, "glaucoma": {...}, "amd": {...}}',
+        description='{"dr": {...}, "glaucoma": {...}, "amd": {...}, "myopia": {...}}',
     )
     overall_assessment: OverallAssessment
     active_tasks: list[str] = Field(default_factory=list)

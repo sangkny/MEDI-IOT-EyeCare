@@ -24,6 +24,8 @@ from schemas.integrated_diagnosis import (
 
     GlaucomaResult,
 
+    MyopiaResult,
+
     OverallAssessment,
 
 )
@@ -50,6 +52,8 @@ from services.diagnosis_pipeline import (
 
     apply_four_agent_glaucoma_decision,
 
+    apply_four_agent_myopia_decision,
+
 )
 
 from services.glaucoma_cnn import (
@@ -65,6 +69,20 @@ from services.glaucoma_cnn import (
 )
 
 from services.glaucoma_ontology import build_glaucoma_ontology_payload
+
+from services.myopia_cnn import (
+
+    get_myopia_backend,
+
+    get_myopia_model_path,
+
+    predict_myopia_from_image_bytes,
+
+    prediction_to_result as myopia_prediction_to_result,
+
+)
+
+from services.myopia_ontology import build_myopia_ontology_payload
 
 from services.gradcam import GradCAMService, GradCAMVisualizer
 
@@ -330,6 +348,124 @@ async def _run_amd_pipeline(
 
 
 
+async def _run_myopia_pipeline(
+
+    image_bytes: bytes,
+
+    *,
+
+    patient_id: str | None,
+
+    eye: str | None,
+
+    include_heatmap: bool,
+
+) -> tuple[MyopiaResult, dict | None]:
+
+    pred = await predict_myopia_from_image_bytes(image_bytes)
+
+    model_used = f"cnn({get_myopia_backend().model_label()})"
+
+
+
+    draft = myopia_prediction_to_result(
+
+        pred,
+
+        model_used=model_used,
+
+        ontology_passed=True,
+
+        decision_mode="pending",
+
+    )
+
+    ontology_payload = build_myopia_ontology_payload(
+
+        pred,
+
+        model_used=model_used,
+
+        icd10_code=draft.icd10_code,
+
+        referral_urgency=draft.referral_urgency,
+
+        eye=eye,
+
+    )
+
+    onto, audit, mode = await apply_four_agent_myopia_decision(
+
+        probability=pred.probability,
+
+        confidence=pred.confidence,
+
+        label=pred.label,
+
+        myopia_grade=pred.myopia_grade,
+
+        patient_id=patient_id,
+
+        ontology_payload=ontology_payload,
+
+    )
+
+
+
+    heatmap_data: dict | None = None
+
+    if include_heatmap:
+
+        try:
+
+            svc = GradCAMService()
+
+            heatmap_data = await svc.generate_myopia_heatmap(
+
+                image_bytes,
+
+                str(get_myopia_model_path()),
+
+                pred.probability,
+
+                myopia_grade=pred.myopia_grade,
+
+                eye_side=eye or "unknown",
+
+            )
+
+        except Exception as exc:
+
+            log.exception("comprehensive myopia heatmap failed")
+
+            heatmap_data = {"heatmap_error": str(exc)[:500], "image_base64": ""}
+
+
+
+    result = myopia_prediction_to_result(
+
+        pred,
+
+        model_used=model_used,
+
+        ontology_passed=onto,
+
+        decision_mode=mode,
+
+        audit_trail=audit,
+
+        heatmap=heatmap_data,
+
+        decision=audit.get("decision"),
+
+    )
+
+    return result, heatmap_data
+
+
+
+
+
 def _dr_summary_from_explain(
 
     explain_dict: dict[str, Any],
@@ -391,6 +527,8 @@ def _build_overall_assessment(
     glaucoma: GlaucomaResult | None,
 
     amd: AMDResult | None = None,
+
+    myopia: MyopiaResult | None = None,
 
     *,
 
@@ -479,6 +617,38 @@ def _build_overall_assessment(
             concern_scores["amd"] = amd.probability
 
         urgency = _pick_higher_urgency(urgency, amd.referral_urgency)
+
+
+
+    if myopia is not None:
+
+        if myopia.label == "myopia" or myopia.probability >= 0.5:
+
+            if lang == "ko":
+
+                axial = (
+
+                    f", AL≈{myopia.axial_length_estimate:.1f}mm"
+
+                    if myopia.axial_length_estimate
+
+                    else ""
+
+                )
+
+                findings.append(
+
+                    f"근시 의심 (p={myopia.probability:.2f}, grade={myopia.myopia_grade}{axial})"
+
+                )
+
+            else:
+
+                findings.append(f"Myopia suspect (p={myopia.probability:.3f})")
+
+            concern_scores["myopia"] = myopia.probability
+
+        urgency = _pick_higher_urgency(urgency, myopia.referral_urgency)
 
 
 
@@ -576,15 +746,17 @@ async def run_comprehensive_fundus(
 
 ) -> ComprehensiveFundusResponse:
 
-    """DR + Glaucoma + AMD 동시 분석."""
+    """DR + Glaucoma + AMD + Myopia 동시 분석."""
 
-    active = tasks or ["dr", "glaucoma", "amd"]
+    active = tasks or ["dr", "glaucoma", "amd", "myopia"]
 
     run_dr = "dr" in active
 
     run_glu = "glaucoma" in active
 
     run_amd = "amd" in active
+
+    run_myopia = "myopia" in active
 
 
 
@@ -704,11 +876,31 @@ async def run_comprehensive_fundus(
 
 
 
+    myopia_result: MyopiaResult | None = None
+
+    myopia_heatmap: dict | None = None
+
+    if run_myopia:
+
+        myopia_result, myopia_heatmap = await _run_myopia_pipeline(
+
+            image_bytes,
+
+            patient_id=patient_id,
+
+            eye=eye,
+
+            include_heatmap=include_heatmap,
+
+        )
+
+
+
     dr_summary = _dr_summary_from_explain(explain_dict)
 
     overall = _build_overall_assessment(
 
-        dr_summary, glaucoma_result, amd_result, lang=lang
+        dr_summary, glaucoma_result, amd_result, myopia_result, lang=lang
 
     )
 
@@ -728,6 +920,10 @@ async def run_comprehensive_fundus(
 
         heatmaps["amd"] = amd_heatmap
 
+    if myopia_heatmap:
+
+        heatmaps["myopia"] = myopia_heatmap
+
 
 
     return ComprehensiveFundusResponse(
@@ -737,6 +933,8 @@ async def run_comprehensive_fundus(
         glaucoma=glaucoma_result,
 
         amd=amd_result,
+
+        myopia=myopia_result,
 
         heatmap=heatmaps,
 

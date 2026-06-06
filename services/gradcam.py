@@ -12,6 +12,7 @@ import numpy as np
 
 from services.amd_cnn import get_amd_model_path
 from services.glaucoma_cnn import get_glaucoma_model_path
+from services.myopia_cnn import get_myopia_model_path
 from services.inference_router import load_inference_config
 from services.retinal_cnn import (
     build_dr_classifier,
@@ -1050,6 +1051,244 @@ class AMDGradCAMVisualizer:
         )
 
 
+MYOPIA_LESION_TYPES = [
+    {
+        "type": "peripapillary_atrophy",
+        "label_ko": "시신경 주위 위축",
+        "region": "peripapillary",
+        "min_prob": 0.35,
+    },
+    {
+        "type": "posterior_staphyloma",
+        "label_ko": "후부 포도막",
+        "region": "posterior_pole",
+        "min_prob": 0.55,
+    },
+    {
+        "type": "lacquer_cracks",
+        "label_ko": "옻칠 균열",
+        "region": "macula",
+        "min_prob": 0.45,
+    },
+    {
+        "type": "choroidal_atrophy",
+        "label_ko": "맥락막 위축",
+        "region": "mid-periphery",
+        "min_prob": 0.50,
+    },
+    {
+        "type": "myopic_maculopathy",
+        "label_ko": "근시 황반병증",
+        "region": "macula",
+        "min_prob": 0.65,
+    },
+]
+
+
+def generate_myopia_lesion_annotations(
+    hotspots: list[dict[str, Any]],
+    probability: float,
+    *,
+    eye_side: str = "unknown",
+) -> list[dict[str, Any]]:
+    p = max(0.0, min(1.0, float(probability)))
+    annotations: list[dict[str, Any]] = []
+    for spec in MYOPIA_LESION_TYPES:
+        if p < float(spec["min_prob"]):
+            continue
+        conf = min(0.98, p * (0.85 + 0.1 * (p - spec["min_prob"])))
+        region = spec["region"]
+        if hotspots:
+            hs = max(hotspots, key=lambda h: float(h.get("intensity", 0)))
+            region = classify_hotspot_region(hs["x"], hs["y"], eye_side)
+        annotations.append(
+            {
+                "type": spec["type"],
+                "confidence": round(conf, 3),
+                "region": region,
+            }
+        )
+    return annotations
+
+
+def _resolve_myopia_pt_path(onnx_path: Path, meta: dict) -> Path | None:
+    models_dir = onnx_path.parent
+    names = [
+        str(meta.get("pt") or "").strip(),
+        str(meta.get("source_checkpoint") or "").strip(),
+        "best.pt",
+        onnx_path.stem + ".pt",
+    ]
+    dirs = [models_dir, models_dir / onnx_path.stem, models_dir / "retinal_myopia_v1"]
+    for d in dirs:
+        for name in names:
+            if not name:
+                continue
+            candidate = d / name
+            if candidate.is_file():
+                return candidate
+    return None
+
+
+def _normalize_myopia_state_dict(ckpt: object) -> dict:
+    """train_myopia.py head.* → torchvision EfficientNet classifier.1.* 매핑."""
+    import torch
+
+    if isinstance(ckpt, dict) and "model_state" in ckpt:
+        sd = ckpt["model_state"]
+    elif isinstance(ckpt, dict) and "state_dict" in ckpt:
+        sd = ckpt["state_dict"]
+    elif isinstance(ckpt, dict) and ckpt and all(
+        isinstance(v, torch.Tensor) for v in ckpt.values()
+    ):
+        sd = ckpt
+    else:
+        raise RuntimeError("Myopia checkpoint has no loadable state_dict")
+
+    out: dict = {}
+    for k, v in sd.items():
+        key = k[7:] if k.startswith("module.") else k
+        key = key.replace("head.", "classifier.1.")
+        out[key] = v
+    return out
+
+
+def _load_myopia_weights(model: Any, ckpt: object) -> None:
+    sd = _normalize_myopia_state_dict(ckpt)
+    model.load_state_dict(sd, strict=True)
+
+
+def generate_myopia_annotated_heatmap(
+    image_bytes: bytes,
+    probability: float,
+    *,
+    myopia_grade: int = 0,
+    eye_side: str = "unknown",
+    overlay_alpha: float = 0.45,
+) -> dict[str, Any]:
+    del myopia_grade
+    try:
+        import cv2
+        from PIL import Image
+
+        from services.myopia_cnn import _load_meta
+
+        onnx_path = get_myopia_model_path()
+        meta = _load_meta(onnx_path)
+        size = int(meta.get("image_size") or 224)
+        pm = resolve_preprocess_mode(str(meta.get("preprocess") or "clahe"))
+        eye = _normalize_eye_side(eye_side)
+
+        pil = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+        orig_w, orig_h = pil.size
+        proc_np = preprocess_fundus_array(np.array(pil), mode=pm)
+        proc_h, proc_w = proc_np.shape[:2]
+
+        cam: np.ndarray | None = None
+        gradcam_version = "gradcam++"
+        pt_path = _resolve_myopia_pt_path(onnx_path, meta)
+
+        if pt_path is not None:
+            import torch
+
+            model = _build_glaucoma_classifier()
+            try:
+                ckpt = torch.load(pt_path, map_location="cpu", weights_only=False)
+            except TypeError:
+                ckpt = torch.load(pt_path, map_location="cpu")
+            _load_myopia_weights(model, ckpt)
+            device = torch.device("cpu")
+            model.to(device).eval()
+            target_layer = _resolve_target_layer(model)
+
+            resized = Image.fromarray(proc_np).resize((size, size))
+            tensor = torch.from_numpy(np.array(resized)).permute(2, 0, 1).float() / 255.0
+            tensor = tensor.unsqueeze(0).to(device)
+            tensor.requires_grad_(True)
+
+            gpp = GradCAMPlusPlus(model, target_layer=target_layer)
+            cam_small, _ = gpp.generate(tensor, target_class=0)
+            cam = cv2.resize(cam_small, (proc_w, proc_h), interpolation=cv2.INTER_CUBIC)
+            cam = (cam - cam.min()) / (cam.max() - cam.min() + 1e-8)
+        else:
+            gradcam_version = "probability_guided"
+            cam = _macula_guided_cam(proc_h, proc_w, probability)
+
+        heat_u8 = (cam * 255).astype(np.uint8)
+        heat_color = cv2.applyColorMap(heat_u8, cv2.COLORMAP_JET)
+        heat_rgb = cv2.cvtColor(heat_color, cv2.COLOR_BGR2RGB)
+        overlay = (
+            (1.0 - overlay_alpha) * proc_np.astype(np.float32)
+            + overlay_alpha * heat_rgb.astype(np.float32)
+        )
+        overlay = np.clip(overlay, 0, 255).astype(np.uint8)
+
+        threshold = float(cam.max()) * 0.80
+        hotspots_y, hotspots_x = np.where(cam > threshold)
+        hotspot_regions: list[dict[str, Any]] = []
+        for x, y in zip(hotspots_x[:10], hotspots_y[:10]):
+            hotspot_regions.append(
+                {
+                    "x": float(x / max(proc_w, 1)),
+                    "y": float(y / max(proc_h, 1)),
+                    "intensity": float(cam[y, x]),
+                    "x_px": int(x),
+                    "y_px": int(y),
+                }
+            )
+
+        lesion_annotations = generate_myopia_lesion_annotations(
+            hotspot_regions, probability, eye_side=eye
+        )
+        hotspot_labels = list(
+            dict.fromkeys(a["region"] for a in lesion_annotations if a.get("region"))
+        )
+
+        return {
+            "image_base64": _encode_jpeg_b64(overlay, quality=85),
+            "resolution": f"{orig_w}x{orig_h}",
+            "lesion_annotations": lesion_annotations,
+            "hotspot_regions": hotspot_labels,
+            "gradcam_version": gradcam_version,
+            "heatmap_error": None,
+            "heatmap_width": proc_w,
+            "heatmap_height": proc_h,
+            "cam_resolution": f"{proc_w}x{proc_h}",
+            "attention_score": float(cam.max()),
+        }
+    except Exception as exc:
+        log.exception("Myopia GradCAM failed")
+        return {
+            "image_base64": "",
+            "resolution": "",
+            "lesion_annotations": [],
+            "hotspot_regions": [],
+            "gradcam_version": None,
+            "heatmap_error": str(exc)[:500],
+        }
+
+
+class MyopiaGradCAMVisualizer:
+    async def generate_annotated(
+        self,
+        image_bytes: bytes,
+        probability: float,
+        *,
+        myopia_grade: int = 0,
+        eye_side: str = "unknown",
+    ) -> dict[str, Any]:
+        loop = asyncio.get_running_loop()
+        return await loop.run_in_executor(
+            None,
+            lambda: generate_myopia_annotated_heatmap(
+                image_bytes,
+                probability,
+                myopia_grade=myopia_grade,
+                eye_side=eye_side,
+            ),
+        )
+
+
 class GlaucomaGradCAMVisualizer:
     """retinal_glaucoma_v2 — GradCAM++ / probability-guided."""
 
@@ -1074,16 +1313,19 @@ class GlaucomaGradCAMVisualizer:
 
 
 class GradCAMService:
-    """DR / Glaucoma / AMD 모델 타입 자동 분기."""
+    """DR / Glaucoma / AMD / Myopia 모델 타입 자동 분기."""
 
     def __init__(self) -> None:
         self._dr = GradCAMVisualizer()
         self._glaucoma = GlaucomaGradCAMVisualizer()
         self._amd = AMDGradCAMVisualizer()
+        self._myopia = MyopiaGradCAMVisualizer()
 
     @staticmethod
     def detect_model_type(model_path: str | Path | None) -> str:
         p = str(model_path or "").lower()
+        if "myopia" in p:
+            return "myopia"
         if "amd" in p:
             return "amd"
         if "glaucoma" in p:
@@ -1133,5 +1375,22 @@ class GradCAMService:
             image,
             probability,
             amd_grade=amd_grade,
+            eye_side=eye_side,
+        )
+
+    async def generate_myopia_heatmap(
+        self,
+        image: bytes,
+        model_path: str,
+        probability: float,
+        *,
+        myopia_grade: int = 0,
+        eye_side: str = "unknown",
+    ) -> dict[str, Any]:
+        del model_path
+        return await self._myopia.generate_annotated(
+            image,
+            probability,
+            myopia_grade=myopia_grade,
             eye_side=eye_side,
         )
