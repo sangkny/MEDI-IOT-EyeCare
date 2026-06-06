@@ -43,7 +43,7 @@ def _async_db_url() -> str:
 
 @pytest.fixture(scope="module")
 def client() -> httpx.Client:
-    with httpx.Client(base_url=BASE, timeout=30.0) as c:
+    with httpx.Client(base_url=BASE, timeout=120.0) as c:
         yield c
 
 
@@ -145,6 +145,8 @@ def test_fhir_patient_requires_auth(client: httpx.Client) -> None:
     assert r.status_code == 401
 
 
+@pytest.mark.slow
+@pytest.mark.requires_lm_studio
 def test_fhir_patient_export(client: httpx.Client) -> None:
     pid, _, _ = _seed_fhir_fixtures()
     r = client.get(

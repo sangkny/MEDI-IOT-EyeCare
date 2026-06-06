@@ -16,6 +16,8 @@ from schemas.integrated_diagnosis import (
     ComprehensiveFundusResponse,
     DiagnosisExplainResponse,
     GlaucomaResult,
+    MyopiaResult,
+    ScreeningResult,
 )
 from services.fundus_image_formats import (
     normalize_for_cnn,
@@ -285,7 +287,42 @@ async def lab_fundus_amd(
     await _read_and_validate(file)
     raise HTTPException(
         status.HTTP_501_NOT_IMPLEMENTED,
-        detail="AMD multitask model not deployed yet (Phase 2 training)",
+        detail="AMD model not deployed yet (Phase 2 — ADAM training in progress)",
+    )
+
+
+@router.post(
+    "/fundus/myopia",
+    response_model=MyopiaResult,
+    summary="근시 단독 분석 (Phase 3 skeleton)",
+)
+async def lab_fundus_myopia(
+    file: UploadFile = File(...),
+    _: dict = LAB_AUTH,
+) -> MyopiaResult:
+    """Phase 3: PALM/ODIR 근시 subset 기반 myopia head."""
+    await _read_and_validate(file)
+    raise HTTPException(
+        status.HTTP_501_NOT_IMPLEMENTED,
+        detail="Myopia model not deployed yet (Phase 3 — PALM training planned)",
+    )
+
+
+@router.post(
+    "/fundus/screening",
+    response_model=ScreeningResult,
+    summary="전체 안과 스크리닝 (Phase 4 skeleton)",
+)
+async def lab_fundus_screening(
+    file: UploadFile = File(...),
+    tasks: str = Form("dr,glaucoma,amd,myopia", description="쉼표 구분 태스크"),
+    _: dict = LAB_AUTH,
+) -> ScreeningResult:
+    """다질환 통합 스크리닝 — RFMiD/ODIR 멀티헤드 (모델 준비 중)."""
+    await _read_and_validate(file)
+    raise HTTPException(
+        status.HTTP_501_NOT_IMPLEMENTED,
+        detail=f"Multidisease screening not deployed yet (tasks={tasks})",
     )
 
 

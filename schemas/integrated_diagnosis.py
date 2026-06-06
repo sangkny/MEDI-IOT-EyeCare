@@ -172,16 +172,46 @@ class GlaucomaResult(BaseModel):
 class AMDResult(BaseModel):
     amd_grade: int = Field(..., ge=0, le=3, description="0:정상 1:초기 2:중기 3:말기")
     grade_label: str = Field(..., description="normal/early/intermediate/advanced")
-    drusen_detected: bool
-    subtype: str | None = Field(default=None, description="dry/wet/none")
+    probability: float = Field(default=0.0, ge=0, le=1, description="AMD 양성 확률")
+    risk_level: Literal["LOW", "MODERATE", "HIGH"] = Field(default="LOW")
+    drusen_detected: bool = False
+    drusen_type: str | None = Field(
+        default=None,
+        description="soft/hard/none — drusen 소견 유형",
+    )
+    subtype: str | None = Field(default=None, description="dry/wet/none (legacy alias)")
+    vision_impact: str | None = Field(
+        default=None,
+        description="none/mild/moderate/severe",
+    )
     confidence: float = Field(..., ge=0, le=1)
     icd10_code: str = "H35.31"
 
 
 class MyopiaResult(BaseModel):
     myopia_grade: int = Field(..., ge=0, le=3, description="0:정상 1:경도 2:중등도 3:고도")
+    probability: float = Field(default=0.0, ge=0, le=1)
+    axial_length_estimate: float | None = Field(
+        default=None,
+        description="추정 안축장(mm) — Phase 3 모델",
+    )
+    risk_level: Literal["LOW", "MODERATE", "HIGH"] = Field(default="LOW")
+    pathological: bool = Field(default=False, description="병적 근시 여부")
     confidence: float = Field(..., ge=0, le=1)
-    severity: str
+    severity: str = ""
+
+
+class ScreeningResult(BaseModel):
+    """전체 안과 스크리닝 (DR+Glaucoma+AMD+근시 등) — Phase 4+."""
+
+    findings: list[str] = Field(default_factory=list)
+    urgent_referral: bool = False
+    priority_diseases: list[str] = Field(
+        default_factory=list,
+        description="우선 의뢰 질환 (glaucoma, dr, amd, myopia, ...)",
+    )
+    referral_urgency: str = Field(default="none", description="none/routine/immediate")
+    model_used: str = ""
 
 
 class MultiIndicationResult(BaseModel):
