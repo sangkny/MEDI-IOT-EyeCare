@@ -343,6 +343,477 @@ def load_adam(data_root: Path) -> list[dict]:
     return load_adam_amd(data_root)
 
 
+def _amd_sample(
+    path_root: Path,
+    img: Path,
+    label: int,
+    source: str,
+    *,
+    split: str | None = None,
+) -> dict:
+    sample = {
+        "path": str(img.relative_to(path_root)),
+        "amd_grade": label,
+        "label": label,
+        "source": source,
+        "task": "amd",
+    }
+    if split:
+        sample["split"] = split
+    return sample
+
+
+def _myopia_sample(
+    path_root: Path,
+    img: Path,
+    label: int,
+    source: str,
+    *,
+    split: str | None = None,
+) -> dict:
+    sample = {
+        "path": str(img.relative_to(path_root)),
+        "myopia_grade": label,
+        "label": label,
+        "source": source,
+        "task": "myopia",
+    }
+    if split:
+        sample["split"] = split
+    return sample
+
+
+def _find_amdnet23_dataset(base: Path) -> Path | None:
+    for candidate in (
+        base / "AMDNet23 Dataset",
+        base / "AMDNet23" / "AMDNet23 Dataset",
+    ):
+        if candidate.is_dir() and (candidate / "train").is_dir():
+            return candidate
+    for path in base.rglob("AMDNet23 Dataset"):
+        if path.is_dir() and (path / "train").is_dir():
+            return path
+    return None
+
+
+def _find_odir_root(base: Path) -> Path | None:
+    return _first_existing_dir(
+        [
+            base / "ODIR",
+            base / "Multidisease_raw" / "ODIR",
+            base,
+        ]
+    )
+
+
+def _find_odir_image_dir(odir_base: Path) -> Path | None:
+    return _first_existing_dir(
+        [
+            odir_base / "preprocessed_images",
+            odir_base / "training images",
+            odir_base / "training_images",
+            odir_base / "images",
+            odir_base / "Images",
+        ]
+    )
+
+
+def _odir_row_filenames(row: dict) -> list[str]:
+    names: list[str] = []
+    for key in (
+        "filename",
+        "Filename",
+        "Image",
+        "ID",
+        "Left-Fundus",
+        "Right-Fundus",
+        "left",
+        "right",
+    ):
+        raw = (row.get(key) or "").strip()
+        if raw and raw.lower() not in {"nan", "none"}:
+            names.append(Path(raw).name)
+    return names
+
+
+def _resolve_odir_image(img_dir: Path, filename: str) -> Path | None:
+    candidates = [img_dir / filename, img_dir / Path(filename).name]
+    stem = Path(filename).stem
+    for ext in (".jpg", ".jpeg", ".png", ".JPG", ".JPEG", ".PNG", ""):
+        candidates.append(img_dir / (stem + ext if ext else filename))
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def _odir_binary(row: dict, *keys: str) -> int:
+    for key in keys:
+        raw = row.get(key)
+        if raw in (None, ""):
+            continue
+        try:
+            return int(float(raw))
+        except ValueError:
+            continue
+    return 0
+
+
+def load_amdnet23(
+    base_path: Path,
+    *,
+    manifest_root: Path | None = None,
+) -> list[dict]:
+    """
+    AMDNet23: train|valid × {amd,normal,...}
+    label: amd=1, normal=0 (cataract/diabetes 제외)
+    """
+    base = base_path.expanduser().resolve()
+    path_root = manifest_root or base
+    dataset_root = _find_amdnet23_dataset(base)
+    if dataset_root is None:
+        return []
+
+    samples: list[dict] = []
+    for split_name in ("train", "valid", "val"):
+        split_dir = dataset_root / split_name
+        if not split_dir.is_dir():
+            continue
+        native_split = "train" if split_name == "train" else "val"
+        for folder, label in (("amd", 1), ("AMD", 1), ("normal", 0), ("Normal", 0)):
+            folder_path = split_dir / folder
+            if not folder_path.is_dir():
+                continue
+            for ext in ("*.jpg", "*.jpeg", "*.png", "*.JPG", "*.PNG"):
+                for img in folder_path.glob(ext):
+                    samples.append(
+                        _amd_sample(path_root, img, label, "amdnet23", split=native_split)
+                    )
+    return samples
+
+
+def load_odir_amd(
+    base_path: Path,
+    *,
+    manifest_root: Path | None = None,
+) -> list[dict]:
+    """ODIR full_df — A=1(AMD), N=1 and A=0(normal)."""
+    base = base_path.expanduser().resolve()
+    path_root = manifest_root or base
+    odir_base = _find_odir_root(base)
+    if odir_base is None:
+        return []
+
+    csv_path = odir_base / "full_df.csv"
+    if not csv_path.is_file():
+        for alt in ("labels.csv", "label.csv"):
+            candidate = odir_base / alt
+            if candidate.is_file():
+                csv_path = candidate
+                break
+    img_dir = _find_odir_image_dir(odir_base)
+    if not csv_path.is_file() or img_dir is None:
+        return []
+
+    samples: list[dict] = []
+    with csv_path.open(encoding="utf-8-sig", newline="") as f:
+        reader = csv.DictReader(f)
+        if not reader.fieldnames:
+            return samples
+        for row in reader:
+            amd = _odir_binary(row, "A", "AMD", "amd")
+            normal = _odir_binary(row, "N", "Normal", "normal")
+            if amd == 1:
+                label = 1
+            elif normal == 1 and amd == 0:
+                label = 0
+            else:
+                continue
+            for filename in _odir_row_filenames(row):
+                img = _resolve_odir_image(img_dir, filename)
+                if img is not None:
+                    samples.append(_amd_sample(path_root, img, label, "odir_amd"))
+    return samples
+
+
+def _find_rfmid_root(base: Path) -> Path | None:
+    return _first_existing_dir(
+        [
+            base / "RFMiD",
+            base / "Multidisease_raw" / "RFMiD",
+            base,
+        ]
+    )
+
+
+def _find_rfmid_training(base: Path) -> tuple[Path | None, Path | None]:
+    rfmid_base = _find_rfmid_root(base)
+    if rfmid_base is None:
+        return None, None
+    train_dir = _first_existing_dir(
+        [
+            rfmid_base / "Training_set",
+            rfmid_base / "train",
+            rfmid_base / "Train",
+        ]
+    )
+    csv_candidates = [
+        rfmid_base / "Training_set" / "RFMiD_Training_Labels.csv",
+        rfmid_base / "RFMiD_Training_Labels.csv",
+    ]
+    if train_dir is not None:
+        csv_candidates.append(train_dir / "RFMiD_Training_Labels.csv")
+    csv_path = next((p for p in csv_candidates if p.is_file()), None)
+    return train_dir, csv_path
+
+
+def _resolve_rfmid_image(train_dir: Path, image_id: str) -> Path | None:
+    stem = Path(image_id).stem
+    for ext in (".png", ".jpg", ".jpeg", ".tif", ".PNG", ".JPG", ""):
+        candidate = train_dir / (image_id if ext == "" else stem + ext)
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def load_rfmid_amd(
+    base_path: Path,
+    *,
+    manifest_root: Path | None = None,
+) -> list[dict]:
+    """RFMiD Training_set — ARMD=1(AMD), Disease_Risk=0 and ARMD=0(normal)."""
+    base = base_path.expanduser().resolve()
+    path_root = manifest_root or base
+    train_dir, csv_path = _find_rfmid_training(base)
+    if train_dir is None or csv_path is None:
+        return []
+
+    samples: list[dict] = []
+    with csv_path.open(encoding="utf-8-sig", newline="") as f:
+        reader = csv.DictReader(f)
+        if not reader.fieldnames:
+            return samples
+        fields = {c.upper(): c for c in reader.fieldnames}
+        id_col = fields.get("ID", reader.fieldnames[0])
+        armd_col = fields.get("ARMD")
+        risk_col = fields.get("DISEASE_RISK")
+        for row in reader:
+            if armd_col is None or risk_col is None:
+                continue
+            armd = _odir_binary(row, armd_col)
+            risk = _odir_binary(row, risk_col)
+            if armd == 1:
+                label = 1
+            elif risk == 0 and armd == 0:
+                label = 0
+            else:
+                continue
+            image_id = (row.get(id_col) or "").strip()
+            if not image_id:
+                continue
+            img = _resolve_rfmid_image(train_dir, image_id)
+            if img is not None:
+                samples.append(_amd_sample(path_root, img, label, "rfmid_amd"))
+    return samples
+
+
+def load_odir_myopia(
+    base_path: Path,
+    *,
+    manifest_root: Path | None = None,
+) -> list[dict]:
+    """ODIR — M=1(myopia), N=1 and M=0(normal)."""
+    base = base_path.expanduser().resolve()
+    path_root = manifest_root or base
+    odir_base = _find_odir_root(base)
+    if odir_base is None:
+        return []
+
+    csv_path = odir_base / "full_df.csv"
+    if not csv_path.is_file():
+        for alt in ("labels.csv", "label.csv"):
+            candidate = odir_base / alt
+            if candidate.is_file():
+                csv_path = candidate
+                break
+    img_dir = _find_odir_image_dir(odir_base)
+    if not csv_path.is_file() or img_dir is None:
+        return []
+
+    samples: list[dict] = []
+    with csv_path.open(encoding="utf-8-sig", newline="") as f:
+        reader = csv.DictReader(f)
+        if not reader.fieldnames:
+            return samples
+        for row in reader:
+            myopia = _odir_binary(row, "M", "MYA", "Myopia", "myopia")
+            normal = _odir_binary(row, "N", "Normal", "normal")
+            if myopia == 1:
+                label = 1
+            elif normal == 1 and myopia == 0:
+                label = 0
+            else:
+                continue
+            for filename in _odir_row_filenames(row):
+                img = _resolve_odir_image(img_dir, filename)
+                if img is not None:
+                    samples.append(_myopia_sample(path_root, img, label, "odir_myopia"))
+    return samples
+
+
+def load_rfmid_myopia(
+    base_path: Path,
+    *,
+    manifest_root: Path | None = None,
+) -> list[dict]:
+    """RFMiD — MYA=1(myopia), Disease_Risk=0 and MYA=0(normal)."""
+    base = base_path.expanduser().resolve()
+    path_root = manifest_root or base
+    train_dir, csv_path = _find_rfmid_training(base)
+    if train_dir is None or csv_path is None:
+        return []
+
+    samples: list[dict] = []
+    with csv_path.open(encoding="utf-8-sig", newline="") as f:
+        reader = csv.DictReader(f)
+        if not reader.fieldnames:
+            return samples
+        fields = {c.upper(): c for c in reader.fieldnames}
+        id_col = fields.get("ID", reader.fieldnames[0])
+        mya_col = fields.get("MYA")
+        risk_col = fields.get("DISEASE_RISK")
+        for row in reader:
+            if mya_col is None or risk_col is None:
+                continue
+            mya = _odir_binary(row, mya_col)
+            risk = _odir_binary(row, risk_col)
+            if mya == 1:
+                label = 1
+            elif risk == 0 and mya == 0:
+                label = 0
+            else:
+                continue
+            image_id = (row.get(id_col) or "").strip()
+            if not image_id:
+                continue
+            img = _resolve_rfmid_image(train_dir, image_id)
+            if img is not None:
+                samples.append(_myopia_sample(path_root, img, label, "rfmid_myopia"))
+    return samples
+
+
+MULTIDISEASE_ODIR_KEYS = {
+    "D": "dr",
+    "G": "glaucoma",
+    "C": "cataract",
+    "A": "amd",
+    "H": "htn",
+    "M": "myopia",
+    "O": "other",
+    "N": "normal",
+}
+
+MULTIDISEASE_RFMID_KEYS = (
+    "DR",
+    "ARMD",
+    "MH",
+    "MYA",
+    "BRVO",
+    "DN",
+    "HTN",
+    "ODP",
+    "ERM",
+    "CRVO",
+)
+
+
+def load_odir_multidisease(
+    base_path: Path,
+    *,
+    manifest_root: Path | None = None,
+) -> list[dict]:
+    """ODIR 8-class multi-label (N,D,G,C,A,H,M,O)."""
+    base = base_path.expanduser().resolve()
+    path_root = manifest_root or base
+    odir_base = _find_odir_root(base)
+    if odir_base is None:
+        return []
+
+    csv_path = odir_base / "full_df.csv"
+    if not csv_path.is_file():
+        return []
+    img_dir = _find_odir_image_dir(odir_base)
+    if img_dir is None:
+        return []
+
+    samples: list[dict] = []
+    with csv_path.open(encoding="utf-8-sig", newline="") as f:
+        reader = csv.DictReader(f)
+        if not reader.fieldnames:
+            return samples
+        for row in reader:
+            labels = {
+                name: _odir_binary(row, key, name, name.upper())
+                for key, name in MULTIDISEASE_ODIR_KEYS.items()
+            }
+            for filename in _odir_row_filenames(row):
+                img = _resolve_odir_image(img_dir, filename)
+                if img is not None:
+                    samples.append(
+                        {
+                            "path": str(img.relative_to(path_root)),
+                            "source": "odir",
+                            "task": "multidisease",
+                            "labels": labels,
+                        }
+                    )
+    return samples
+
+
+def load_rfmid_multidisease(
+    base_path: Path,
+    *,
+    manifest_root: Path | None = None,
+) -> list[dict]:
+    """RFMiD Training_set — CSV header 전체 질환 멀티레이블."""
+    base = base_path.expanduser().resolve()
+    path_root = manifest_root or base
+    train_dir, csv_path = _find_rfmid_training(base)
+    if train_dir is None or csv_path is None:
+        return []
+
+    skip_cols = {"ID", "Disease_Risk", "DISEASE_RISK"}
+    samples: list[dict] = []
+    with csv_path.open(encoding="utf-8-sig", newline="") as f:
+        reader = csv.DictReader(f)
+        if not reader.fieldnames:
+            return samples
+        id_col = reader.fieldnames[0]
+        disease_cols = [c for c in reader.fieldnames if c.upper() not in skip_cols]
+        for row in reader:
+            image_id = (row.get(id_col) or "").strip()
+            if not image_id:
+                continue
+            img = _resolve_rfmid_image(train_dir, image_id)
+            if img is None:
+                continue
+            labels: dict[str, int] = {}
+            for col in disease_cols:
+                try:
+                    labels[col.lower()] = int(float(row.get(col) or 0))
+                except ValueError:
+                    labels[col.lower()] = 0
+            samples.append(
+                {
+                    "path": str(img.relative_to(path_root)),
+                    "source": "rfmid",
+                    "task": "multidisease",
+                    "labels": labels,
+                }
+            )
+    return samples
+
+
 def load_palm(data_root: Path) -> list[dict]:
     """
     PALM (Pathological Myopia): ~1,200장
@@ -581,6 +1052,27 @@ def load_odir(data_root: Path) -> list[dict]:
             if img.is_file():
                 samples.append(_odir_row(row, img.name))
     return samples
+
+
+AMD_LOADERS = {
+    "adam": load_adam_amd,
+    "adam_amd": load_adam_amd,
+    "amdnet23": load_amdnet23,
+    "odir_amd": load_odir_amd,
+    "rfmid_amd": load_rfmid_amd,
+}
+
+MYOPIA_LOADERS = {
+    "palm": load_palm,
+    "odir": load_odir,
+    "odir_myopia": load_odir_myopia,
+    "rfmid_myopia": load_rfmid_myopia,
+}
+
+MULTIDISEASE_LOADERS = {
+    "rfmid": load_rfmid_multidisease,
+    "odir": load_odir_multidisease,
+}
 
 
 def load_g1020(
@@ -1024,101 +1516,252 @@ def _write_task_manifest(
 
 
 def build_amd_manifest(
-    data_root: Path,
+    dataset_root: Path,
     output_path: Path,
     *,
-    sources: tuple[str, ...] = ("adam",),
+    extra_root: Path | None = None,
+    sources: tuple[str, ...] = ("amdnet23", "odir_amd", "rfmid_amd"),
     val_ratio: float = 0.15,
     test_ratio: float = 0.15,
     seed: int = 42,
+    unified_split: bool = True,
 ) -> dict:
-    """AMD Phase 2 — ADAM (+ iChallenge when available)."""
-    root = data_root.expanduser().resolve()
+    """AMD Phase 2 — AMDNet23 + ODIR + RFMiD (unified split)."""
+    data_root = dataset_root.expanduser().resolve()
+    extra = extra_root.expanduser().resolve() if extra_root else None
+    manifest_root = _resolve_manifest_root(data_root, extra)
     all_samples: list[dict] = []
     counts: dict[str, int] = {}
+
     for name in sources:
         if name in ("adam", "adam_amd"):
-            loaded = load_adam(root)
+            loaded = load_adam_amd(data_root)
+            if manifest_root != data_root:
+                for sample in loaded:
+                    sample["path"] = str((data_root / sample["path"]).relative_to(manifest_root))
+        elif name == "amdnet23":
+            loaded = load_amdnet23(data_root, manifest_root=manifest_root)
+        elif name == "odir_amd":
+            src_root = extra or data_root
+            loaded = load_odir_amd(src_root, manifest_root=manifest_root)
+        elif name == "rfmid_amd":
+            src_root = extra or data_root
+            loaded = load_rfmid_amd(src_root, manifest_root=manifest_root)
         else:
-            raise ValueError(f"unknown amd source={name!r}")
+            raise ValueError(f"unknown amd source={name!r}; choose from {sorted(AMD_LOADERS)}")
         counts[name] = len(loaded)
         all_samples.extend(loaded)
-    return _write_task_manifest(
-        root,
-        output_path,
-        all_samples,
-        task="amd",
-        sources=counts,
-        val_ratio=val_ratio,
-        test_ratio=test_ratio,
-        seed=seed,
+
+    seen_paths: set[str] = set()
+    deduped: list[dict] = []
+    for sample in all_samples:
+        key = sample["path"]
+        if key in seen_paths:
+            continue
+        seen_paths.add(key)
+        deduped.append(sample)
+    all_samples = deduped
+
+    if unified_split:
+        for sample in all_samples:
+            sample.pop("split", None)
+        train, val, test = split_samples(
+            all_samples,
+            val_ratio=val_ratio,
+            test_ratio=test_ratio,
+            seed=seed,
+        )
+        for chunk, split_name in ((train, "train"), (val, "val"), (test, "test")):
+            for sample in chunk:
+                sample["split"] = split_name
+    else:
+        train, val, test = _assign_splits(
+            all_samples,
+            val_ratio=val_ratio,
+            test_ratio=test_ratio,
+            seed=seed,
+        )
+
+    combined = train + val + test
+    pos = sum(1 for s in combined if int(s.get("label", s.get("amd_grade", 0))) == 1)
+    neg = len(combined) - pos
+    total = len(combined)
+
+    manifest = {
+        "data_dir": str(manifest_root),
+        "task": "amd",
+        "sources": counts,
+        "total": total,
+        "stats": {
+            "total": total,
+            "amd": pos,
+            "normal": neg,
+            "train": len(train),
+            "val": len(val),
+            "test": len(test),
+        },
+        "samples": combined,
+        "train": train,
+        "val": val,
+        "test": test,
+    }
+
+    out = output_path if output_path.is_absolute() else Path.cwd() / output_path
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+    print(
+        f"OK {out} task=amd total={total} amd={pos} normal={neg} "
+        f"train={len(train)} val={len(val)} test={len(test)} sources={counts}"
     )
+    return manifest
 
 
 def build_myopia_manifest(
-    data_root: Path,
+    dataset_root: Path,
     output_path: Path,
     *,
+    extra_root: Path | None = None,
     sources: tuple[str, ...] = ("palm",),
     val_ratio: float = 0.15,
     test_ratio: float = 0.15,
     seed: int = 42,
+    unified_split: bool = True,
 ) -> dict:
-    """근시 Phase 3 — PALM (+ ODIR myopia subset)."""
-    root = data_root.expanduser().resolve()
+    """근시 Phase 3 — PALM (+ ODIR/RFMiD myopia subset)."""
+    data_root = dataset_root.expanduser().resolve()
+    extra = extra_root.expanduser().resolve() if extra_root else None
+    manifest_root = _resolve_manifest_root(data_root, extra)
     all_samples: list[dict] = []
     counts: dict[str, int] = {}
+
     for name in sources:
         if name == "palm":
-            loaded = load_palm(root)
+            loaded = load_palm(data_root)
+            if manifest_root != data_root:
+                for sample in loaded:
+                    sample["path"] = str((data_root / sample["path"]).relative_to(manifest_root))
         elif name == "odir":
-            loaded = load_odir(root)
+            src_root = extra or data_root
+            loaded = load_odir(src_root)
+        elif name == "odir_myopia":
+            src_root = extra or data_root
+            loaded = load_odir_myopia(src_root, manifest_root=manifest_root)
+        elif name == "rfmid_myopia":
+            src_root = extra or data_root
+            loaded = load_rfmid_myopia(src_root, manifest_root=manifest_root)
         else:
-            raise ValueError(f"unknown myopia source={name!r}")
+            raise ValueError(f"unknown myopia source={name!r}; choose from {sorted(MYOPIA_LOADERS)}")
         counts[name] = len(loaded)
         all_samples.extend(loaded)
-    return _write_task_manifest(
-        root,
-        output_path,
-        all_samples,
-        task="myopia",
-        sources=counts,
-        val_ratio=val_ratio,
-        test_ratio=test_ratio,
-        seed=seed,
+
+    if unified_split:
+        for sample in all_samples:
+            sample.pop("split", None)
+        train, val, test = split_samples(
+            all_samples,
+            val_ratio=val_ratio,
+            test_ratio=test_ratio,
+            seed=seed,
+        )
+        for chunk, split_name in ((train, "train"), (val, "val"), (test, "test")):
+            for sample in chunk:
+                sample["split"] = split_name
+    else:
+        train, val, test = split_samples(
+            all_samples,
+            val_ratio=val_ratio,
+            test_ratio=test_ratio,
+            seed=seed,
+        )
+        for chunk, split_name in ((train, "train"), (val, "val"), (test, "test")):
+            for sample in chunk:
+                sample["split"] = split_name
+
+    combined = train + val + test
+    manifest = {
+        "data_dir": str(manifest_root),
+        "task": "myopia",
+        "sources": counts,
+        "total": len(combined),
+        "samples": combined,
+        "train": train,
+        "val": val,
+        "test": test,
+    }
+    out = output_path if output_path.is_absolute() else Path.cwd() / output_path
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+    print(
+        f"OK {out} task=myopia total={len(combined)} "
+        f"train={len(train)} val={len(val)} test={len(test)} sources={counts}"
     )
+    return manifest
 
 
 def build_multidisease_manifest(
-    data_root: Path,
+    dataset_root: Path,
     output_path: Path,
     *,
+    extra_root: Path | None = None,
     sources: tuple[str, ...] = ("rfmid", "odir"),
     val_ratio: float = 0.15,
     test_ratio: float = 0.15,
     seed: int = 42,
 ) -> dict:
-    """다질환 Phase 4 — RFMiD + ODIR."""
-    root = data_root.expanduser().resolve()
+    """다질환 Phase 4 — RFMiD 46질환 + ODIR 8질환 멀티레이블."""
+    data_root = dataset_root.expanduser().resolve()
+    extra = extra_root.expanduser().resolve() if extra_root else None
+    manifest_root = _resolve_manifest_root(data_root, extra)
     all_samples: list[dict] = []
     counts: dict[str, int] = {}
+
     for name in sources:
-        loader = LOADERS.get(name)
-        if loader is None or name not in ("rfmid", "odir"):
-            raise ValueError(f"unknown multidisease source={name!r}")
-        loaded = loader(root)
+        loader = MULTIDISEASE_LOADERS.get(name)
+        if loader is None:
+            raise ValueError(f"unknown multidisease source={name!r}; choose from {sorted(MULTIDISEASE_LOADERS)}")
+        src_root = extra if extra is not None else data_root
+        loaded = loader(src_root, manifest_root=manifest_root)  # type: ignore[operator]
         counts[name] = len(loaded)
         all_samples.extend(loaded)
-    return _write_task_manifest(
-        root,
-        output_path,
+
+    train, val, test = split_samples(
         all_samples,
-        task="multidisease",
-        sources=counts,
         val_ratio=val_ratio,
         test_ratio=test_ratio,
         seed=seed,
     )
+    for chunk, split_name in ((train, "train"), (val, "val"), (test, "test")):
+        for sample in chunk:
+            sample["split"] = split_name
+    combined = train + val + test
+    manifest = {
+        "data_dir": str(manifest_root),
+        "task": "multidisease",
+        "sources": counts,
+        "total": len(combined),
+        "key_diseases": [
+            "dr",
+            "amd",
+            "glaucoma",
+            "cataract",
+            "myopia",
+            "brvo",
+            "mh",
+            "htn",
+        ],
+        "samples": combined,
+        "train": train,
+        "val": val,
+        "test": test,
+    }
+    out = output_path if output_path.is_absolute() else Path.cwd() / output_path
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(json.dumps(manifest, indent=2, ensure_ascii=False), encoding="utf-8")
+    print(
+        f"OK {out} task=multidisease total={len(combined)} "
+        f"train={len(train)} val={len(val)} test={len(test)} sources={counts}"
+    )
+    return manifest
 
 
 def main() -> None:
@@ -1153,7 +1796,9 @@ def main() -> None:
         build_amd_manifest(
             data_root,
             args.output,
-            sources=tuple(s.strip() for s in args.sources.split(",") if s.strip()) or ("adam",),
+            extra_root=args.extra_root,
+            sources=tuple(s.strip() for s in args.sources.split(",") if s.strip())
+            or ("amdnet23", "odir_amd", "rfmid_amd"),
             val_ratio=args.val_ratio,
             test_ratio=args.test_ratio,
             seed=args.seed,
@@ -1164,6 +1809,7 @@ def main() -> None:
         build_myopia_manifest(
             data_root,
             args.output,
+            extra_root=args.extra_root,
             sources=tuple(s.strip() for s in args.sources.split(",") if s.strip()) or ("palm",),
             val_ratio=args.val_ratio,
             test_ratio=args.test_ratio,
@@ -1175,6 +1821,7 @@ def main() -> None:
         build_multidisease_manifest(
             data_root,
             args.output,
+            extra_root=args.extra_root,
             sources=tuple(s.strip() for s in args.sources.split(",") if s.strip()) or ("rfmid", "odir"),
             val_ratio=args.val_ratio,
             test_ratio=args.test_ratio,
