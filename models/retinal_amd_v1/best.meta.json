@@ -1,0 +1,16 @@
+{
+  "arch": "efficientnet_b4_amd",
+  "manifest": "amd_v1.json",
+  "preprocess": "clahe",
+  "image_size": 224,
+  "focal_alpha": 0.75,
+  "focal_gamma": 2.0,
+  "best_val_auc": 0.9803,
+  "best_val_f1": 0.903,
+  "best_val_sensitivity": 0.903,
+  "best_val_specificity": 0.9713,
+  "test_auc": 0.967,
+  "test_f1": 0.8591,
+  "epochs": 80,
+  "target_auc": 0.88
+}
