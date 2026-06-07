@@ -28,6 +28,8 @@ from schemas.integrated_diagnosis import (
 
     OverallAssessment,
 
+    ScreeningResult,
+
 )
 
 from services.amd_cnn import (
@@ -83,6 +85,8 @@ from services.myopia_cnn import (
 )
 
 from services.myopia_ontology import build_myopia_ontology_payload
+
+from services.multidisease_cnn import screen_fundus_from_image_bytes
 
 from services.gradcam import GradCAMService, GradCAMVisualizer
 
@@ -530,6 +534,8 @@ def _build_overall_assessment(
 
     myopia: MyopiaResult | None = None,
 
+    screening: ScreeningResult | None = None,
+
     *,
 
     lang: str = "ko",
@@ -652,6 +658,38 @@ def _build_overall_assessment(
 
 
 
+    if screening is not None:
+
+        if screening.findings:
+
+            if lang == "ko":
+
+                top = screening.top_findings or screening.findings[:3]
+
+                for f in top:
+
+                    name = f.korean_name or f.disease
+
+                    findings.append(f"다질환: {name} (p={f.probability:.2f})")
+
+                    concern_scores[f"disease_{f.disease}"] = f.probability
+
+            else:
+
+                for f in (screening.top_findings or screening.findings[:3]):
+
+                    findings.append(f"Screening: {f.disease} p={f.probability:.3f}")
+
+                    concern_scores[f"disease_{f.disease}"] = f.probability
+
+        elif screening.normal and lang == "ko":
+
+            findings.append("다질환 스크리닝: 특이 소견 없음")
+
+        urgency = _pick_higher_urgency(urgency, screening.referral_urgency)
+
+
+
     if dr.grade >= 2:
 
         concern_scores["diabetic_retinopathy"] = dr.confidence
@@ -746,9 +784,9 @@ async def run_comprehensive_fundus(
 
 ) -> ComprehensiveFundusResponse:
 
-    """DR + Glaucoma + AMD + Myopia 동시 분석."""
+    """DR + Glaucoma + AMD + Myopia + 다질환 스크리닝 동시 분석."""
 
-    active = tasks or ["dr", "glaucoma", "amd", "myopia"]
+    active = tasks or ["dr", "glaucoma", "amd", "myopia", "screening"]
 
     run_dr = "dr" in active
 
@@ -757,6 +795,8 @@ async def run_comprehensive_fundus(
     run_amd = "amd" in active
 
     run_myopia = "myopia" in active
+
+    run_screening = "screening" in active
 
 
 
@@ -896,11 +936,25 @@ async def run_comprehensive_fundus(
 
 
 
+    screening_result: ScreeningResult | None = None
+
+    if run_screening:
+
+        screening_result = await screen_fundus_from_image_bytes(
+
+            image_bytes,
+
+            eye=eye,
+
+        )
+
+
+
     dr_summary = _dr_summary_from_explain(explain_dict)
 
     overall = _build_overall_assessment(
 
-        dr_summary, glaucoma_result, amd_result, myopia_result, lang=lang
+        dr_summary, glaucoma_result, amd_result, myopia_result, screening_result, lang=lang
 
     )
 
@@ -935,6 +989,8 @@ async def run_comprehensive_fundus(
         amd=amd_result,
 
         myopia=myopia_result,
+
+        screening=screening_result,
 
         heatmap=heatmaps,
 

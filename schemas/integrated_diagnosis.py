@@ -282,6 +282,7 @@ class ScreeningFinding(BaseModel):
     """다질환 스크리닝 단일 소견."""
 
     disease: str = Field(..., description="질환 약어 (dr, armd, crvo, …)")
+    korean_name: str = Field(default="", description="한국어 질환명")
     probability: float = Field(..., ge=0, le=1)
     risk_level: str = Field(default="low", description="low | moderate | high | urgent")
     icd10: str = Field(default="", description="매핑 ICD-10 (가능 시)")
@@ -303,6 +304,14 @@ class ScreeningResult(BaseModel):
         description="우선 의뢰 질환 (legacy alias)",
     )
     referral_urgency: str = Field(default="none", description="none/routine/immediate")
+    normal: bool = Field(
+        default=True,
+        description="모든 질환 probability < 탐지 임계값",
+    )
+    top_findings: list[ScreeningFinding] = Field(
+        default_factory=list,
+        description="확률 상위 3개 소견",
+    )
     model_used: str = ""
 
 
@@ -367,12 +376,13 @@ class OverallAssessment(BaseModel):
 
 
 class ComprehensiveFundusResponse(BaseModel):
-    """DR + Glaucoma + AMD + Myopia 통합 Lab 응답."""
+    """DR + Glaucoma + AMD + Myopia + 다질환 스크리닝 통합 Lab 응답."""
 
     dr: DRComprehensiveSummary
     glaucoma: GlaucomaResult | None = None
     amd: AMDResult | None = None
     myopia: MyopiaResult | None = None
+    screening: ScreeningResult | None = None
     heatmap: dict = Field(
         default_factory=dict,
         description='{"dr": {...}, "glaucoma": {...}, "amd": {...}, "myopia": {...}}',

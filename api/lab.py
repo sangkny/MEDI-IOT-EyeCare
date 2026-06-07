@@ -470,19 +470,31 @@ async def lab_fundus_myopia(
 async def lab_fundus_screening(
     file: UploadFile = File(...),
     tasks: str = Form("multidisease", description="쉼표 구분 태스크 (multidisease)"),
-    threshold: float = Form(0.5, ge=0.0, le=1.0, description="양성 임계값"),
+    threshold: float | None = Form(None, ge=0.0, le=1.0, description="양성 임계값 (기본 env)"),
+    eye: str | None = Form(None, description="left | right"),
     _: dict = LAB_AUTH,
 ) -> ScreeningResult:
-    """RFMiD+ODIR 멀티레이블 스크리닝 — 모델 배포 전 501."""
-    await _read_and_validate(file)
-    raise HTTPException(
-        status.HTTP_501_NOT_IMPLEMENTED,
-        detail=(
-            "Multidisease screening not deployed yet "
-            f"(tasks={tasks}, threshold={threshold}). "
-            "Train: scripts/start_multidisease_train.sh"
-        ),
-    )
+    """RFMiD+ODIR 28-class 멀티레이블 스크리닝."""
+    image_bytes, _ = await _read_and_validate(file)
+    try:
+        from services.multidisease_cnn import screen_fundus_from_image_bytes
+
+        return await screen_fundus_from_image_bytes(
+            image_bytes,
+            threshold=threshold,
+            eye=eye,
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Multidisease model not found: {exc}",
+        ) from exc
+    except Exception as exc:
+        log.exception("lab screening failed")
+        raise HTTPException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc)[:200],
+        ) from exc
 
 
 @router.post(
@@ -536,7 +548,7 @@ async def lab_oct_macula(
 @router.post(
     "/fundus/comprehensive",
     response_model=ComprehensiveFundusResponse,
-    summary="Fundus Lab — DR + Glaucoma + AMD + Myopia 통합 분석",
+    summary="Fundus Lab — DR + Glaucoma + AMD + Myopia + Screening 통합 분석",
 )
 async def lab_fundus_comprehensive(
     file: UploadFile = File(...),
@@ -547,10 +559,13 @@ async def lab_fundus_comprehensive(
     include_heatmap: bool = Form(True),
     eye: str | None = Form(None, description="left | right (alias eye_side)"),
     eye_side: str = Form("unknown", description="left | right | unknown"),
-    tasks: str = Form("dr,glaucoma,amd,myopia", description="쉼표 구분: dr,glaucoma,amd,myopia"),
+    tasks: str = Form(
+        "dr,glaucoma,amd,myopia,screening",
+        description="쉼표 구분: dr,glaucoma,amd,myopia,screening",
+    ),
     _: dict = LAB_AUTH,
 ) -> ComprehensiveFundusResponse:
-    """DR + Glaucoma + AMD + Myopia 동시 분석 · overall_assessment 종합 판정."""
+    """DR + Glaucoma + AMD + Myopia + 28-class 스크리닝 동시 분석."""
     image_bytes, fmt_label = await _read_and_validate(file)
     loc = None
     if lat is not None and lng is not None:
