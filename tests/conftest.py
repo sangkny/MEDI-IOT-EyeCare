@@ -29,6 +29,7 @@ _UNIT_MODULES = frozenset({
     "test_amd_cnn",
     "test_multidisease_cnn",
     "test_multidisease_schema",
+    "test_v10_model",
     "test_real_image",
     "test_retinal_preprocess",
     "test_vision_router",
