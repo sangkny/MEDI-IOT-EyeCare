@@ -117,3 +117,98 @@ def test_overall_assessment_amd_primary() -> None:
     assert overall.primary_concern == "amd"
     assert overall.referral_urgency == "immediate"
     assert any("황반변성" in f for f in overall.findings)
+
+
+def test_overall_assessment_screening_primary_label() -> None:
+    from schemas.integrated_diagnosis import ScreeningFinding, ScreeningResult
+
+    dr = DRComprehensiveSummary(
+        grade=0,
+        confidence=0.77,
+        icd10_code="H40.0",
+        severity="normal",
+        ontology_passed=True,
+    )
+    screening = ScreeningResult(
+        findings=[
+            ScreeningFinding(
+                disease="odc",
+                korean_name="시신경유두함몰",
+                probability=0.82,
+                risk_level="urgent",
+                icd10="H47.1",
+            )
+        ],
+        urgent_diseases=["odc"],
+        total_diseases_detected=1,
+        referral_urgency="immediate",
+        normal=False,
+        top_findings=[
+            ScreeningFinding(
+                disease="odc",
+                korean_name="시신경유두함몰",
+                probability=0.82,
+                risk_level="urgent",
+                icd10="H47.1",
+            )
+        ],
+    )
+    overall = _build_overall_assessment(dr, None, None, None, screening, lang="ko")
+    assert overall.primary_concern == "odc (시신경유두함몰)"
+    assert "disease_" not in overall.primary_concern
+
+
+def test_overall_assessment_compound_primary() -> None:
+    from schemas.integrated_diagnosis import CupDiscRatioDetail, ScreeningFinding, ScreeningResult
+
+    dr = DRComprehensiveSummary(
+        grade=0,
+        confidence=0.77,
+        icd10_code="H40.0",
+        severity="normal",
+        ontology_passed=True,
+    )
+    glu = GlaucomaResult(
+        glaucoma_grade=2,
+        grade_label="glaucoma",
+        label="glaucoma",
+        probability=0.79,
+        risk_level="HIGH",
+        confidence=0.79,
+        cup_disc_ratio=CupDiscRatioDetail(
+            value=0.745,
+            category="suspect",
+            method="probability_based",
+            confidence_interval=[0.71, 0.78],
+            clinical_note="test",
+        ),
+        referral_urgency="immediate",
+        ontology_passed=True,
+        decision="APPROVE",
+    )
+    screening = ScreeningResult(
+        findings=[
+            ScreeningFinding(
+                disease="odc",
+                korean_name="시신경유두함몰",
+                probability=0.78,
+                risk_level="urgent",
+                icd10="H47.1",
+            )
+        ],
+        urgent_diseases=["odc"],
+        total_diseases_detected=1,
+        referral_urgency="immediate",
+        normal=False,
+        top_findings=[
+            ScreeningFinding(
+                disease="odc",
+                korean_name="시신경유두함몰",
+                probability=0.78,
+                risk_level="urgent",
+                icd10="H47.1",
+            )
+        ],
+    )
+    overall = _build_overall_assessment(dr, glu, None, None, screening, lang="ko")
+    assert overall.primary_concern == "glaucoma + odc"

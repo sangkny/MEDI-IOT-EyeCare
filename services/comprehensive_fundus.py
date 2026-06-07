@@ -86,7 +86,7 @@ from services.myopia_cnn import (
 
 from services.myopia_ontology import build_myopia_ontology_payload
 
-from services.multidisease_cnn import screen_fundus_from_image_bytes
+from services.multidisease_cnn import DISEASE_MAP, screen_fundus_from_image_bytes
 
 from services.gradcam import GradCAMService, GradCAMVisualizer
 
@@ -521,6 +521,30 @@ def _pick_higher_urgency(current: str, candidate: str) -> str:
     return current
 
 
+_STANDARD_CONCERNS = frozenset({"glaucoma", "amd", "myopia", "diabetic_retinopathy"})
+
+
+def _format_concern_label(code: str, lang: str) -> str:
+    if code in _STANDARD_CONCERNS:
+        return code
+    korean, _ = DISEASE_MAP.get(code, ("", ""))
+    if lang == "ko" and korean:
+        return f"{code} ({korean})"
+    return code
+
+
+def _resolve_primary_concern(concern_scores: dict[str, float], lang: str) -> str:
+    if not concern_scores:
+        return "none"
+    ranked = sorted(concern_scores.items(), key=lambda x: x[1], reverse=True)
+    top_code, top_score = ranked[0]
+    if len(ranked) > 1:
+        second_code, second_score = ranked[1]
+        if second_score >= 0.5 and second_score >= top_score * 0.9:
+            return f"{top_code} + {second_code}"
+    return _format_concern_label(top_code, lang)
+
+
 
 
 
@@ -672,7 +696,7 @@ def _build_overall_assessment(
 
                     findings.append(f"다질환: {name} (p={f.probability:.2f})")
 
-                    concern_scores[f"disease_{f.disease}"] = f.probability
+                    concern_scores[f.disease] = f.probability
 
             else:
 
@@ -680,7 +704,7 @@ def _build_overall_assessment(
 
                     findings.append(f"Screening: {f.disease} p={f.probability:.3f}")
 
-                    concern_scores[f"disease_{f.disease}"] = f.probability
+                    concern_scores[f.disease] = f.probability
 
         elif screening.normal and lang == "ko":
 
@@ -708,7 +732,7 @@ def _build_overall_assessment(
 
     if concern_scores:
 
-        primary = max(concern_scores, key=concern_scores.get)  # type: ignore[arg-type]
+        primary = _resolve_primary_concern(concern_scores, lang)
 
     elif dr.grade >= 2:
 
