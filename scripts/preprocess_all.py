@@ -1,9 +1,3 @@
-#!/usr/bin/env python3
-"""GL/AMD/MYO/Multi 원본 → CLAHE+224×224 JPEG (GPU /dataset/resized_cache).
-
-Docker 내부 또는 DATASET_ROOT=/dataset 에서 실행.
-DR 전처리는 $REPO/data/clahe_cache → resized_cache (별도 파이프라인).
-"""
 import cv2, numpy as np
 from pathlib import Path
 import glob, time

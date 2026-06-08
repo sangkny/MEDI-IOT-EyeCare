@@ -1,0 +1,15 @@
+{
+  "arch": "efficientnet_b4_v10",
+  "manifest": "unified_v10.json",
+  "preprocess": "none",
+  "image_size": 224,
+  "best_composite": 0.8818,
+  "loss_weights": {
+    "dr": 0.3,
+    "glaucoma": 0.2,
+    "amd": 0.2,
+    "myopia": 0.2,
+    "multidisease": 0.1
+  },
+  "warmup_epochs": 10
+}

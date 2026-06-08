@@ -36,13 +36,13 @@ docker run --gpus all --rm \
       --pretrained models/retinal_v4.pt \
       --output $OUTPUT \
       --epochs 60 \
-      --batch-size 128 \
+      --batch-size 64 \
       --lr 1e-4 \
       --finetune-lr 1e-5 \
       --warmup-epochs 10 \
       --early-stop 12 \
       --device cuda \
-      2>&1 | tee /tmp/retinal_v10_train.log
+      2>&1 | tee /tmp/retinal_v10_train.log | tee /workspace/models/retinal_v10/train.log
   "
 
 echo "OK log → /tmp/retinal_v10_train.log"

@@ -86,7 +86,16 @@ from services.myopia_cnn import (
 
 from services.myopia_ontology import build_myopia_ontology_payload
 
-from services.multidisease_cnn import DISEASE_MAP, screen_fundus_from_image_bytes
+from services.glaucoma_cnn import GlaucomaPrediction
+from services.amd_cnn import AMDPrediction
+from services.myopia_cnn import MyopiaPrediction
+from services.multidisease_cnn import (
+    DISEASE_MAP,
+    MultidiseasePrediction,
+    prediction_to_screening_result,
+    screen_fundus_from_image_bytes,
+)
+from services.v10_cnn import get_v10_backend, is_v10_available, predict_v10_from_image_bytes
 
 from services.gradcam import GradCAMService, GradCAMVisualizer
 
@@ -116,9 +125,13 @@ async def _run_glaucoma_pipeline(
 
     include_heatmap: bool,
 
+    pred: GlaucomaPrediction | None = None,
+
 ) -> tuple[GlaucomaResult, dict | None]:
 
-    pred = await predict_glaucoma_from_image_bytes(image_bytes)
+    if pred is None:
+
+        pred = await predict_glaucoma_from_image_bytes(image_bytes)
 
     model_used = f"cnn({get_glaucoma_backend().model_label()})"
 
@@ -246,9 +259,13 @@ async def _run_amd_pipeline(
 
     include_heatmap: bool,
 
+    pred: AMDPrediction | None = None,
+
 ) -> tuple[AMDResult, dict | None]:
 
-    pred = await predict_amd_from_image_bytes(image_bytes)
+    if pred is None:
+
+        pred = await predict_amd_from_image_bytes(image_bytes)
 
     model_used = f"cnn({get_amd_backend().model_label()})"
 
@@ -364,9 +381,13 @@ async def _run_myopia_pipeline(
 
     include_heatmap: bool,
 
+    pred: MyopiaPrediction | None = None,
+
 ) -> tuple[MyopiaResult, dict | None]:
 
-    pred = await predict_myopia_from_image_bytes(image_bytes)
+    if pred is None:
+
+        pred = await predict_myopia_from_image_bytes(image_bytes)
 
     model_used = f"cnn({get_myopia_backend().model_label()})"
 
@@ -788,6 +809,192 @@ def _build_overall_assessment(
 
 
 
+async def _run_comprehensive_v10(
+
+    image_bytes: bytes,
+
+    *,
+
+    lang: str = "ko",
+
+    patient_id: str | None = None,
+
+    eye: str | None = None,
+
+    include_heatmap: bool = True,
+
+    tasks: list[str] | None = None,
+
+) -> ComprehensiveFundusResponse:
+
+    """v10 단일 ONNX — 5질환 동시 추론."""
+
+    active = tasks or ["dr", "glaucoma", "amd", "myopia", "screening"]
+
+    v10 = await predict_v10_from_image_bytes(image_bytes)
+
+    model_used = f"cnn({get_v10_backend().model_label()})"
+
+
+
+    dr_summary = DRComprehensiveSummary(
+
+        grade=v10.dr.dr_grade,
+
+        confidence=v10.dr.confidence,
+
+        icd10_code=v10.dr.icd10_code,
+
+        severity=v10.dr.severity,
+
+        decision="APPROVE" if v10.dr.confidence >= 0.5 else "REVISE",
+
+        ontology_passed=True,
+
+        decision_mode="v10_cnn",
+
+        model_used=model_used,
+
+        audit_trail={"source": "v10_single_forward"},
+
+    )
+
+
+
+    glaucoma_result: GlaucomaResult | None = None
+
+    glaucoma_heatmap: dict | None = None
+
+    if "glaucoma" in active:
+
+        glaucoma_result, glaucoma_heatmap = await _run_glaucoma_pipeline(
+
+            image_bytes,
+
+            patient_id=patient_id,
+
+            eye=eye,
+
+            include_heatmap=include_heatmap,
+
+            pred=v10.glaucoma,
+
+        )
+
+
+
+    amd_result: AMDResult | None = None
+
+    amd_heatmap: dict | None = None
+
+    if "amd" in active:
+
+        amd_result, amd_heatmap = await _run_amd_pipeline(
+
+            image_bytes,
+
+            patient_id=patient_id,
+
+            eye=eye,
+
+            include_heatmap=include_heatmap,
+
+            pred=v10.amd,
+
+        )
+
+
+
+    myopia_result: MyopiaResult | None = None
+
+    myopia_heatmap: dict | None = None
+
+    if "myopia" in active:
+
+        myopia_result, myopia_heatmap = await _run_myopia_pipeline(
+
+            image_bytes,
+
+            patient_id=patient_id,
+
+            eye=eye,
+
+            include_heatmap=include_heatmap,
+
+            pred=v10.myopia,
+
+        )
+
+
+
+    screening_result: ScreeningResult | None = None
+
+    if "screening" in active:
+
+        screening_result = prediction_to_screening_result(
+
+            v10.multidisease,
+
+            model_used=model_used,
+
+        )
+
+
+
+    overall = _build_overall_assessment(
+
+        dr_summary, glaucoma_result, amd_result, myopia_result, screening_result, lang=lang
+
+    )
+
+
+
+    heatmaps: dict[str, Any] = {}
+
+    if glaucoma_heatmap:
+
+        heatmaps["glaucoma"] = glaucoma_heatmap
+
+    if amd_heatmap:
+
+        heatmaps["amd"] = amd_heatmap
+
+    if myopia_heatmap:
+
+        heatmaps["myopia"] = myopia_heatmap
+
+
+
+    return ComprehensiveFundusResponse(
+
+        dr=dr_summary,
+
+        glaucoma=glaucoma_result,
+
+        amd=amd_result,
+
+        myopia=myopia_result,
+
+        screening=screening_result,
+
+        heatmap=heatmaps,
+
+        overall_assessment=overall,
+
+        active_tasks=active,
+
+        input_format="v10_onnx",
+
+        nearby_hospitals=[],
+
+        device_recommendations=[],
+
+    )
+
+
+
+
+
 async def run_comprehensive_fundus(
 
     image_bytes: bytes,
@@ -811,6 +1018,26 @@ async def run_comprehensive_fundus(
     """DR + Glaucoma + AMD + Myopia + 다질환 스크리닝 동시 분석."""
 
     active = tasks or ["dr", "glaucoma", "amd", "myopia", "screening"]
+
+
+
+    if is_v10_available() and set(active) <= {"dr", "glaucoma", "amd", "myopia", "screening"}:
+
+        return await _run_comprehensive_v10(
+
+            image_bytes,
+
+            lang=lang,
+
+            patient_id=patient_id,
+
+            eye=eye,
+
+            include_heatmap=include_heatmap,
+
+            tasks=active,
+
+        )
 
     run_dr = "dr" in active
 

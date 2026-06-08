@@ -10,7 +10,7 @@
     --manifest training/manifests/unified_v10.json \\
     --pretrained models/retinal_v4.pt \\
     --output models/retinal_v10 \\
-    --epochs 60 --batch-size 128 --device cuda
+    --epochs 60 --batch-size 32 --device cuda
 """
 from __future__ import annotations
 

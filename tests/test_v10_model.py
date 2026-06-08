@@ -91,6 +91,7 @@ def test_normalize_dr_path() -> None:
 
 
 def test_eval_multidisease_mauc_with_v10_batch_labels() -> None:
+    pytest.importorskip("sklearn")
     model = MultiTaskV10Model(pretrained_imagenet=False)
     x = torch.randn(4, 3, 224, 224)
     multi = torch.zeros(4, 28)
