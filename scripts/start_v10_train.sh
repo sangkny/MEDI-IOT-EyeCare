@@ -36,7 +36,7 @@ docker run --gpus all --rm \
       --pretrained models/retinal_v4.pt \
       --output $OUTPUT \
       --epochs 60 \
-      --batch-size 32 \
+      --batch-size 128 \
       --lr 1e-4 \
       --finetune-lr 1e-5 \
       --warmup-epochs 10 \

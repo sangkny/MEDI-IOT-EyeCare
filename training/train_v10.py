@@ -10,7 +10,7 @@
     --manifest training/manifests/unified_v10.json \\
     --pretrained models/retinal_v4.pt \\
     --output models/retinal_v10 \\
-    --epochs 60 --batch-size 32 --device cuda
+    --epochs 60 --batch-size 128 --device cuda
 """
 from __future__ import annotations
 
@@ -413,7 +413,7 @@ def main() -> None:
     p.add_argument("--pretrained", type=Path, default=ROOT / "models/retinal_v4.pt")
     p.add_argument("--output", type=Path, default=ROOT / "models/retinal_v10")
     p.add_argument("--epochs", type=int, default=60)
-    p.add_argument("--batch-size", dest="batch_size", type=int, default=32)
+    p.add_argument("--batch-size", dest="batch_size", type=int, default=128)
     p.add_argument("--lr", type=float, default=1e-4)
     p.add_argument("--finetune-lr", dest="finetune_lr", type=float, default=1e-5)
     p.add_argument("--warmup-epochs", dest="warmup_epochs", type=int, default=WARMUP_EPOCHS)
@@ -429,7 +429,7 @@ def main() -> None:
     data_dir = _resolve_data_dir(str(data.get("data_dir") or "/dataset"))
     dr_raw = data.get("dr_data_dir")
     dr_data_dir = Path(str(dr_raw)) if dr_raw else None
-    preprocess = resolve_preprocess_mode("clahe")
+    preprocess = resolve_preprocess_mode("none")
 
     use_cuda = args.device == "cuda" and torch.cuda.is_available()
     device = torch.device("cuda" if use_cuda else "cpu")
