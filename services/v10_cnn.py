@@ -122,7 +122,12 @@ class V10OnnxBackend:
             None,
             {inp: tensor.numpy()},
         )
-        dr_pred = dr_prediction_from_logits(dr_out)
+        import numpy as np
+
+        dr_logits = np.asarray(dr_out, dtype=np.float32).reshape(-1)
+        if dr_logits.size != 5:
+            dr_logits = np.asarray(dr_out, dtype=np.float32).reshape(1, -1)[0]
+        dr_pred = dr_prediction_from_logits(dr_logits)
         gl_logit = float(gl_out.reshape(-1)[0])
         amd_logit = float(amd_out.reshape(-1)[0])
         myo_logit = float(myo_out.reshape(-1)[0])
