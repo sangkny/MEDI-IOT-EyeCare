@@ -122,6 +122,7 @@ class V10Dataset(Dataset):
         entries: list[dict],
         data_dir: Path,
         *,
+        dr_data_dir: Path | None = None,
         class_names: tuple[str, ...] = MULTIDISEASE_TRAIN_CLASSES,
         image_size: int = 224,
         preprocess: str = "clahe",
@@ -129,6 +130,7 @@ class V10Dataset(Dataset):
     ) -> None:
         self.entries = entries
         self.data_dir = data_dir
+        self.dr_data_dir = dr_data_dir
         self.class_names = class_names
         self.image_size = image_size
         self.preprocess = preprocess
@@ -137,14 +139,35 @@ class V10Dataset(Dataset):
     def __len__(self) -> int:
         return len(self.entries)
 
+    def _resolve_image_path(self, rel_path: str) -> Path:
+        key = rel_path.replace("\\", "/")
+        if key.startswith("/"):
+            return Path(key)
+        if self.dr_data_dir and (
+            key.startswith("resized_cache/")
+            or "/resized_cache/" in key
+            or key.startswith("data/")
+        ):
+            return self.dr_data_dir / key.lstrip("/")
+        return self.data_dir / key
+
+    def _preprocess_mode_for(self, path: str) -> str:
+        if "resized_cache" in path.replace("\\", "/"):
+            return "none"
+        return self.preprocess
+
     def __getitem__(self, idx: int) -> tuple[torch.Tensor, dict[str, float | dict[str, float] | None]]:
         from PIL import Image
         from torchvision import transforms as T
 
         entry = self.entries[idx]
         al = entry.get("available_labels") or {}
-        img = Image.open(self.data_dir / entry["path"]).convert("RGB")
-        arr = preprocess_fundus_array(__import__("numpy").array(img), mode=self.preprocess)
+        img_path = self._resolve_image_path(str(entry["path"]))
+        img = Image.open(img_path).convert("RGB")
+        arr = preprocess_fundus_array(
+            __import__("numpy").array(img),
+            mode=self._preprocess_mode_for(str(entry["path"])),
+        )
         img = Image.fromarray(arr).resize((self.image_size, self.image_size))
         transform = (
             T.Compose(
@@ -332,6 +355,18 @@ def eval_binary_auc(
     return float(roc_auc_score(ys, scores))
 
 
+def eval_gl_auc(model: MultiTaskV10Model, loader: DataLoader, device: torch.device) -> float:
+    return eval_binary_auc(model, loader, device, "glaucoma")
+
+
+def eval_amd_auc(model: MultiTaskV10Model, loader: DataLoader, device: torch.device) -> float:
+    return eval_binary_auc(model, loader, device, "amd")
+
+
+def eval_myo_auc(model: MultiTaskV10Model, loader: DataLoader, device: torch.device) -> float:
+    return eval_binary_auc(model, loader, device, "myopia")
+
+
 @torch.no_grad()
 def eval_multidisease_mauc(
     model: MultiTaskV10Model,
@@ -391,7 +426,9 @@ def main() -> None:
     manifest_path = args.manifest if args.manifest.is_absolute() else ROOT / args.manifest
     data = json.loads(manifest_path.read_text(encoding="utf-8"))
     train_entries, val_entries, _ = _manifest_splits(data)
-    data_dir = _resolve_data_dir(data["data_dir"])
+    data_dir = _resolve_data_dir(str(data.get("data_dir") or "/dataset"))
+    dr_raw = data.get("dr_data_dir")
+    dr_data_dir = Path(str(dr_raw)) if dr_raw else None
     preprocess = resolve_preprocess_mode("clahe")
 
     use_cuda = args.device == "cuda" and torch.cuda.is_available()
@@ -399,10 +436,20 @@ def main() -> None:
     use_amp = use_cuda and not args.no_amp
 
     train_ds = V10Dataset(
-        train_entries, data_dir, image_size=args.image_size, preprocess=preprocess, augment=True
+        train_entries,
+        data_dir,
+        dr_data_dir=dr_data_dir,
+        image_size=args.image_size,
+        preprocess=preprocess,
+        augment=True,
     )
     val_ds = V10Dataset(
-        val_entries, data_dir, image_size=args.image_size, preprocess=preprocess, augment=False
+        val_entries,
+        data_dir,
+        dr_data_dir=dr_data_dir,
+        image_size=args.image_size,
+        preprocess=preprocess,
+        augment=False,
     )
     train_loader = DataLoader(
         train_ds,
@@ -471,9 +518,9 @@ def main() -> None:
 
         model.eval()
         qwk = eval_dr_qwk(model, val_loader, device)
-        gl_auc = eval_binary_auc(model, val_loader, device, "glaucoma")
-        amd_auc = eval_binary_auc(model, val_loader, device, "amd")
-        myo_auc = eval_binary_auc(model, val_loader, device, "myopia")
+        gl_auc = eval_gl_auc(model, val_loader, device)
+        amd_auc = eval_amd_auc(model, val_loader, device)
+        myo_auc = eval_myo_auc(model, val_loader, device)
         mauc = eval_multidisease_mauc(model, val_loader, device)
         composite = qwk * 0.3 + gl_auc * 0.2 + amd_auc * 0.2 + myo_auc * 0.2 + mauc * 0.1
 

@@ -5,6 +5,7 @@ set -euo pipefail
 
 REPO="${REPO:-$(cd "$(dirname "$0")/.." && pwd)}"
 DATASET_ROOT="${DATASET_ROOT:-$HOME/workspace/dataset}"
+DR_DATA_DIR="${DR_DATA_DIR:-$REPO/data}"
 IMAGE="${TRAIN_IMAGE:-medi-train:gpu}"
 MANIFEST="${MANIFEST:-training/manifests/unified_v10.json}"
 OUTPUT="${OUTPUT:-models/retinal_v10}"
@@ -12,6 +13,8 @@ OUTPUT="${OUTPUT:-models/retinal_v10}"
 echo "=== start_v10_train ==="
 echo "manifest: $MANIFEST"
 echo "output:   $OUTPUT"
+echo "dataset:  $DATASET_ROOT → /dataset"
+echo "dr_data:  $DR_DATA_DIR → /data_dr"
 
 if [ ! -f "$REPO/$MANIFEST" ]; then
   echo "FAIL: $MANIFEST not found — run bash scripts/build_v10_manifest.sh first"
@@ -22,6 +25,7 @@ docker run --gpus all --rm \
   --shm-size=4g \
   --entrypoint bash \
   -v "$DATASET_ROOT:/dataset:ro" \
+  -v "$DR_DATA_DIR:/data_dr:ro" \
   -v "$REPO:/workspace" \
   "$IMAGE" -c "
     set -euo pipefail

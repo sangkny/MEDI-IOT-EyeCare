@@ -13,6 +13,22 @@ sys.path.insert(0, str(ROOT))
 from training.make_manifest import MULTIDISEASE_TRAIN_CLASSES
 
 
+def normalize_dr_path(path: str, *, dr_data_dir: str = "/data_dr") -> str:
+    """DR manifest 경로 → Docker /data_dr/resized_cache/... 절대경로."""
+    key = path.replace("\\", "/")
+    if key.startswith("/data_dr/"):
+        return key
+    stripped = key.lstrip("/")
+    if stripped.startswith("data/"):
+        stripped = stripped[5:]
+    if "/resized_cache/" in stripped:
+        idx = stripped.index("resized_cache/")
+        return f"{dr_data_dir.rstrip('/')}/{stripped[idx:]}"
+    if stripped.startswith("resized_cache/"):
+        return f"{dr_data_dir.rstrip('/')}/{stripped}"
+    return f"{dr_data_dir.rstrip('/')}/resized_cache/{stripped}"
+
+
 def _load_manifest(path: Path) -> dict:
     if not path.is_file():
         raise FileNotFoundError(path)
@@ -39,6 +55,7 @@ def merge_v10_manifests(
     myopia_path: Path,
     multidisease_path: Path,
     data_dir: str = "/dataset",
+    dr_data_dir: str = "/data_dr",
 ) -> dict:
     merged: dict[str, dict] = {}
 
@@ -59,7 +76,8 @@ def merge_v10_manifests(
     for s in _samples(_load_manifest(dr_path)):
         if s.get("dr_grade") is None:
             continue
-        upsert(s["path"], s.get("split", "train"), {"dr": int(s["dr_grade"])})
+        dr_path_norm = normalize_dr_path(str(s["path"]), dr_data_dir=dr_data_dir)
+        upsert(dr_path_norm, s.get("split", "train"), {"dr": int(s["dr_grade"])})
 
     for s in _samples(_load_manifest(glaucoma_path)):
         label = s.get("glaucoma_grade", s.get("label"))
@@ -100,6 +118,7 @@ def merge_v10_manifests(
 
     return {
         "data_dir": data_dir,
+        "dr_data_dir": dr_data_dir,
         "task": "v10",
         "total": len(samples),
         "label_classes": list(class_names),
@@ -125,6 +144,7 @@ def main() -> None:
     p.add_argument("--multidisease", type=Path, default=ROOT / "training/manifests/multidisease_v1.json")
     p.add_argument("--output", type=Path, default=ROOT / "training/manifests/unified_v10.json")
     p.add_argument("--data-dir", dest="data_dir", default="/dataset")
+    p.add_argument("--dr-data-dir", dest="dr_data_dir", default="/data_dr")
     args = p.parse_args()
 
     manifest = merge_v10_manifests(
@@ -134,6 +154,7 @@ def main() -> None:
         myopia_path=args.myopia if args.myopia.is_absolute() else ROOT / args.myopia,
         multidisease_path=args.multidisease if args.multidisease.is_absolute() else ROOT / args.multidisease,
         data_dir=args.data_dir,
+        dr_data_dir=args.dr_data_dir,
     )
     out = args.output if args.output.is_absolute() else ROOT / args.output
     out.parent.mkdir(parents=True, exist_ok=True)
