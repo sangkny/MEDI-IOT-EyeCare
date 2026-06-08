@@ -26,7 +26,6 @@ sys.path.insert(0, str(ROOT))
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.utils.data import DataLoader, Dataset
 
 from services.retinal_cnn import (
@@ -206,6 +205,21 @@ def _collate_v10(batch: list) -> tuple[torch.Tensor, V10BatchLabels]:
     )
 
 
+def _v10_labels_to_device(lb: V10BatchLabels, device: torch.device) -> V10BatchLabels:
+    return V10BatchLabels(
+        dr=lb.dr.to(device),
+        glaucoma=lb.glaucoma.to(device),
+        amd=lb.amd.to(device),
+        myopia=lb.myopia.to(device),
+        multidisease=lb.multidisease.to(device),
+        mask_dr=lb.mask_dr.to(device),
+        mask_gl=lb.mask_gl.to(device),
+        mask_amd=lb.mask_amd.to(device),
+        mask_myo=lb.mask_myo.to(device),
+        mask_multi=lb.mask_multi.to(device),
+    )
+
+
 class V10Loss(nn.Module):
     """마스킹 기반 5-head weighted loss."""
 
@@ -275,13 +289,14 @@ def load_v4_into_v10(model: MultiTaskV10Model, path: Path) -> None:
 def eval_dr_qwk(model: MultiTaskV10Model, loader: DataLoader, device: torch.device) -> float:
     ys, ps = [], []
     for xb, lb in loader:
+        xb = xb.to(device)
+        lb = _v10_labels_to_device(lb, device)
         mask = lb.mask_dr
         if not mask.any():
             continue
-        xb = xb[mask].to(device)
-        logits = model.forward(xb)["dr"]
+        logits = model.forward(xb[mask])["dr"]
         ps.extend(logits.argmax(dim=1).cpu().tolist())
-        ys.extend(lb.dr[mask].tolist())
+        ys.extend(lb.dr[mask].cpu().tolist())
     return quadratic_weighted_kappa(ys, ps) if ys else 0.0
 
 
@@ -296,18 +311,22 @@ def eval_binary_auc(
 
     ys, scores = [], []
     for xb, lb in loader:
+        xb = xb.to(device)
+        lb = _v10_labels_to_device(lb, device)
         if task == "glaucoma":
             mask = lb.mask_gl
+            targets = lb.glaucoma
         elif task == "amd":
             mask = lb.mask_amd
+            targets = lb.amd
         else:
             mask = lb.mask_myo
+            targets = lb.myopia
         if not mask.any():
             continue
-        xb = xb[mask].to(device)
-        logits = model.forward(xb)[task]
+        logits = model.forward(xb[mask])[task]
         scores.extend(torch.sigmoid(logits).cpu().tolist())
-        ys.extend(getattr(lb, task if task != "myopia" else "myopia")[mask].tolist())
+        ys.extend(targets[mask].cpu().tolist())
     if len(set(int(y) for y in ys)) < 2:
         return 0.0
     return float(roc_auc_score(ys, scores))
@@ -319,34 +338,38 @@ def eval_multidisease_mauc(
     loader: DataLoader,
     device: torch.device,
 ) -> float:
-    from training.train_multidisease import eval_multidisease
+    import numpy as np
+    from sklearn.metrics import roc_auc_score
 
-    class _Wrap(nn.Module):
-        def __init__(self, m: MultiTaskV10Model) -> None:
-            super().__init__()
-            self.m = m
+    model.eval()
+    all_scores: list[list[float]] = []
+    all_targets: list[list[float]] = []
 
-        def forward(self, x: torch.Tensor) -> torch.Tensor:
-            return self.m.forward(x)["multidisease"]
+    for xb, lb in loader:
+        xb = xb.to(device)
+        lb = _v10_labels_to_device(lb, device)
+        mask = lb.mask_multi
+        if mask.sum() == 0:
+            continue
+        outputs = model.forward(xb[mask])
+        logits = outputs["multidisease"]
+        scores = torch.sigmoid(logits).cpu().tolist()
+        targets = lb.multidisease[mask].cpu().tolist()
+        all_scores.extend(scores)
+        all_targets.extend(targets)
 
-    wrap = _Wrap(model)
-    filtered = [
-        s
-        for s in loader.dataset.entries  # type: ignore[attr-defined]
-        if (s.get("available_labels") or {}).get("multidisease")
-    ]
-    if not filtered:
+    if not all_scores:
         return 0.0
-    ds = V10Dataset(
-        filtered,
-        loader.dataset.data_dir,  # type: ignore[attr-defined]
-        image_size=loader.dataset.image_size,  # type: ignore[attr-defined]
-        preprocess=loader.dataset.preprocess,  # type: ignore[attr-defined]
-        augment=False,
-    )
-    sub = DataLoader(ds, batch_size=loader.batch_size, shuffle=False, collate_fn=_collate_v10)
-    result = eval_multidisease(wrap, sub, device, MULTIDISEASE_TRAIN_CLASSES)
-    return result.mauc
+
+    scores_arr = np.array(all_scores, dtype=np.float64)
+    targets_arr = np.array(all_targets, dtype=np.float64)
+    aucs: list[float] = []
+    for i in range(scores_arr.shape[1]):
+        yt = targets_arr[:, i]
+        ys = scores_arr[:, i]
+        if yt.sum() > 0 and (1.0 - yt).sum() > 0:
+            aucs.append(float(roc_auc_score(yt, ys)))
+    return float(np.mean(aucs)) if aucs else 0.0
 
 
 def main() -> None:
@@ -434,6 +457,7 @@ def main() -> None:
         running = 0.0
         for xb, lb in train_loader:
             xb = xb.to(device)
+            lb = _v10_labels_to_device(lb, device)
             opt.zero_grad(set_to_none=True)
             with autocast("cuda", enabled=use_amp):
                 outputs = model.forward(xb)

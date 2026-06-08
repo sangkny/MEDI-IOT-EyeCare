@@ -14,6 +14,7 @@ from training.train_v10 import (
     V10BatchLabels,
     V10Loss,
     _collate_v10,
+    eval_multidisease_mauc,
 )
 
 pytestmark = pytest.mark.unit
@@ -63,3 +64,32 @@ def test_v10_collate_nan_masks() -> None:
 
 def test_loss_weights_sum() -> None:
     assert pytest.approx(sum(LOSS_WEIGHTS.values()), rel=1e-6) == 1.0
+
+
+def test_eval_multidisease_mauc_with_v10_batch_labels() -> None:
+    model = MultiTaskV10Model(pretrained_imagenet=False)
+    x = torch.randn(4, 3, 224, 224)
+    multi = torch.zeros(4, 28)
+    multi[:, 0] = 1.0
+    multi[1, 0] = 0.0
+    multi[2, 1] = 1.0
+    multi[3, 1] = 0.0
+    labels = V10BatchLabels(
+        dr=torch.full((4,), float("nan")),
+        glaucoma=torch.full((4,), float("nan")),
+        amd=torch.full((4,), float("nan")),
+        myopia=torch.full((4,), float("nan")),
+        multidisease=multi,
+        mask_dr=torch.zeros(4, dtype=torch.bool),
+        mask_gl=torch.zeros(4, dtype=torch.bool),
+        mask_amd=torch.zeros(4, dtype=torch.bool),
+        mask_myo=torch.zeros(4, dtype=torch.bool),
+        mask_multi=torch.ones(4, dtype=torch.bool),
+    )
+
+    class _Loader:
+        def __iter__(self):
+            yield x, labels
+
+    mauc = eval_multidisease_mauc(model, _Loader(), torch.device("cpu"))
+    assert 0.0 <= mauc <= 1.0
