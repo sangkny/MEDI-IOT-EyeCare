@@ -9,7 +9,6 @@ DATASET_ROOT="${DATASET_ROOT:-$HOME/workspace/dataset}"
 DR_DATA_DIR="${DR_DATA_DIR:-$REPO/data}"
 IMAGE="${TRAIN_IMAGE:-medi-train:gpu}"
 MANIFEST="${MANIFEST:-training/manifests/unified_v10.json}"
-OUTPUT="${OUTPUT:-models/retinal_v10}"
 
 # v10b: GL AUC 개선 — loss weight 재조정 + warmup 단축
 if [ "${V10B:-0}" = "1" ]; then
@@ -23,6 +22,7 @@ if [ "${V10B:-0}" = "1" ]; then
   MULTI_WEIGHT=0.10
   echo "=== v10b retrain (GL weight boost) ==="
 else
+  OUTPUT="${OUTPUT:-models/retinal_v10}"
   BATCH_SIZE=64
   WARMUP_EPOCHS=10
   DR_WEIGHT=0.30
