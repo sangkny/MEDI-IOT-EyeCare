@@ -373,6 +373,15 @@ class OverallAssessment(BaseModel):
     )
     findings: list[str] = Field(default_factory=list)
     recommendation: str = ""
+    inference_mode: str | None = Field(
+        default=None,
+        description="fast(v10) | precise(5-model) | fast(fallback-5-model)",
+    )
+    inference_time_ms: int | None = Field(
+        default=None,
+        ge=0,
+        description="comprehensive 추론 소요(ms)",
+    )
 
 
 class ComprehensiveFundusResponse(BaseModel):

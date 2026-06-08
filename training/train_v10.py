@@ -249,10 +249,12 @@ class V10Loss(nn.Module):
     def __init__(
         self,
         *,
+        loss_weights: dict[str, float] | None = None,
         multi_pos_weight: torch.Tensor | None = None,
         focal_gamma: float = 2.0,
     ) -> None:
         super().__init__()
+        self.loss_weights = loss_weights or dict(LOSS_WEIGHTS)
         self.focal = FocalLoss(gamma=focal_gamma)
         self.multi_criterion = nn.BCEWithLogitsLoss(
             pos_weight=multi_pos_weight,
@@ -296,7 +298,7 @@ class V10Loss(nn.Module):
             zero = outputs["dr"].sum() * 0.0
             return zero, {}
 
-        total = sum(LOSS_WEIGHTS[k] * v for k, v in parts.items())
+        total = sum(self.loss_weights[k] * v for k, v in parts.items())
         return total, {k: float(v.detach()) for k, v in parts.items()}
 
 
@@ -421,7 +423,23 @@ def main() -> None:
     p.add_argument("--device", default="cuda")
     p.add_argument("--early-stop", dest="early_stop", type=int, default=12)
     p.add_argument("--no-amp", action="store_true")
+    p.add_argument("--dr-weight", dest="dr_weight", type=float, default=LOSS_WEIGHTS["dr"])
+    p.add_argument("--gl-weight", dest="gl_weight", type=float, default=LOSS_WEIGHTS["glaucoma"])
+    p.add_argument("--amd-weight", dest="amd_weight", type=float, default=LOSS_WEIGHTS["amd"])
+    p.add_argument("--myo-weight", dest="myo_weight", type=float, default=LOSS_WEIGHTS["myopia"])
+    p.add_argument("--multi-weight", dest="multi_weight", type=float, default=LOSS_WEIGHTS["multidisease"])
     args = p.parse_args()
+
+    loss_weights = {
+        "dr": args.dr_weight,
+        "glaucoma": args.gl_weight,
+        "amd": args.amd_weight,
+        "myopia": args.myo_weight,
+        "multidisease": args.multi_weight,
+    }
+    weight_sum = sum(loss_weights.values())
+    if abs(weight_sum - 1.0) > 0.05:
+        print(f"WARN: loss weight sum={weight_sum:.3f} (expected ~1.0)")
 
     manifest_path = args.manifest if args.manifest.is_absolute() else ROOT / args.manifest
     data = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -473,7 +491,7 @@ def main() -> None:
         load_v4_into_v10(model, pretrained)
     model.to(device)
 
-    criterion = V10Loss()
+    criterion = V10Loss(loss_weights=loss_weights)
     opt = torch.optim.AdamW(filter(lambda t: t.requires_grad, model.parameters()), lr=args.lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=max(args.epochs, 1))
     scaler = GradScaler("cuda", enabled=use_amp)
@@ -548,7 +566,7 @@ def main() -> None:
             "model_state": model.state_dict(),
             "arch": "efficientnet_b4_v10",
             "best_composite": best_score,
-            "loss_weights": LOSS_WEIGHTS,
+            "loss_weights": loss_weights,
         },
         best_pt,
     )
@@ -558,7 +576,7 @@ def main() -> None:
         "preprocess": preprocess,
         "image_size": args.image_size,
         "best_composite": round(best_score, 4),
-        "loss_weights": LOSS_WEIGHTS,
+        "loss_weights": loss_weights,
         "warmup_epochs": args.warmup_epochs,
     }
     (out_dir / "best.meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")

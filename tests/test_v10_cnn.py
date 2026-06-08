@@ -69,3 +69,4 @@ async def test_run_comprehensive_uses_v10_when_available() -> None:
     assert resp.input_format == "v10_onnx"
     assert isinstance(resp.dr, DRComprehensiveSummary)
     assert resp.dr.grade == 1
+    assert resp.overall_assessment.inference_mode == "fast(v10)"

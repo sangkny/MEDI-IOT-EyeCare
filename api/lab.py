@@ -6,7 +6,7 @@ import logging
 import os
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
 from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel, Field
 
@@ -563,6 +563,10 @@ async def lab_fundus_comprehensive(
         "dr,glaucoma,amd,myopia,screening",
         description="쉼표 구분: dr,glaucoma,amd,myopia,screening",
     ),
+    mode: str = Query(
+        "fast",
+        description="fast: v10 ONNX 단일 추론 | precise: 독립 5모델 순차",
+    ),
     _: dict = LAB_AUTH,
 ) -> ComprehensiveFundusResponse:
     """DR + Glaucoma + AMD + Myopia + 28-class 스크리닝 동시 분석."""
@@ -583,6 +587,7 @@ async def lab_fundus_comprehensive(
             eye=eye_eff,
             include_heatmap=include_heatmap,
             tasks=active,
+            mode=mode,
         )
         if fmt_label and result.input_format is None:
             return result.model_copy(update={"input_format": fmt_label})

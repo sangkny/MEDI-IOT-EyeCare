@@ -5,6 +5,7 @@ from __future__ import annotations
 
 
 import logging
+import time
 
 from typing import Any
 
@@ -995,6 +996,38 @@ async def _run_comprehensive_v10(
 
 
 
+def _attach_inference_meta(
+
+    response: ComprehensiveFundusResponse,
+
+    *,
+
+    mode_label: str,
+
+    t0: float,
+
+) -> ComprehensiveFundusResponse:
+
+    elapsed_ms = int((time.perf_counter() - t0) * 1000)
+
+    overall = response.overall_assessment.model_copy(
+
+        update={
+
+            "inference_mode": mode_label,
+
+            "inference_time_ms": elapsed_ms,
+
+        }
+
+    )
+
+    return response.model_copy(update={"overall_assessment": overall})
+
+
+
+
+
 async def run_comprehensive_fundus(
 
     image_bytes: bytes,
@@ -1013,17 +1046,35 @@ async def run_comprehensive_fundus(
 
     tasks: list[str] | None = None,
 
+    mode: str = "fast",
+
 ) -> ComprehensiveFundusResponse:
 
     """DR + Glaucoma + AMD + Myopia + 다질환 스크리닝 동시 분석."""
+
+    mode_norm = (mode or "fast").strip().lower()
+
+    if mode_norm not in ("fast", "precise"):
+
+        mode_norm = "fast"
+
+    t0 = time.perf_counter()
 
     active = tasks or ["dr", "glaucoma", "amd", "myopia", "screening"]
 
 
 
-    if is_v10_available() and set(active) <= {"dr", "glaucoma", "amd", "myopia", "screening"}:
+    if (
 
-        return await _run_comprehensive_v10(
+        mode_norm == "fast"
+
+        and is_v10_available()
+
+        and set(active) <= {"dr", "glaucoma", "amd", "myopia", "screening"}
+
+    ):
+
+        resp = await _run_comprehensive_v10(
 
             image_bytes,
 
@@ -1038,6 +1089,8 @@ async def run_comprehensive_fundus(
             tasks=active,
 
         )
+
+        return _attach_inference_meta(resp, mode_label="fast(v10)", t0=t0)
 
     run_dr = "dr" in active
 
@@ -1231,7 +1284,13 @@ async def run_comprehensive_fundus(
 
 
 
-    return ComprehensiveFundusResponse(
+    precise_label = "precise(5-model)" if mode_norm == "precise" else "fast(fallback-5-model)"
+
+
+
+    return _attach_inference_meta(
+
+        ComprehensiveFundusResponse(
 
         dr=dr_summary,
 
@@ -1254,6 +1313,12 @@ async def run_comprehensive_fundus(
         nearby_hospitals=explain_dict.get("nearby_hospitals") or [],
 
         device_recommendations=explain_dict.get("device_recommendations") or [],
+
+        ),
+
+        mode_label=precise_label,
+
+        t0=t0,
 
     )
 
