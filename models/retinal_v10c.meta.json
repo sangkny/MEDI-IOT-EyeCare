@@ -1,0 +1,63 @@
+{
+  "arch": "efficientnet_b4_v10",
+  "manifest": "unified_v10.json",
+  "preprocess": "none",
+  "image_size": 224,
+  "version": "v10c",
+  "best_composite": 0.8842,
+  "best_gl_auc": 0.835,
+  "loss_weights": {
+    "dr": 0.28,
+    "glaucoma": 0.28,
+    "amd": 0.18,
+    "myopia": 0.18,
+    "multidisease": 0.08
+  },
+  "warmup_epochs": 8,
+  "outputs": [
+    "dr",
+    "glaucoma",
+    "amd",
+    "myopia",
+    "multidisease"
+  ],
+  "output_activations": {
+    "dr": "softmax",
+    "glaucoma": "sigmoid",
+    "amd": "sigmoid",
+    "myopia": "sigmoid",
+    "multidisease": "sigmoid"
+  },
+  "label_classes": [
+    "dr",
+    "armd",
+    "mh",
+    "dn",
+    "mya",
+    "brvo",
+    "tsln",
+    "erm",
+    "ls",
+    "ms",
+    "csr",
+    "odc",
+    "crvo",
+    "hr",
+    "odp",
+    "ode",
+    "aion",
+    "rt",
+    "rs",
+    "crs",
+    "edn",
+    "rpec",
+    "mhl",
+    "rp",
+    "cws",
+    "cb",
+    "odpm",
+    "prh"
+  ],
+  "onnx": "retinal_v10c.onnx",
+  "source_checkpoint": "best.pt"
+}

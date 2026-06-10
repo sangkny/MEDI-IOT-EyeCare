@@ -1,0 +1,19 @@
+{
+  "arch": "efficientnet_b4_v10",
+  "version": "v10c",
+  "manifest": "unified_v10.json",
+  "preprocess": "none",
+  "image_size": 224,
+  "best_composite": 0.8842,
+  "best_gl_auc": 0.835,
+  "loss_weights": {
+    "dr": 0.28,
+    "glaucoma": 0.28,
+    "amd": 0.18,
+    "myopia": 0.18,
+    "multidisease": 0.08
+  },
+  "warmup_epochs": 8,
+  "onnx": "retinal_v10.onnx",
+  "source_checkpoint": "retinal_v10c/best.pt"
+}
