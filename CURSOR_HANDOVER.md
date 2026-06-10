@@ -10,13 +10,14 @@
 
 | 항목 | 값 |
 |------|-----|
-| Git | `f92e39b`+ |
-| unit | **134 passed** |
+| Git | `089c509`+ |
+| unit | **136 passed** (+ `test_v10_export.py`) |
 | 운영 5모델 | DR v4 · GL v2 · AMD v1 · MYO v1 · Multi v1 |
 | **v10c fast** | composite **0.8842** · GL **0.835** · `retinal_v10.onnx` |
 | ONNX export | `scripts/export_v10.py` (5-head · multidisease export 금지) |
 | meta | `models/retinal_v10c.meta.json` · `retinal_v10.meta.json` |
-| E2E | fast ~6s · `check_comprehensive_modes_e2e.py` ✅ |
+| E2E | fast ~6.4s · Portal `check-portal-e2e.mjs` ✅ |
+| Dashboard | `:5174` · Admin v10c composite=0.8842 |
 
 ---
 
@@ -32,9 +33,9 @@
 
 ## 다음 우선순위
 
-1. Dashboard Portal 브라우저 E2E
-2. SaMD 임상 준비 (ch45)
-3. shared-libraries AutoNoGaDa 구현
+1. SaMD 임상 500건 설계 (ch45 · GL precise 권장)
+2. shared-libraries `orchestrator/workflow.py` 확장 (AutoNoGaDa)
+3. GPU 이미지 prune (159GB reclaimable)
 
 ---
 
