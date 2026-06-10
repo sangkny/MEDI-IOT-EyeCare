@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""v10 MultiTaskV10Model → ONNX (5-head 출력)."""
+"""v10 MultiTaskV10Model → ONNX (5-head 출력, raw logits).
+
+권장: ``scripts/export_v10.py`` (softmax/sigmoid 적용 + 검증).
+"""
 from __future__ import annotations
 
 import argparse

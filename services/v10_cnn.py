@@ -110,6 +110,37 @@ class V10OnnxBackend:
             providers=["CPUExecutionProvider"],
         )
 
+    @staticmethod
+    def _scalar_prob(arr: object) -> float:
+        import numpy as np
+
+        v = float(np.asarray(arr, dtype=np.float32).reshape(-1)[0])
+        if 0.0 <= v <= 1.0:
+            return v
+        return 1.0 / (1.0 + math.exp(-v))
+
+    @staticmethod
+    def _dr_from_output(arr: object) -> DrPrediction:
+        import numpy as np
+
+        probs = np.asarray(arr, dtype=np.float32).reshape(-1)
+        if probs.size != 5:
+            probs = np.asarray(arr, dtype=np.float32).reshape(1, -1)[0]
+        s = float(probs.sum())
+        if 0.99 <= s <= 1.01 and bool(np.all((probs >= 0.0) & (probs <= 1.0))):
+            grade = int(probs.argmax())
+            conf = float(probs[grade])
+            from services.retinal_cnn import DR_TO_ICD10, DR_TO_SEVERITY
+
+            return DrPrediction(
+                dr_grade=grade,
+                confidence=conf,
+                icd10_code=DR_TO_ICD10.get(grade) or "H57.9",
+                severity=DR_TO_SEVERITY.get(grade, "mild"),
+                probabilities=tuple(float(p) for p in probs),
+            )
+        return dr_prediction_from_logits(probs)
+
     def predict_sync(self, image_bytes: bytes) -> V10Prediction:
         self._ensure_session()
         tensor = preprocess_fundus_bytes(
@@ -124,24 +155,29 @@ class V10OnnxBackend:
         )
         import numpy as np
 
-        dr_logits = np.asarray(dr_out, dtype=np.float32).reshape(-1)
-        if dr_logits.size != 5:
-            dr_logits = np.asarray(dr_out, dtype=np.float32).reshape(1, -1)[0]
-        dr_pred = dr_prediction_from_logits(dr_logits)
-        gl_logit = float(gl_out.reshape(-1)[0])
-        amd_logit = float(amd_out.reshape(-1)[0])
-        myo_logit = float(myo_out.reshape(-1)[0])
-        gl_prob = 1.0 / (1.0 + math.exp(-gl_logit))
-        amd_prob = 1.0 / (1.0 + math.exp(-amd_logit))
-        myo_prob = 1.0 / (1.0 + math.exp(-myo_logit))
+        dr_arr = np.asarray(dr_out, dtype=np.float32).reshape(-1)
+        if dr_arr.size != 5:
+            dr_arr = np.asarray(dr_out, dtype=np.float32).reshape(1, -1)[0]
+        dr_pred = self._dr_from_output(dr_arr)
+
+        gl_prob = self._scalar_prob(gl_out)
+        amd_prob = self._scalar_prob(amd_out)
+        myo_prob = self._scalar_prob(myo_out)
 
         names = self.class_names()
-        multi_logits = multi_out.reshape(-1)
-        multi_probs = {
-            name: 1.0 / (1.0 + math.exp(-float(multi_logits[i])))
-            for i, name in enumerate(names)
-            if i < len(multi_logits)
-        }
+        multi_arr = np.asarray(multi_out, dtype=np.float32).reshape(-1)
+        if np.all((multi_arr >= 0.0) & (multi_arr <= 1.0)):
+            multi_probs = {
+                name: float(multi_arr[i])
+                for i, name in enumerate(names)
+                if i < len(multi_arr)
+            }
+        else:
+            multi_probs = {
+                name: 1.0 / (1.0 + math.exp(-float(multi_arr[i])))
+                for i, name in enumerate(names)
+                if i < len(multi_arr)
+            }
 
         return V10Prediction(
             dr=dr_pred,
