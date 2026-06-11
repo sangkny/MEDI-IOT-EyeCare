@@ -6,12 +6,12 @@
 
 ---
 
-## 현재 스냅샷 (2026-06-10)
+## 현재 스냅샷 (2026-06-11)
 
 | 항목 | 값 |
 |------|-----|
-| Git | `5343376`+ |
-| unit | **136 passed** (+ `test_v10_export.py`) |
+| Git | `178427e` · GPU `origin/main` 동기화 ✅ |
+| unit | **142 passed** (Docker `medi-iot-api-dev`) |
 | 운영 5모델 | DR v4 · GL v2 · AMD v1 · MYO v1 · Multi v1 |
 | **v10c fast** | composite **0.8842** · GL **0.835** · `retinal_v10.onnx` |
 | ONNX export | `scripts/export_v10.py` (5-head · multidisease export 금지) |
@@ -42,11 +42,16 @@
 | 복원 | `docker pull sangkny/medi-train:gpu-v1.0 && docker tag ... medi-train:gpu` |
 | SSOT | `docs/DOCKER-REGISTRY.md` · `docs/DOCKER-POLICY.md` |
 
+## GPU git (2026-06-11) ✅
+
+- `chown` models/ → `git reset --hard origin/main` (`178427e`)
+- untracked: `models/retinal_v10c/*.pt` (git 제외)
+
 ## 다음 우선순위
 
-1. SaMD 임상 500건 IRB (ch45 §45.9)
-2. 병원 MOU · DICOM 수집 파이프라인
-3. Dashboard bilateral 캐시·Portal UX (projects `061fba7`+)
+1. SaMD IRB 연구계획서 (ch45 §45.10) + `docs/HOSPITAL-PARTNERSHIP.md`
+2. AutoNoGaDa 에이전트 E2E · LM Studio 연동
+3. Dashboard bilateral E2E 수동 확인
 
 ---
 
