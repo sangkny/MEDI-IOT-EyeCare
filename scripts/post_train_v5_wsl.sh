@@ -1,4 +1,10 @@
 #!/bin/bash
+# =============================================================
+# 파일명: post_train_v5_wsl.sh
+# 목적: post_train_v5_wsl.sh 실행 스크립트
+# 히스토리:
+#   2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+# =============================================================
 # retinal_v5 학습 완료 대기 → QWK 게이트 → scp → dev PC 배포 → E2E
 # WSL: bash scripts/post_train_v5_wsl.sh
 set -euo pipefail

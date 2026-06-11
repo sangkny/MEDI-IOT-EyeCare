@@ -1,4 +1,10 @@
 #!/bin/bash
+# =============================================================
+# 파일명: build_glaucoma_manifest_v2.sh
+# 목적: build_glaucoma_manifest_v2.sh 실행 스크립트
+# 히스토리:
+#   2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+# =============================================================
 # Glaucoma v2 manifest — G1020+REFUGE+ORIGA+AIROGS+RIM-ONE (~10,809장)
 # GPU 서버에서 실행
 set -euo pipefail

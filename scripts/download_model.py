@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""MinIO/S3에서 DR ONNX 모델 다운로드 + onnxruntime 검증 + .env 안내.
+"""
+파일명: download_model.py
+목적: download_model.py 실행 스크립트
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+
+MinIO/S3에서 DR ONNX 모델 다운로드 + onnxruntime 검증 + .env 안내.
 
 SSOT 경로: docs/model-deploy-minio.md
 

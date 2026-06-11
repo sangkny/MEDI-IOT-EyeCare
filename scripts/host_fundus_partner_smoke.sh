@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
+# =============================================================
+# 파일명: host_fundus_partner_smoke.sh
+# 목적: host_fundus_partner_smoke.sh 실행 스크립트
+# 히스토리:
+#   2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+# =============================================================
 # Fundus Lab + SaMD 파트너 API — 호스트 curl (:8001)
 set -euo pipefail
 BASE="${MEDI_SMOKE_BASE:-http://127.0.0.1:8001}"

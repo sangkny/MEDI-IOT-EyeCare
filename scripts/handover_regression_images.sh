@@ -1,4 +1,10 @@
 #!/bin/bash
+# =============================================================
+# 파일명: handover_regression_images.sh
+# 목적: handover_regression_images.sh 실행 스크립트
+# 히스토리:
+#   2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+# =============================================================
 set -euo pipefail
 PROJECTS=/mnt/e/Office_Automation/idea-collection/projects
 MEDI=$PROJECTS/MEDI-IOT-EyeCare

@@ -1,4 +1,10 @@
-"""Messidor-2 배치 임포트 스크립트 (D R2 Day 3, 2026-05-13).
+"""
+파일명: import_messidor2.py
+목적: import_messidor2.py 실행 스크립트
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+
+Messidor-2 배치 임포트 스크립트 (D R2 Day 3, 2026-05-13).
 
 ADCIS 의 Messidor-2 데이터셋 (1748장 fundus 사진 + DR/ME 라벨) 을 MEDI 의
 ``EyeImage`` 와 ``ClinicalStudyMembership`` 으로 일괄 등록한다.

@@ -1,3 +1,9 @@
+"""
+파일명: test_vit_vram.py
+목적: vit vram.py 단위·통합 테스트
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+"""
 #!/usr/bin/env python3
 """ViT-Large batch=4 VRAM 스모크 (GPU 서버)."""
 import torch

@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""등급별 특징이 구분되는 합성 안저 이미지 생성 (DR 학습·검증용).
+"""
+파일명: generate_synthetic_fundus.py
+목적: generate_synthetic_fundus.py 실행 스크립트
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+
+등급별 특징이 구분되는 합성 안저 이미지 생성 (DR 학습·검증용).
 
 사용:
   python3 scripts/generate_synthetic_fundus.py --output data/synthetic --per-class 200

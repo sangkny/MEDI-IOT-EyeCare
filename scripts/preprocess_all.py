@@ -1,3 +1,9 @@
+"""
+파일명: preprocess_all.py
+목적: GL/AMD/MYO/Multi CLAHE+224 resized_cache 전처리
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+"""
 import cv2, numpy as np
 from pathlib import Path
 import glob, time

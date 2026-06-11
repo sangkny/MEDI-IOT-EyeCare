@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""외부 훈련 산출물 수령 → 검증 → (선택) MinIO · env 안내.
+"""
+파일명: receive_external_model.py
+목적: receive_external_model.py 실행 스크립트
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+
+외부 훈련 산출물 수령 → 검증 → (선택) MinIO · env 안내.
 
 예 (scp 후):
   python scripts/receive_external_model.py \\

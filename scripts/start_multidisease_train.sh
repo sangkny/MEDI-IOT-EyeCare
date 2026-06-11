@@ -1,4 +1,10 @@
 #!/bin/bash
+# =============================================================
+# 파일명: start_multidisease_train.sh
+# 목적: start_multidisease_train.sh 실행 스크립트
+# 히스토리:
+#   2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+# =============================================================
 # 다질환 멀티레이블 훈련 — GPU 서버에서 실행
 # 예: bash scripts/start_multidisease_train.sh
 set -euo pipefail

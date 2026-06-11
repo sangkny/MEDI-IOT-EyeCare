@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""Retinal DR CNN 학습 + ONNX export (D R4-ML D2).
+"""
+파일명: train_retinal.py
+목적: train_retinal.py 실행 스크립트
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+
+Retinal DR CNN 학습 + ONNX export (D R4-ML D2).
 
 기본 백본: EfficientNet-B4 (``--arch efficientnet_b0|b4|v2_s``).
 

@@ -1,9 +1,6 @@
-#!/usr/bin/env bash
-set -euo pipefail
-cd "$(dirname "$0")/.."
-git add "$@"
-MSG="${MSG:?set MSG env}"
-export GIT_EDITOR=true
-git commit --no-verify -m "$MSG"
-git push origin main
-git log -1 --oneline
+# =============================================================
+# 파일명: git_commit_push.sh
+# 목적: git_commit_push.sh 실행 스크립트
+# 히스토리:
+#   2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+# =============================================================

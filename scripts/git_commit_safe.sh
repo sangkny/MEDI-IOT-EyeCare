@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
+# =============================================================
+# 파일명: git_commit_safe.sh
+# 목적: GIT_EDITOR=true 안전 커밋 (WSL nano hang 방지)
+# 히스토리:
+#   2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+# =============================================================
 # MEDI-IOT-EyeCare — Cursor/WSL 안전 커밋 (nano hang 방지)
 # Usage:
 #   MSG="fix: ..." bash scripts/git_commit_safe.sh training/train_v10.py

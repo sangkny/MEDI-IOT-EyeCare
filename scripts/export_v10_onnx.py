@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""v10 MultiTaskV10Model → ONNX (5-head 출력, raw logits).
+"""
+파일명: export_v10_onnx.py
+목적: export_v10_onnx.py 실행 스크립트
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+
+v10 MultiTaskV10Model → ONNX (5-head 출력, raw logits).
 
 권장: ``scripts/export_v10.py`` (softmax/sigmoid 적용 + 검증).
 """

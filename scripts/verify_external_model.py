@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""외부 GPU 서버에서 받은 DR 모델 번들 검증 (수령 직후).
+"""
+파일명: verify_external_model.py
+목적: verify_external_model.py 실행 스크립트
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+
+외부 GPU 서버에서 받은 DR 모델 번들 검증 (수령 직후).
 
 검사:
   - models/<stem>.{onnx,meta.json} (+ 선택 .pt)

@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""스모크용 DR 분류기 ONNX export (학습 없이 구조만).
+"""
+파일명: export_smoke_retinal_onnx.py
+목적: export_smoke_retinal_onnx.py 실행 스크립트
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+
+스모크용 DR 분류기 ONNX export (학습 없이 구조만).
 
 사용:
   python3 scripts/export_smoke_retinal_onnx.py

@@ -1,3 +1,9 @@
+"""
+파일명: inspect_v10_onnx.py
+목적: inspect_v10_onnx.py 실행 스크립트
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+"""
 #!/usr/bin/env python3
 import onnxruntime as ort
 from pathlib import Path

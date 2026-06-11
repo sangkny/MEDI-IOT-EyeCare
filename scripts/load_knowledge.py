@@ -1,3 +1,9 @@
+"""
+파일명: load_knowledge.py
+목적: load_knowledge.py 실행 스크립트
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+"""
 #!/usr/bin/env python3
 # MEDI-IOT-EyeCare/scripts/load_knowledge.py
 """

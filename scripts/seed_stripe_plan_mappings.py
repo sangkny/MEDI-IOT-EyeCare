@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""MEDI Stripe plan ↔ Price 매핑 시드 (idempotent).
+"""
+파일명: seed_stripe_plan_mappings.py
+목적: seed_stripe_plan_mappings.py 실행 스크립트
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+
+MEDI Stripe plan ↔ Price 매핑 시드 (idempotent).
 
 ``medi004_billing`` 이 만든 ``medi_billing_plans`` (id: medi-plan-*) 와
 ``medi_stripe_plan_mappings`` 를 env 의 Stripe Price ID 로 연결한다.

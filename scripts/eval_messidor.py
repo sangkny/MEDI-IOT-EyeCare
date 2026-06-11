@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""DR 모델 평가 — QWK, AUC, Sensitivity, Confusion Matrix."""
+"""
+파일명: eval_messidor.py
+목적: eval_messidor.py 실행 스크립트
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+
+DR 모델 평가 — QWK, AUC, Sensitivity, Confusion Matrix.
+"""
 from __future__ import annotations
 
 import argparse

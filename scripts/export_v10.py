@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""v10 / v10c MultiTaskV10Model → ONNX (5-head: dr·glaucoma·amd·myopia·multidisease).
+"""
+파일명: export_v10.py
+목적: v10c 5-head ONNX export (export_multidisease_v1.py 대체 금지)
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+
+v10 / v10c MultiTaskV10Model → ONNX (5-head: dr·glaucoma·amd·myopia·multidisease).
 
 export_multidisease_v1.py 는 출력 1개 — v10에 사용 금지.
 

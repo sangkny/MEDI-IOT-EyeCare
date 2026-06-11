@@ -1,4 +1,10 @@
 #!/bin/bash
+# =============================================================
+# 파일명: check_v8b_gpu.sh
+# 목적: check_v8b_gpu.sh 실행 스크립트
+# 히스토리:
+#   2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+# =============================================================
 set -euo pipefail
 SSH_HOST="${SSH_HOST:-smartvisionglobal@192.168.0.23}"
 ssh -o ConnectTimeout=15 "$SSH_HOST" bash -s <<'REMOTE'

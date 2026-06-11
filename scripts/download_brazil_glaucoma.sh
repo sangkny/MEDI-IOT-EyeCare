@@ -1,4 +1,10 @@
 #!/bin/bash
+# =============================================================
+# 파일명: download_brazil_glaucoma.sh
+# 목적: download_brazil_glaucoma.sh 실행 스크립트
+# 히스토리:
+#   2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+# =============================================================
 # Brazil Glaucoma Dataset (약 2,000장, 공개)
 # https://www.ncbi.nlm.nih.gov/pmc/articles/PMC9778370/
 

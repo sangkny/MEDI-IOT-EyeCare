@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""retinal_multidisease_v1 best.pt → ONNX + meta.json."""
+"""
+파일명: export_multidisease_v1.py
+목적: export_multidisease_v1.py 실행 스크립트
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+
+retinal_multidisease_v1 best.pt → ONNX + meta.json.
+"""
 from __future__ import annotations
 
 import argparse

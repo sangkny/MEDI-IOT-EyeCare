@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""IoT 측정 시뮬레이터 (D R4-IoT W1) — REST API 로 전송."""
+"""
+파일명: iot_simulator.py
+목적: iot_simulator.py 실행 스크립트
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+
+IoT 측정 시뮬레이터 (D R4-IoT W1) — REST API 로 전송.
+"""
 from __future__ import annotations
 
 import argparse

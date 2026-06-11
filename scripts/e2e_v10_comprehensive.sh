@@ -1,4 +1,10 @@
 #!/usr/bin/env bash
+# =============================================================
+# 파일명: e2e_v10_comprehensive.sh
+# 목적: e2e_v10_comprehensive.sh 실행 스크립트
+# 히스토리:
+#   2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+# =============================================================
 # v10 comprehensive E2E — sklee 좌/우안 + 응답시간
 set -euo pipefail
 API="${MEDI_API_URL:-http://localhost:8001}"

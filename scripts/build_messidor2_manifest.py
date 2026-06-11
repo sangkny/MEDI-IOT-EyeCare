@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""이미지 디렉터리 → train/val/test manifest JSON."""
+"""
+파일명: build_messidor2_manifest.py
+목적: build_messidor2_manifest.py 실행 스크립트
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+
+이미지 디렉터리 → train/val/test manifest JSON.
+"""
 from __future__ import annotations
 
 import argparse

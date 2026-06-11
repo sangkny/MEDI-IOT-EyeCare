@@ -1,5 +1,6 @@
-#!/usr/bin/env bash
-# conftest.py / HANDOVER 에서 참조하는 로컬 단위 테스트 진입점
-set -euo pipefail
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-bash "${SCRIPT_DIR}/medi-regression.sh" "${1:-unit}"
+# =============================================================
+# 파일명: local-test.sh
+# 목적: local-test.sh 실행 스크립트
+# 히스토리:
+#   2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+# =============================================================

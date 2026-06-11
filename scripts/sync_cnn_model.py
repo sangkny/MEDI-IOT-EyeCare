@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""기동 전 CNN 모델 MinIO 동기화 (MEDI_CNN_AUTO_PULL=1).
+"""
+파일명: sync_cnn_model.py
+목적: sync_cnn_model.py 실행 스크립트
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+
+기동 전 CNN 모델 MinIO 동기화 (MEDI_CNN_AUTO_PULL=1).
 
 Compose ``medi-iot-api`` command 에서 alembic 직후 실행.
 """

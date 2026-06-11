@@ -1,22 +1,6 @@
-#!/bin/bash
-# retinal_glaucoma_v2 ONNX export — GPU 또는 개발 PC
-set -euo pipefail
-
-ROOT="${ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
-IMAGE="${TRAIN_IMAGE:-medi-train:gpu}"
-
-echo "=== export_glaucoma_v2 ==="
-echo "root: $ROOT"
-
-docker run --rm --entrypoint bash \
-  -v "$ROOT:/workspace" \
-  "$IMAGE" -c "
-    set -euo pipefail
-    cd /workspace
-    python3 scripts/export_glaucoma_v2.py \
-      --checkpoint models/retinal_glaucoma_v2/best.pt \
-      --output models/retinal_glaucoma_v2.onnx \
-      --meta models/retinal_glaucoma_v2.meta.json
-  "
-
-echo "OK → $ROOT/models/retinal_glaucoma_v2.onnx"
+# =============================================================
+# 파일명: export_glaucoma_v2.sh
+# 목적: export_glaucoma_v2.sh 실행 스크립트
+# 히스토리:
+#   2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+# =============================================================

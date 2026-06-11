@@ -1,5 +1,11 @@
 #!/usr/bin/env python3
-"""공개 DR 데이터셋 다운로드 (Kaggle API 또는 합성 fallback).
+"""
+파일명: download_datasets.py
+목적: download_datasets.py 실행 스크립트
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+
+공개 DR 데이터셋 다운로드 (Kaggle API 또는 합성 fallback).
 
 지원 (문서·라이선스 준수 후 수동/Kaggle):
   - APTOS 2019, Messidor-2, IDRiD, EyePACS

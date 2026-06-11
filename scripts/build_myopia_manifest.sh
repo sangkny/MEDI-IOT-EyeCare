@@ -1,4 +1,10 @@
 #!/bin/bash
+# =============================================================
+# 파일명: build_myopia_manifest.sh
+# 목적: build_myopia_manifest.sh 실행 스크립트
+# 히스토리:
+#   2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+# =============================================================
 # 근시 manifest 생성 — GPU 서버에서 실행
 # 예: bash scripts/build_myopia_manifest.sh
 set -euo pipefail

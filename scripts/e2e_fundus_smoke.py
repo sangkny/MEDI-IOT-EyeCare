@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""안저·영상·파트너 API 스모크 (컨테이너/로컬)."""
+"""
+파일명: e2e_fundus_smoke.py
+목적: e2e_fundus_smoke.py 실행 스크립트
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+
+안저·영상·파트너 API 스모크 (컨테이너/로컬).
+"""
 from __future__ import annotations
 
 import asyncio
