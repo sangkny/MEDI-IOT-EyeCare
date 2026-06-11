@@ -47,11 +47,20 @@
 - `chown` models/ → `git reset --hard origin/main` (`178427e`)
 - untracked: `models/retinal_v10c/*.pt` (git 제외)
 
+## AutoNoGaDa 연동 (2026-06-11)
+
+| 항목 | 경로 |
+|------|------|
+| 보고서 API | `POST /api/v1/lab/fundus/report` |
+| 통합 | `services/autonogada_integration.py` |
+| LM Studio | Docker `host.docker.internal:1234` |
+| 브라우저 E2E | `docs/BROWSER-E2E-CHECKLIST.md` |
+
 ## 다음 우선순위
 
-1. SaMD IRB 연구계획서 (ch45 §45.10) + `docs/HOSPITAL-PARTNERSHIP.md`
-2. AutoNoGaDa 에이전트 E2E · LM Studio 연동
-3. Dashboard bilateral E2E 수동 확인
+1. SaMD IRB 제출 (ch45 §45.10.2) + 병원 LOI
+2. Dashboard 브라우저 수동 확인
+3. `check-portal-e2e.mjs` CI 연동
 
 ---
 

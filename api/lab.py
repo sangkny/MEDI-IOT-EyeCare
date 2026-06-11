@@ -605,6 +605,44 @@ async def lab_fundus_comprehensive(
         ) from exc
 
 
+class FundusReportRequest(BaseModel):
+    """comprehensive 분석 결과 → AutoNoGaDa 진단 보고서."""
+
+    patient_id: str = Field(..., description="환자 ID (익명화 코드)")
+    eye: str = Field("unknown", description="left | right")
+    dr: dict | None = None
+    glaucoma: dict | None = None
+    amd: dict | None = None
+    myopia: dict | None = None
+    screening: dict | None = None
+    overall_assessment: dict | None = None
+    strategy: str = Field("consensus", description="Orchestrator 전략")
+
+
+@router.post(
+    "/fundus/report",
+    summary="Fundus Lab — comprehensive 결과 기반 LLM 진단 보고서 (AutoNoGaDa)",
+)
+async def lab_fundus_report(
+    body: FundusReportRequest,
+    _: dict = LAB_AUTH,
+) -> dict:
+    """DR/GL/AMD 등 JSON → ReportGenerator (LM Studio CONSENSUS)."""
+    try:
+        from services.autonogada_integration import generate_fundus_report
+
+        return await generate_fundus_report(
+            body.model_dump(exclude_none=True),
+            strategy=body.strategy,
+        )
+    except Exception as exc:
+        log.exception("fundus report failed")
+        raise HTTPException(
+            status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=str(exc)[:300],
+        ) from exc
+
+
 @router.post(
     "/fundus/attention",
     summary="RETFound attention map (multipart, v8+)",
