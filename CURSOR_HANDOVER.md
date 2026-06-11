@@ -1,6 +1,6 @@
 # MEDI-IOT-EyeCare — Cursor Agent 인수인계
 
-> 최종 업데이트: 2026-06-10  
+> 최종 업데이트: 2026-06-11  
 > **3-플랫폼 통합 개요**: [`docs/PLATFORM-OVERVIEW.md`](docs/PLATFORM-OVERVIEW.md)  
 > **메타 HANDOVER**: `idea-collection/CURSOR_HANDOVER.md`
 
@@ -10,7 +10,7 @@
 
 | 항목 | 값 |
 |------|-----|
-| Git | `089c509`+ |
+| Git | `5343376`+ |
 | unit | **136 passed** (+ `test_v10_export.py`) |
 | 운영 5모델 | DR v4 · GL v2 · AMD v1 · MYO v1 · Multi v1 |
 | **v10c fast** | composite **0.8842** · GL **0.835** · `retinal_v10.onnx` |
@@ -31,11 +31,22 @@
 
 ---
 
+## GPU Docker (2026-06-11) ✅
+
+| 항목 | 값 |
+|------|-----|
+| 디스크 | **54.86GB** 이미지 + 6.24GB 볼륨 (정리 전 ~203.5GB) |
+| 절약 | **~149GB** |
+| MEDI 훈련 | `medi-train:gpu` 9.66GB · `medi-train:cpu` 2.63GB |
+| DockerHub | `sangkny/medi-train:gpu-v1.0` · `cpu-v1.0` |
+| 복원 | `docker pull sangkny/medi-train:gpu-v1.0 && docker tag ... medi-train:gpu` |
+| SSOT | `docs/DOCKER-REGISTRY.md` · `docs/DOCKER-POLICY.md` |
+
 ## 다음 우선순위
 
-1. SaMD 임상 500건 설계 (ch45 · GL precise 권장)
-2. shared-libraries `orchestrator/workflow.py` 확장 (AutoNoGaDa)
-3. GPU 이미지 prune (159GB reclaimable)
+1. SaMD 임상 500건 IRB (ch45 §45.9)
+2. 병원 MOU · DICOM 수집 파이프라인
+3. Dashboard bilateral 캐시·Portal UX (projects `061fba7`+)
 
 ---
 
