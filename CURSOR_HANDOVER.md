@@ -14,7 +14,7 @@
 | ONNX | `scripts/export_v10.py` only (5-head · `export_multidisease_v1.py` 금지) |
 | fast | ~6s 콜드 / **0.34s** 웜 (`mode=fast` v10c) |
 | precise | ~42s (`mode=precise` 5모델) |
-| LM Studio | `192.168.0.12:1234` · Docker `host.docker.internal:1234` |
+| LM Studio | `192.168.0.12:1234` · 테스트=**e4b only** (26b Eject) · `docs/LM-STUDIO-GUIDE.md` |
 
 ### 운영 모델 (5질환 + v10c)
 
