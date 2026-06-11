@@ -9,7 +9,8 @@
 
 | 항목 | 값 |
 |------|-----|
-| unit | **249+ passed** (`pytest -m "not slow"`) · `scripts/medi-regression.sh {unit\|smoke\|e2e\|full}` |
+| unit | **146 passed** (`pytest -m unit`, LLM mock · ~1min) |
+| smoke | **230 passed** (API + LLM mock) |
 | v10c | composite **0.8842** · GL **0.835** · `gl_weight=0.28` |
 | ONNX | `scripts/export_v10.py` only (5-head · `export_multidisease_v1.py` 금지) |
 | fast | ~6s 콜드 / **0.34s** 웜 (`mode=fast` v10c) |
