@@ -1,7 +1,12 @@
-"""pytest 마커 정책 — GHA(unit) vs 로컬(integration).
+"""
+파일명: conftest.py
+목적: pytest 마커 자동 부여 — unit/integration/slow/requires_llm
+히스토리:
+  2026-06-11 - test_diagnosis_pipeline* unit 마커 + medi-regression.sh 연동
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
 
-GHA CI:  ``pytest -m unit`` (DB/Redis/uvicorn/ONNX/LLM 불필요)
-로컬:    ``scripts/local-test.sh`` 또는 ``pytest -m integration``
+GHA CI: ``pytest -m unit`` (DB/Redis/uvicorn/ONNX/LLM 불필요)
+로컬: ``scripts/medi-regression.sh {unit|smoke|e2e|full}``
 """
 from __future__ import annotations
 
@@ -35,6 +40,8 @@ _UNIT_MODULES = frozenset({
     "test_real_image",
     "test_retinal_preprocess",
     "test_vision_router",
+    "test_diagnosis_pipeline",
+    "test_diagnosis_pipeline_four_agent",
 })
 
 _INTEGRATION_DB_MODULES = frozenset({

@@ -1,4 +1,12 @@
-"""AMD manifest 로더 단위 테스트 (Mock 0, fixture 기반)."""
+"""
+파일명: test_amd_manifest.py
+목적: amd manifest.py 단위·통합 테스트
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+
+
+AMD manifest 로더 단위 테스트 (Mock 0, fixture 기반).
+"""
 from __future__ import annotations
 
 import csv

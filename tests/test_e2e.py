@@ -1,3 +1,9 @@
+"""
+파일명: test_e2e.py
+목적: e2e.py 단위·통합 테스트
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+"""
 # MEDI-IOT-EyeCare/tests/test_e2e.py
 """
 MEDI-IOT EyeCare E2E 테스트

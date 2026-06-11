@@ -1,5 +1,12 @@
-"""Week 7 — JWT 로그인·RBAC 스모크 (DB·LLM 미사용)."""
+"""
+파일명: test_auth.py
+목적: auth.py 단위·통합 테스트
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
 
+
+Week 7 — JWT 로그인·RBAC 스모크 (DB·LLM 미사용).
+"""
 from __future__ import annotations
 
 import pytest

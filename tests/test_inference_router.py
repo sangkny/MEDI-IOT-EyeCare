@@ -1,4 +1,12 @@
-"""InferenceRouter 단위 테스트 (D R4-ML D3, Mock 0)."""
+"""
+파일명: test_inference_router.py
+목적: inference router.py 단위·통합 테스트
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+
+
+InferenceRouter 단위 테스트 (D R4-ML D3, Mock 0).
+"""
 from __future__ import annotations
 
 import pytest

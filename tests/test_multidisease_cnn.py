@@ -1,4 +1,12 @@
-"""다질환 CNN + MULTI-SEM 온톨로지 단위 테스트."""
+"""
+파일명: test_multidisease_cnn.py
+목적: multidisease cnn.py 단위·통합 테스트
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+
+
+다질환 CNN + MULTI-SEM 온톨로지 단위 테스트.
+"""
 from __future__ import annotations
 
 import asyncio

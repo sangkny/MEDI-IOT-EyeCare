@@ -1,4 +1,12 @@
-"""Phase 2 W7 — PIL 전처리·VISION 온톨로지 훅."""
+"""
+파일명: test_real_image.py
+목적: real image.py 단위·통합 테스트
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+
+
+Phase 2 W7 — PIL 전처리·VISION 온톨로지 훅.
+"""
 from __future__ import annotations
 
 import io

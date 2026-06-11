@@ -1,3 +1,9 @@
+"""
+파일명: test_eye_analyzer.py
+목적: eye analyzer.py 단위·통합 테스트
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+"""
 # MEDI-IOT-EyeCare/tests/test_eye_analyzer.py
 """
 EyeAnalyzer 테스트 — VISION 모델 안과 소견 분석

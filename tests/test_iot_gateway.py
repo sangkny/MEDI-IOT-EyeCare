@@ -1,4 +1,12 @@
-"""IoT Gateway 단위 테스트 (D R4-IoT W1, Mock 0)."""
+"""
+파일명: test_iot_gateway.py
+목적: iot gateway.py 단위·통합 테스트
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+
+
+IoT Gateway 단위 테스트 (D R4-IoT W1, Mock 0).
+"""
 from __future__ import annotations
 
 import pytest

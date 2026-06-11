@@ -1,4 +1,12 @@
-"""Glaucoma GradCAM++ / lesion 주석 단위 테스트."""
+"""
+파일명: test_glaucoma_gradcam.py
+목적: GradCAM++ 히트맵 — optic_disc, cup_disc_asymmetry 등 레이블
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+
+
+Glaucoma GradCAM++ / lesion 주석 단위 테스트.
+"""
 from __future__ import annotations
 
 import base64

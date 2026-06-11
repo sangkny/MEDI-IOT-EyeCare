@@ -1,4 +1,12 @@
-"""Phase 4 multidisease schema + manifest constants."""
+"""
+파일명: test_multidisease_schema.py
+목적: multidisease schema.py 단위·통합 테스트
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+
+
+Phase 4 multidisease schema + manifest constants.
+"""
 from __future__ import annotations
 
 import pytest

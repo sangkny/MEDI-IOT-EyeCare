@@ -1,3 +1,9 @@
+"""
+파일명: test_report_gen.py
+목적: report gen.py 단위·통합 테스트
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+"""
 # MEDI-IOT-EyeCare/tests/test_report_gen.py
 """
 ReportGenerator 테스트 — CONSENSUS 전략 진단 보고서 생성

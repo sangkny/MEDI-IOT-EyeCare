@@ -1,4 +1,12 @@
-"""Messidor-2 manifest 빌더 테스트 (D R4-ML D1, Mock 0)."""
+"""
+파일명: test_messidor_manifest.py
+목적: messidor manifest.py 단위·통합 테스트
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+
+
+Messidor-2 manifest 빌더 테스트 (D R4-ML D1, Mock 0).
+"""
 from __future__ import annotations
 
 import json

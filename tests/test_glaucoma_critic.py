@@ -1,4 +1,12 @@
-"""Glaucoma four-agent critic fallback · 가중치 단위 테스트."""
+"""
+파일명: test_glaucoma_critic.py
+목적: glaucoma critic.py 단위·통합 테스트
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+
+
+Glaucoma four-agent critic fallback · 가중치 단위 테스트.
+"""
 from __future__ import annotations
 
 import pytest

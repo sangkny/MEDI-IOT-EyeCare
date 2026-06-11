@@ -1,4 +1,12 @@
-"""Retinal 전처리·MSEF-Net 단위 테스트 (D R4-ML D4, Mock 0)."""
+"""
+파일명: test_retinal_preprocess.py
+목적: retinal preprocess.py 단위·통합 테스트
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+
+
+Retinal 전처리·MSEF-Net 단위 테스트 (D R4-ML D4, Mock 0).
+"""
 from __future__ import annotations
 
 import numpy as np

@@ -1,6 +1,8 @@
-# MEDI-IOT-EyeCare/tests/test_dashboard_api.py
 """
-Week 4 — 대시보드 API 스모크 테스트 (LLM 미사용)
+파일명: test_dashboard_api.py
+목적: Week 4 대시보드 API 스모크 테스트 (LLM 미사용)
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
 
 실행:
   docker compose -f docker-compose.dev.yml exec medi-iot-api \\

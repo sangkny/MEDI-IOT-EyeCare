@@ -1,4 +1,12 @@
-"""Glaucoma CNN 매핑·API smoke."""
+"""
+파일명: test_glaucoma_cnn.py
+목적: Glaucoma CNN (glaucoma_v2 ONNX) 추론 검증
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+
+
+Glaucoma CNN 매핑·API smoke.
+"""
 from __future__ import annotations
 
 import pytest

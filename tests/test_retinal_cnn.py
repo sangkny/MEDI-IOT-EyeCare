@@ -1,4 +1,12 @@
-"""Retinal CNN 단위 테스트 (D R4-ML D2, Mock 0)."""
+"""
+파일명: test_retinal_cnn.py
+목적: DR retinal_v4 ONNX 추론 — QWK 기준
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+
+
+Retinal CNN 단위 테스트 (D R4-ML D2, Mock 0).
+"""
 from __future__ import annotations
 
 import json

@@ -1,4 +1,12 @@
-"""comprehensive fast/precise 모드 라우팅 · inference 메타 단위 테스트."""
+"""
+파일명: test_comprehensive_modes.py
+목적: fast/precise 모드 분기 — inference_mode, inference_time_ms
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+
+
+comprehensive fast/precise 모드 라우팅 · inference 메타 단위 테스트.
+"""
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch

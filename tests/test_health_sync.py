@@ -1,4 +1,12 @@
-"""HealthKit / Health Connect 정규화 (W2)."""
+"""
+파일명: test_health_sync.py
+목적: health sync.py 단위·통합 테스트
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+
+
+HealthKit / Health Connect 정규화 (W2).
+"""
 from __future__ import annotations
 
 import pytest

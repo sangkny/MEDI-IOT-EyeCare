@@ -1,4 +1,11 @@
-"""MEDI SaaS Billing 테스트 (D R2 Day 1).
+"""
+파일명: test_billing.py
+목적: billing.py 단위·통합 테스트
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+
+
+MEDI SaaS Billing 테스트 (D R2 Day 1).
 
 테스트 철학 (Mock 0):
     - LLM/네트워크 mock 절대 금지

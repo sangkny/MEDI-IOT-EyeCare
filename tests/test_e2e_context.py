@@ -1,32 +1,13 @@
-# MEDI-IOT-EyeCare/tests/test_e2e_context.py
+"""
+파일명: test_e2e_context.py
+목적: 청킹 도입 Step 2 — MEDI E2E 컨텍스트 회귀 (LM Studio, medi_diagnosis_context 로그)
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+
+pyright: reportMissingImports=false (컨테이너 전용 httpx)
+"""
 # pyright: reportMissingImports=false
 # basedpyright: reportMissingImports=false
-"""
-청킹 도입 Step 2 (book §16.10.2) — MEDI E2E 컨텍스트 회귀.
-
-이 파일은 ``medi-iot-api-dev`` 컨테이너 안에서만 실행되도록 설계되었으며,
-런타임 의존성(``httpx``)은 컨테이너 ``requirements.txt`` 에서만 설치된다.
-호스트 IDE 분석기(basedpyright)는 venv 가 없어 ``reportMissingImports`` 를
-발생시키므로 파일 상단 디렉티브로 이 파일에 한해 끈다.
-
-목적:
-    1. ``ORCH_COMPACT_CONTEXT`` 가 켜진 상태에서 실제 LM Studio 진단 호출이
-       ``400 Context size has been exceeded`` 없이 완료되는지 확인.
-    2. Step 1 (``services/report_gen.py``) 에서 추가한 한 줄 구조화 로그
-       ``medi_diagnosis_context`` 가 ``chunking_*`` 키와 함께 발현되는지 확인.
-
-실행:
-    # LM Studio 가동 + gemma-4-e4b/26b-a4b 로딩 가정
-    docker compose -f projects/docker-compose.dev.yml exec medi-iot-api \\
-        pytest -v tests/test_e2e_context.py
-
-skip 규칙:
-    - LM Studio ``/v1/models`` 가 200 응답이 아니거나, MEDI ``/health/detail``
-      의 ``checks.llm.status != ok`` 이면 자동 skip → CI 무중단.
-
-기존 ``test_e2e.py::TestAIDiagnosis::test_ai_diagnosis_pipeline`` 와 시나리오는
-유사하지만, **컨텍스트 한도**와 **새 메트릭 로그** 에 초점을 맞춘 별도 회귀이다.
-"""
 from __future__ import annotations
 
 import logging

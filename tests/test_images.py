@@ -1,3 +1,9 @@
+"""
+파일명: test_images.py
+목적: 이미지 전처리 — CLAHE, resize, preprocess_fundus_array
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+"""
 # MEDI-IOT-EyeCare/tests/test_images.py
 """
 이미지 업로드 API + pgvector 테스트 [Week 3]

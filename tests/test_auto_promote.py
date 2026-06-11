@@ -1,4 +1,11 @@
-"""VISION 자동 승격 워크플로우 테스트 (D R2 Day 4).
+"""
+파일명: test_auto_promote.py
+목적: auto promote.py 단위·통합 테스트
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+
+
+VISION 자동 승격 워크플로우 테스트 (D R2 Day 4).
 
 테스트 철학 (Mock 0):
     - LLM/네트워크 호출 없음 — EyeImage 의 ``analysis_result`` 를 직접 JSON 으로 시드

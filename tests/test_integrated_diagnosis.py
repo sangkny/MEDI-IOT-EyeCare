@@ -1,4 +1,12 @@
-"""통합 진단 서비스 단위 테스트 (R4-ML+, Mock 0)."""
+"""
+파일명: test_integrated_diagnosis.py
+목적: integrated diagnosis.py 단위·통합 테스트
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+
+
+통합 진단 서비스 단위 테스트 (R4-ML+, Mock 0).
+"""
 from __future__ import annotations
 
 import pytest

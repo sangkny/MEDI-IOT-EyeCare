@@ -1,4 +1,11 @@
-"""VISION multi-modal 라우팅 + CONSENSUS 병합 테스트 (D R3 D3).
+"""
+파일명: test_vision_router.py
+목적: vision router.py 단위·통합 테스트
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+
+
+VISION multi-modal 라우팅 + CONSENSUS 병합 테스트 (D R3 D3).
 
 Mock 0 — LLM/네트워크 호출 없음. ``merge_consensus`` 및 env 로더만 검증.
 """

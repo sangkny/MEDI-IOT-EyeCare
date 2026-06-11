@@ -1,4 +1,12 @@
-"""MultiTaskEyeCareModel 단위 테스트."""
+"""
+파일명: test_multitask_model.py
+목적: v10c 5-head MultiTaskV10Model — V10BatchLabels, collate, eval
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+
+
+MultiTaskEyeCareModel 단위 테스트.
+"""
 from __future__ import annotations
 
 import pytest

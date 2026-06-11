@@ -1,4 +1,12 @@
-"""v10_cnn · comprehensive v10 경로 단위 테스트."""
+"""
+파일명: test_v10_cnn.py
+목적: v10 cnn.py 단위·통합 테스트
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+
+
+v10_cnn · comprehensive v10 경로 단위 테스트.
+"""
 from __future__ import annotations
 
 from unittest.mock import AsyncMock, MagicMock, patch

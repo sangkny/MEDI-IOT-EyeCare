@@ -1,4 +1,11 @@
-"""FHIR R4 export API 테스트 (D R3 D4).
+"""
+파일명: test_fhir_export.py
+목적: FHIR R4 Bundle 생성·내보내기 — Observation + DiagnosticReport
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+
+
+FHIR R4 export API 테스트 (D R3 D4).
 
 Mock 0 — DB 직접 시드, httpx 로 실 서버 호출. LLM/외부 FHIR 서버 없음.
 """

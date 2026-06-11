@@ -1,4 +1,12 @@
-"""fundus_video — DR 집계·검증 단위 테스트."""
+"""
+파일명: test_fundus_video.py
+목적: fundus video.py 단위·통합 테스트
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+
+
+fundus_video — DR 집계·검증 단위 테스트.
+"""
 from __future__ import annotations
 
 import pytest

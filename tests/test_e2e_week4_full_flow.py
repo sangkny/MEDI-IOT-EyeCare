@@ -1,11 +1,10 @@
-# MEDI-IOT-EyeCare/tests/test_e2e_week4_full_flow.py
 """
-Week 4 — 당뇨 환자 안과 검진 전체 E2E (VISION + RAG + CONSENSUS + 대시보드)
+파일명: test_e2e_week4_full_flow.py
+목적: Week 4 당뇨 환자 안과 검진 전체 E2E (VISION + RAG + CONSENSUS + 대시보드)
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
 
-환경 변수 `RUN_WEEK4_E2E=1` 일 때만 실행 (LLM·시간 다수 소비).
-
-  docker compose -f docker-compose.dev.yml exec -e RUN_WEEK4_E2E=1 medi-iot-api \\
-    pytest tests/test_e2e_week4_full_flow.py -v -s --tb=short
+환경 변수 RUN_WEEK4_E2E=1 일 때만 실행 (LLM·시간 다수 소비).
 """
 from __future__ import annotations
 

@@ -1,3 +1,9 @@
+"""
+파일명: test_patient_history.py
+목적: patient history.py 단위·통합 테스트
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+"""
 # MEDI-IOT-EyeCare/tests/test_patient_history.py
 """
 환자 이력/추이/보고서 API + Redis 캐싱 테스트 [Week 3 Day 3+4]

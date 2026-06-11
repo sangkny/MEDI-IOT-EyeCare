@@ -1,4 +1,12 @@
-"""Comprehensive DR+Glaucoma 스키마·overall_assessment 단위 테스트."""
+"""
+파일명: test_comprehensive_fundus.py
+목적: 5질환 동시 진단 comprehensive API — fast/precise, v10c ONNX, 응답 구조
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+
+
+Comprehensive DR+Glaucoma 스키마·overall_assessment 단위 테스트.
+"""
 from __future__ import annotations
 
 import pytest

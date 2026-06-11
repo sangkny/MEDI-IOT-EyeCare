@@ -1,3 +1,9 @@
+"""
+파일명: test_knowledge_base.py
+목적: knowledge base.py 단위·통합 테스트
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+"""
 # MEDI-IOT-EyeCare/tests/test_knowledge_base.py
 """
 KnowledgeBase RAG 파이프라인 테스트 [Week 3 Day 2]

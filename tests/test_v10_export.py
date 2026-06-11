@@ -1,4 +1,12 @@
-"""export_v10.py · v10c ONNX 5-head 검증."""
+"""
+파일명: test_v10_export.py
+목적: export_v10.py 5-head ONNX export — 출력 shape 검증
+히스토리:
+  2026-06-11 - 현재 상태 문서화 + 히스토리 추가
+
+
+export_v10.py · v10c ONNX 5-head 검증.
+"""
 from __future__ import annotations
 
 from pathlib import Path
