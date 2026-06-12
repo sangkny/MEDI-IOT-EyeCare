@@ -166,6 +166,10 @@ class GlaucomaResult(BaseModel):
         default=None,
         description="APPROVE | REVISE | REJECT (audit_trail.decision)",
     )
+    inference_detail: dict | None = Field(
+        default=None,
+        description="앙상블 상세 — v10c_prob, v2_prob, method, ensemble_weight",
+    )
     audit_trail: dict = Field(default_factory=dict)
 
 

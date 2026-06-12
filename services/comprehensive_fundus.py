@@ -61,15 +61,21 @@ from services.diagnosis_pipeline import (
 
 from services.glaucoma_cnn import (
 
+    GlaucomaPrediction,
+
     get_glaucoma_backend,
 
     get_glaucoma_model_path,
+
+    glaucoma_prediction_from_probability,
 
     predict_glaucoma_from_image_bytes,
 
     prediction_to_result,
 
 )
+
+from services.gl_ensemble import GlaucomaEnsemble
 
 from services.glaucoma_ontology import build_glaucoma_ontology_payload
 
@@ -87,7 +93,6 @@ from services.myopia_cnn import (
 
 from services.myopia_ontology import build_myopia_ontology_payload
 
-from services.glaucoma_cnn import GlaucomaPrediction
 from services.amd_cnn import AMDPrediction
 from services.myopia_cnn import MyopiaPrediction
 from services.multidisease_cnn import (
@@ -127,6 +132,8 @@ async def _run_glaucoma_pipeline(
     include_heatmap: bool,
 
     pred: GlaucomaPrediction | None = None,
+
+    inference_detail: dict | None = None,
 
 ) -> tuple[GlaucomaResult, dict | None]:
 
@@ -239,6 +246,8 @@ async def _run_glaucoma_pipeline(
         heatmap=heatmap_data,
 
         decision=audit.get("decision"),
+
+        inference_detail=inference_detail,
 
     )
 
@@ -868,18 +877,26 @@ async def _run_comprehensive_v10(
 
     if "glaucoma" in active:
 
+        v10c_prob = float(v10.glaucoma.probability)
+        ens = await GlaucomaEnsemble().predict(
+            image_bytes=image_bytes,
+            v10c_prob=v10c_prob,
+            glaucoma_v2_model=get_glaucoma_backend(),
+        )
+        gl_pred = glaucoma_prediction_from_probability(float(ens["probability"]))
+        inference_detail = {
+            "v10c_prob": ens.get("v10c_prob"),
+            "v2_prob": ens.get("v2_prob"),
+            "method": ens.get("method"),
+            "ensemble_weight": ens.get("ensemble_weight"),
+        }
         glaucoma_result, glaucoma_heatmap = await _run_glaucoma_pipeline(
-
             image_bytes,
-
             patient_id=patient_id,
-
             eye=eye,
-
             include_heatmap=include_heatmap,
-
-            pred=v10.glaucoma,
-
+            pred=gl_pred,
+            inference_detail=inference_detail,
         )
 
 

@@ -99,6 +99,7 @@ def prediction_to_result(
     cup_disc_ratio: dict | CupDiscRatioDetail | None = None,
     heatmap: dict | GlaucomaHeatmap | None = None,
     decision: str | None = None,
+    inference_detail: dict | None = None,
 ) -> GlaucomaResult:
     referral = (
         "immediate"
@@ -151,6 +152,7 @@ def prediction_to_result(
         decision_mode=decision_mode,
         ontology_passed=ontology_passed,
         decision=resolved_decision,
+        inference_detail=inference_detail,
         audit_trail=audit,
     )
 
