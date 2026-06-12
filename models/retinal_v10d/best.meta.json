@@ -1,0 +1,42 @@
+{
+  "arch": "efficientnet_b4_v10",
+  "manifest": "unified_v10.json",
+  "preprocess": "none",
+  "image_size": 224,
+  "version": "v10d",
+  "best_composite": 0.8793,
+  "best_gl_auc": 0.833,
+  "best_gl_epoch": 42,
+  "loss_weights": {
+    "dr": 0.25,
+    "glaucoma": 0.32,
+    "amd": 0.17,
+    "myopia": 0.17,
+    "multidisease": 0.09
+  },
+  "warmup_epochs": 8,
+  "gl_oversample": 1.5,
+  "gl_augmentation": [
+    "RandomRotation(20)",
+    "RandomAffine(translate=0.05)",
+    "RandomAutocontrast(p=0.3)"
+  ],
+  "gl_train_samples": 8209,
+  "deploy_status": "not_deployed",
+  "deploy_reason": "composite 0.8793 < v10c 0.8842; GL improvement via ensemble",
+  "outputs": [
+    "dr",
+    "glaucoma",
+    "amd",
+    "myopia",
+    "multidisease"
+  ],
+  "output_activations": {
+    "dr": "softmax",
+    "glaucoma": "sigmoid",
+    "amd": "sigmoid",
+    "myopia": "sigmoid",
+    "multidisease": "sigmoid"
+  },
+  "source_checkpoint": "best.pt"
+}
