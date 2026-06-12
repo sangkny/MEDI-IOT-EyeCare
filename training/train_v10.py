@@ -26,7 +26,7 @@ sys.path.insert(0, str(ROOT))
 
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader, Dataset
+from torch.utils.data import DataLoader, Dataset, WeightedRandomSampler
 
 from services.retinal_cnn import (
     DR_NUM_CLASSES,
@@ -169,18 +169,21 @@ class V10Dataset(Dataset):
             mode=self._preprocess_mode_for(str(entry["path"])),
         )
         img = Image.fromarray(arr).resize((self.image_size, self.image_size))
-        transform = (
-            T.Compose(
-                [
-                    T.RandomHorizontalFlip(),
-                    T.RandomRotation(15),
-                    T.ColorJitter(0.15, 0.15, 0.1),
-                    T.ToTensor(),
-                ]
-            )
-            if self.augment
-            else T.ToTensor()
-        )
+        if self.augment:
+            img = T.RandomHorizontalFlip()(img)
+            img = T.ColorJitter(0.15, 0.15, 0.1)(img)
+            if "glaucoma" in al:
+                gl_transform = T.Compose(
+                    [
+                        T.RandomRotation(degrees=20),
+                        T.RandomAffine(degrees=0, translate=(0.05, 0.05)),
+                        T.RandomAutocontrast(p=0.3),
+                    ]
+                )
+                img = gl_transform(img)
+            img = T.ToTensor()(img)
+        else:
+            img = T.ToTensor()(img)
         labels: dict[str, float | dict[str, float] | None] = {
             "dr": float(al["dr"]) if "dr" in al else math.nan,
             "glaucoma": float(al["glaucoma"]) if "glaucoma" in al else math.nan,
@@ -428,6 +431,13 @@ def main() -> None:
     p.add_argument("--amd-weight", dest="amd_weight", type=float, default=LOSS_WEIGHTS["amd"])
     p.add_argument("--myo-weight", dest="myo_weight", type=float, default=LOSS_WEIGHTS["myopia"])
     p.add_argument("--multi-weight", dest="multi_weight", type=float, default=LOSS_WEIGHTS["multidisease"])
+    p.add_argument(
+        "--gl-oversample",
+        dest="gl_oversample",
+        type=float,
+        default=1.0,
+        help="GL 샘플 WeightedRandomSampler 가중치 배율 (기본 1.0)",
+    )
     args = p.parse_args()
 
     loss_weights = {
@@ -469,10 +479,29 @@ def main() -> None:
         preprocess=preprocess,
         augment=False,
     )
+    train_sampler = None
+    train_shuffle = True
+    if args.gl_oversample > 1.0:
+        sample_weights = []
+        for entry in train_entries:
+            labels = entry.get("available_labels") or {}
+            if "glaucoma" in labels:
+                sample_weights.append(float(args.gl_oversample))
+            else:
+                sample_weights.append(1.0)
+        train_sampler = WeightedRandomSampler(
+            weights=sample_weights,
+            num_samples=len(train_entries),
+            replacement=True,
+        )
+        train_shuffle = False
+        print(f"GL oversample: {args.gl_oversample}x ({sum(1 for e in train_entries if 'glaucoma' in (e.get('available_labels') or {}))} GL samples)")
+
     train_loader = DataLoader(
         train_ds,
         batch_size=args.batch_size,
-        shuffle=True,
+        shuffle=train_shuffle,
+        sampler=train_sampler,
         num_workers=4,
         pin_memory=use_cuda,
         collate_fn=_collate_v10,
