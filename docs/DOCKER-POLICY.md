@@ -1,8 +1,61 @@
 # Docker 운영 정책 — MEDI-IOT-EyeCare
 
-> 최종 업데이트: 2026-06-11  
+> 최종 업데이트: 2026-06-12  
 > SSOT: `projects/docker-compose.dev.yml` (개발 PC) · `scripts/start_v10_train.sh` (GPU)  
 > 레지스트리: `docs/DOCKER-REGISTRY.md`
+
+---
+
+## 실행 환경 원칙 (필수)
+
+> **Python은 호스트(WSL/GPU Ubuntu)에서 직접 실행 금지** — 환경·CUDA·패키지 불일치 방지.
+
+### 개발 PC (Windows + WSL2 + Docker Desktop)
+
+| 작업 | 실행 방법 |
+|------|-----------|
+| pytest / 스크립트 | `docker exec medi-iot-api-dev python3 ...` |
+| compose 서비스 | `docker compose -f projects/docker-compose.dev.yml exec ...` |
+| **금지** | WSL에서 `python3` 직접 실행 |
+
+```powershell
+docker exec medi-iot-api-dev python -m pytest tests/test_fundus_enhancement.py -v
+docker exec medi-iot-api-dev python3 scripts/compare_enhancement.py --image /app/fundus_right_sklee.jpg
+```
+
+### GPU 서버 (Ubuntu 18.04 + Docker)
+
+| 작업 | 실행 방법 |
+|------|-----------|
+| 훈련 | `docker run --gpus all --rm medi-train:gpu ...` (`start_v10_train.sh`) |
+| 전처리 | `docker run --rm medi-train:gpu ...` |
+| Kaggle 다운로드 | `bash scripts/run_kaggle_gl_download_gpu.sh` |
+| **금지** | 호스트 `python3` 직접 실행 |
+
+```bash
+bash scripts/run_kaggle_gl_download_gpu.sh
+bash scripts/run_preprocess_enhanced_gpu.sh
+tail -f preprocess_enhanced.log
+```
+
+### 컨테이너 마운트 규칙
+
+| 용도 | 호스트 | 컨테이너 |
+|------|--------|----------|
+| MEDI 코드 | `$REPO` | `/workspace` |
+| DR 데이터 | `$REPO/data` | `/data_dr` |
+| GL/AMD/Multi | `$DATASET_ROOT` | `/dataset` |
+| Kaggle 키 | `~/.kaggle` | `/root/.kaggle:ro` |
+
+### Kaggle 데이터 다운로드 (GPU)
+
+```bash
+docker run --rm \
+  -v ~/.kaggle:/root/.kaggle:ro \
+  -v $DATASET_ROOT:/dataset \
+  medi-train:gpu \
+  bash -c 'pip install kaggle -q && kaggle datasets download -d ... -p /dataset/Glaucoma_extra2/G1020 --unzip'
+```
 
 ---
 

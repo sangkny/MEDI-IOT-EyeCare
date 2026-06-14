@@ -75,6 +75,8 @@ _kaggle_download "sshikamaru/glaucoma-detection" "$OUT_ROOT/ORIGA"
 # ── DRISHTI-GS ───────────────────────────────────────────────
 log "=== DRISHTI-GS (~101) ==="
 _kaggle_download "oneeyeopen/drishti-gs-retina-dataset-for-glaucoma-detection" "$OUT_ROOT/DRISHTI"
+# GPU 권장 slug (run_kaggle_gl_download_gpu.sh):
+#   lokeshsaipureddy/drishti-gs1
 
 # ── REFUGE (수동) ────────────────────────────────────────────
 log "=== REFUGE (~1,200) — 수동 다운로드 필요 ==="

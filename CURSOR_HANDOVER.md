@@ -84,11 +84,30 @@
 - **앙상블(Part D)** 로 GL 0.90+ 달성 — `docs/GL-IMPROVEMENT-HISTORY.md`
 - 다음: REFUGE/G1020 데이터 수집 · SaMD 임상 fine-tuning · v10e 검토
 
+## 실행 환경 (Docker 필수)
+
+| 환경 | 실행 |
+|------|------|
+| 개발 PC | `docker exec medi-iot-api-dev python3 ...` |
+| GPU | `bash scripts/run_kaggle_gl_download_gpu.sh` · `run_preprocess_enhanced_gpu.sh` |
+
+**금지**: WSL/GPU 호스트에서 `python3` 직접 실행 — `docs/DOCKER-POLICY.md`
+
+## 안저 고품질 전처리 (2026-06-12)
+
+| 항목 | 경로 |
+|------|------|
+| 4모드 파이프라인 | `services/fundus_enhancement.py` |
+| enhanced_cache | `scripts/preprocess_enhanced.py` |
+| 비교 | `scripts/compare_enhancement.py` |
+| 가이드 | `docs/FUNDUS-ENHANCEMENT-GUIDE.md` |
+
 ## GL 데이터 파이프라인 (v10e)
 
 | 단계 | 스크립트 |
 |------|----------|
-| 다운로드 | `scripts/download_gl_extra_datasets.sh` → `Glaucoma_extra2/` |
+| 다운로드 | `scripts/run_kaggle_gl_download_gpu.sh` (medi-train:gpu) |
+| 통계 | `scripts/run_gl_dataset_stats_gpu.sh` |
 | 전처리 | `scripts/preprocess_all.py` |
 | manifest | `build_glaucoma_v3_manifest.sh` → `USE_GL_V3=1 build_v10_manifest.sh` |
 | 훈련 | `V10E=1 bash scripts/start_v10_train.sh` |
