@@ -1,182 +1,170 @@
 # GL 데이터 수집 가이드
 
-> **목표**: GL 11,725장 → **14,696장** (+2,971) · v10e 재훈련  
-> **관련**: `docs/GL-IMPROVEMENT-HISTORY.md` · `scripts/download_gl_extra_datasets.sh`
+> **목표**: GL **11,725** → **14,100** (+2,375 extra2) · v10e 재훈련  
+> **관련**: `docs/GL-IMPROVEMENT-HISTORY.md` · `scripts/build_gl_extra2_manifest.py`
 
 ---
 
-## §1. 현재 GL 데이터 현황
+## §1. 현재 GL 데이터 현황 (2026-06-13)
 
-### glaucoma_v2 (운영 독립 모델 · v10c GL 헤드 SSOT)
+### 기존 (glaucoma_v2 · unified_v10)
 
 | 항목 | 값 |
 |------|-----|
-| 총량 | **~11,725장** |
-| AUC (독립) | **0.946** |
-| 소스 | G1020 · REFUGE · ORIGA · AIROGS · RIM-ONE (`Glaucoma_raw` + `Glaucoma_extra`) |
-| manifest | `training/manifests/glaucoma_v2.json` |
+| 총량 | **11,725장** |
+| AUC (독립 glaucoma_v2) | **0.946** |
+| 소스 | G1020 · REFUGE · ORIGA · AIROGS · RIM-ONE |
+| manifest | `glaucoma_v2.json` · `unified_v10.json` |
 
-### unified_v10 GL 라벨 (v10c 훈련)
+### extra2 확보 완료 (GPU `Glaucoma_extra2/`)
 
-GPU에서 live 통계 확인:
+| 데이터셋 | 장수 | 정상 | 녹내장 | 라벨 |
+|----------|------|------|--------|------|
+| **G1020** | 1,020 | 724 | 296 | `G1020.csv` → `imageID`, `binaryLabels` |
+| **ORIGA** | 650 | 482 | 168 | `OrigaList.csv` → `Filename`, `Glaucoma` |
+| **ACRIMA** | 705 | 309 | 396 | 파일명 `_g_` 포함 = 1 |
+| **합계** | **2,375** | **1,515** | **860** | — |
 
-```bash
-ssh smartvisionglobal@192.168.0.23 "
-python3 -c \"
-import json
-m = json.load(open('workspace/Office_Automation/idea-collection/MEDI-IOT-EyeCare/training/manifests/unified_v10.json'))
-gl = [s for s in m['samples'] if 'glaucoma' in s.get('available_labels',{})]
-normal = [s for s in gl if s['available_labels']['glaucoma'] == 0]
-abnormal = [s for s in gl if s['available_labels']['glaucoma'] == 1]
-print(f'GL 전체: {len(gl)}')
-print(f'  정상(0): {len(normal)}')
-print(f'  이상(1): {len(abnormal)}')
-print(f'  이상 비율: {len(abnormal)/len(gl)*100:.1f}%')
-\"
-"
-```
+**통합**: 11,725 + 2,375 = **14,100 GL** (v10e 목표)
 
-> **참고 (2026-06-12)**: SSH 인증 미설정 시 GPU에서 직접 실행. v10 GL train 샘플 **~8,209장** (oversample 1.5× 대상).
+### 디렉터리 경로 (GPU 호스트)
 
----
+| 소스 | 이미지 경로 | 라벨 파일 |
+|------|-------------|-----------|
+| G1020 | `Glaucoma_extra2/G1020/G1020/Images/` | `.../G1020/G1020.csv` |
+| ORIGA | `Glaucoma_extra2/G1020/ORIGA/Images/` | `.../G1020/ORIGA/OrigaList.csv` |
+| ACRIMA | `Glaucoma_extra2/ORIGA/ACRIMA/Images/` | 파일명 규칙 |
 
-## §2. 추가 수집 대상 (Glaucoma_extra2)
-
-| 데이터셋 | 규모 | 라벨 | 수집 |
-|----------|------|------|------|
-| REFUGE | ~1,200 | glaucoma/normal | Grand-Challenge **수동** |
-| G1020 | ~1,020 | glaucoma/normal | Kaggle |
-| ORIGA | ~650 | glaucoma/normal | Kaggle |
-| DRISHTI-GS | ~101 | glaucoma/normal | Kaggle |
-| **합계** | **~2,971** | — | 11,725 → **14,696** (+25%) |
-
-출력 경로: `$DATASET_ROOT/Glaucoma_extra2/{REFUGE,G1020,ORIGA,DRISHTI}/`
+Docker 마운트: `-v ~/workspace/dataset:/dataset`
 
 ---
 
-## §3. Kaggle API 설정
+## §2. 라벨 파싱 규칙
 
-### GPU 서버 (192.168.0.23)
+### G1020
 
-```bash
-ssh smartvisionglobal@192.168.0.23 "
-pip install kaggle --break-system-packages 2>/dev/null || pip install kaggle
-kaggle --version
-ls ~/.kaggle/ 2>/dev/null || echo 'kaggle.json 없음 → 설정 필요'
-"
+```csv
+imageID,binaryLabels
+image_0.jpg,0
+image_1.jpg,1
 ```
 
-### kaggle.json 배치
+→ `path`: `Glaucoma_extra2/G1020/G1020/Images/{imageID}`
 
-1. [Kaggle Account → API](https://www.kaggle.com/settings) → **Create New Token**
-2. GPU:
+### ORIGA
 
-```bash
-mkdir -p ~/.kaggle
-chmod 700 ~/.kaggle
-# kaggle.json 업로드 (username + key)
-chmod 600 ~/.kaggle/kaggle.json
+```csv
+Filename,Glaucoma
+001.jpg,0
 ```
 
-3. 검증: `kaggle datasets list | head`
+→ `path`: `Glaucoma_extra2/G1020/ORIGA/Images/{Filename}`
 
-> **2026-06-12**: Windows→GPU SSH `Permission denied` — 호스트키·공개키 등록 후 재시도.
+### ACRIMA
+
+- `*_g_*` 또는 `_g_` 포함 파일명 → **1** (녹내장)
+- 그 외 → **0** (정상)
+
+→ `path`: `Glaucoma_extra2/ORIGA/ACRIMA/Images/{filename}`
 
 ---
 
-## §4. 다운로드 절차
+## §3. manifest 생성 (Docker 필수)
+
+### STEP 1 — gl_extra2.json
 
 ```bash
-cd MEDI-IOT-EyeCare
-export DATASET_ROOT=$HOME/workspace/dataset
-
-# dry-run
-bash scripts/download_gl_extra_datasets.sh --dry-run
-
-# 실제 다운로드 (Kaggle 3종 + REFUGE 수동 안내)
-bash scripts/download_gl_extra_datasets.sh
+docker run --rm \
+  -v ~/workspace/dataset:/dataset \
+  -v $REPO:/workspace \
+  --entrypoint bash medi-train:gpu -c \
+  'python3 /workspace/scripts/build_gl_extra2_manifest.py'
 ```
 
-REFUGE 수동: https://refuge.grand-challenge.org → `$DATASET_ROOT/Glaucoma_extra2/REFUGE/`
+출력: `training/manifests/gl_extra2.json`
+
+### STEP 2 — unified_v10e.json
+
+```bash
+docker run --rm \
+  -v $REPO:/workspace \
+  --entrypoint bash medi-train:gpu -c \
+  'python3 /workspace/scripts/build_v10e_manifest.py'
+```
+
+또는 일괄:
+
+```bash
+bash scripts/run_build_v10e_manifest_gpu.sh
+```
+
+### enhanced_cache 경로 (전처리 후)
+
+```bash
+bash scripts/run_preprocess_enhanced_gpu.sh
+EXTRA2_ENHANCED=1 bash scripts/run_build_v10e_manifest_gpu.sh
+```
+
+`--extra2-enhanced-paths` → extra2 샘플 path가 `enhanced_cache/Glaucoma_extra2/...`
 
 ---
 
-## §5. 전처리 (preprocess_all.py)
+## §4. Kaggle / 다운로드
 
-```bash
-# GPU Docker 또는 medi-train:gpu
-python scripts/preprocess_all.py
-```
-
-| 원본 | 출력 |
-|------|------|
-| `/dataset/Glaucoma_extra2/REFUGE` | `resized_cache/Glaucoma_extra2/REFUGE` |
-| `/dataset/Glaucoma_extra2/G1020` | `resized_cache/Glaucoma_extra2/G1020` |
-| `/dataset/Glaucoma_extra2/ORIGA` | `resized_cache/Glaucoma_extra2/ORIGA` |
-| `/dataset/Glaucoma_extra2/DRISHTI` | `resized_cache/Glaucoma_extra2/DRISHTI` |
-
-CLAHE + 224×224 · JPEG q=95
+ACRIMA·G1020·ORIGA는 **2026-06-13 GPU 확보 완료**.  
+추가 REFUGE/DRISHTI: `scripts/run_kaggle_gl_download_gpu.sh`
 
 ---
 
-## §6. manifest 재생성
+## §5. 전처리
+
+| 캐시 | 스크립트 | 용도 |
+|------|----------|------|
+| `resized_cache/` | `preprocess_all.py` | CLAHE only (기존) |
+| `enhanced_cache/` | `preprocess_enhanced.py` | DCP+CLAHE+Unsharp (**v10e**) |
 
 ```bash
-# 1) glaucoma v3 (v2 소스 + extra2)
-bash scripts/build_glaucoma_v3_manifest.sh
-
-# 2) unified v10e
-USE_GL_V3=1 bash scripts/build_v10_manifest.sh
-# → training/manifests/unified_v10e.json
-```
-
-개별 extra2만:
-
-```bash
-bash scripts/build_glaucoma_extra2_manifest.sh
+bash scripts/run_preprocess_enhanced_gpu.sh
+tail -f preprocess_enhanced.log
 ```
 
 ---
 
-## §7. v10e 훈련 계획
+## §6. v10e 훈련
 
 ```bash
+# manifest + enhanced 경로 준비 후
 V10E=1 bash scripts/start_v10_train.sh
 ```
 
-| 파라미터 | v10c (운영) | **v10e (예정)** |
-|----------|-------------|-----------------|
-| OUTPUT | `retinal_v10c` | `retinal_v10e` |
+| 파라미터 | v10c | **v10e** |
+|----------|------|----------|
 | manifest | `unified_v10.json` | `unified_v10e.json` |
-| gl_weight | **0.28** | **0.28** (최적값 유지) |
-| gl_oversample | 1.0 | **1.0** (데이터 충분) |
-| GL 데이터 | ~11,725 | **~14,696** |
-| batch | 64 | 64 |
-| warmup | 8 | 8 |
+| GL 장수 | ~11,725 | **~14,100** |
+| gl_weight | 0.28 | **0.28** |
+| gl_oversample | 1.0 | **1.0** |
+| preprocess | none (resized_cache) | none (**enhanced_cache**) |
+| batch / warmup | 64 / 8 | 64 / 8 |
 
 ---
 
-## §8. 예상 성능
+## §7. 예상 성능
 
-| 지표 | v10c | v10e (목표) | 비고 |
-|------|------|-------------|------|
-| GL AUC | 0.835 | **0.860+** | 데이터 +25% |
-| composite | 0.8842 | ≥0.884 | gl_w=0.28 유지 |
-| fast 운영 | v10c + 앙상블 | v10e 검증 후 A/B | 앙상블 병행 |
+| 지표 | v10c | v10e 목표 |
+|------|------|-----------|
+| GL AUC | 0.835 | **0.860+** |
+| composite | 0.8842 | ≥ 0.884 |
 
-v10d 교훈: **증강/오버샘플 < 데이터 규모** · v10e는 데이터 추가가 핵심.
-
-배포 기준: composite ≥ v10c **且** GL AUC > 0.835 → ONNX export · A/B.
+배포: composite ≥ v10c **且** GL AUC ↑ → ONNX · A/B · 앙상블 병행
 
 ---
 
 ## 파이프라인 요약
 
 ```
-download_gl_extra_datasets.sh
-  → preprocess_all.py
-  → build_glaucoma_v3_manifest.sh
-  → USE_GL_V3=1 build_v10_manifest.sh
+extra2 데이터 확보 ✅
+  → run_build_v10e_manifest_gpu.sh
+  → run_preprocess_enhanced_gpu.sh
+  → EXTRA2_ENHANCED=1 run_build_v10e_manifest_gpu.sh
   → V10E=1 start_v10_train.sh
-  → export_v10.py (검증 후)
 ```

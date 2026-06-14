@@ -135,6 +135,7 @@ _UNIT_MODULES = frozenset({
     "test_comprehensive_modes",
     "test_fundus_formats",
     "test_fundus_enhancement",
+    "test_gl_extra2_manifest",
     "test_fundus_video",
     "test_glaucoma_cnn",
     "test_gl_ensemble",

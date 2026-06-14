@@ -30,7 +30,7 @@ if [ "${V10E:-0}" = "1" ]; then
   MULTI_WEIGHT=0.13
   GL_OVERSAMPLE=1.0
   MANIFEST="${MANIFEST:-training/manifests/unified_v10e.json}"
-  echo "=== v10e (Glaucoma_extra2 + gl_w=0.28, oversample off) ==="
+  echo "=== v10e (extra2 2375 + base GL, gl_w=0.28, enhanced_cache paths) ==="
 elif [ "${V10D:-0}" = "1" ]; then
   OUTPUT="${OUTPUT:-models/retinal_v10d}"
   BATCH_SIZE=64
@@ -81,7 +81,13 @@ echo "dr_data:  $DR_DATA_DIR → /data_dr"
 echo "weights:  dr=$DR_WEIGHT gl=$GL_WEIGHT amd=$AMD_WEIGHT myo=$MYO_WEIGHT multi=$MULTI_WEIGHT warmup=$WARMUP_EPOCHS gl_oversample=$GL_OVERSAMPLE"
 
 if [ ! -f "$REPO/$MANIFEST" ]; then
-  echo "FAIL: $MANIFEST not found — run bash scripts/build_v10_manifest.sh first"
+  echo "FAIL: $MANIFEST not found"
+  if [ "${V10E:-0}" = "1" ]; then
+    echo "  → bash scripts/run_build_v10e_manifest_gpu.sh"
+    echo "  → enhanced 후: EXTRA2_ENHANCED=1 bash scripts/run_build_v10e_manifest_gpu.sh"
+  else
+    echo "  → bash scripts/build_v10_manifest.sh"
+  fi
   exit 1
 fi
 

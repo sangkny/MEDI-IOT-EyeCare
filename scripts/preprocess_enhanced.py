@@ -35,7 +35,9 @@ MODE = EnhanceMode.FULL
 SRC_DIRS = [
     ("/dataset/Glaucoma_raw", "/dataset/enhanced_cache/Glaucoma_raw"),
     ("/dataset/Glaucoma_extra", "/dataset/enhanced_cache/Glaucoma_extra"),
-    ("/dataset/Glaucoma_extra2", "/dataset/enhanced_cache/Glaucoma_extra2"),
+    ("/dataset/Glaucoma_extra2/G1020/G1020/Images", "/dataset/enhanced_cache/Glaucoma_extra2/G1020/G1020/Images"),
+    ("/dataset/Glaucoma_extra2/G1020/ORIGA/Images", "/dataset/enhanced_cache/Glaucoma_extra2/G1020/ORIGA/Images"),
+    ("/dataset/Glaucoma_extra2/ORIGA/ACRIMA/Images", "/dataset/enhanced_cache/Glaucoma_extra2/ORIGA/ACRIMA/Images"),
     ("/dataset/AMD_raw", "/dataset/enhanced_cache/AMD_raw"),
     ("/dataset/Multidisease_raw", "/dataset/enhanced_cache/Multidisease_raw"),
 ]

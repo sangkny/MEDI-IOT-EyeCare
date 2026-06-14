@@ -102,14 +102,16 @@
 | 비교 | `scripts/compare_enhancement.py` |
 | 가이드 | `docs/FUNDUS-ENHANCEMENT-GUIDE.md` |
 
-## GL 데이터 파이프라인 (v10e)
+## GL 데이터 파이프라인 (v10e · 2026-06-13)
 
-| 단계 | 스크립트 |
-|------|----------|
-| 다운로드 | `scripts/run_kaggle_gl_download_gpu.sh` (medi-train:gpu) |
-| 통계 | `scripts/run_gl_dataset_stats_gpu.sh` |
-| 전처리 | `scripts/preprocess_all.py` |
-| manifest | `build_glaucoma_v3_manifest.sh` → `USE_GL_V3=1 build_v10_manifest.sh` |
+| 항목 | 값 |
+|------|-----|
+| 기존 GL | **11,725장** |
+| extra2 | **2,375장** (G1020 1020 + ORIGA 650 + ACRIMA 705) |
+| v10e 합계 | **14,100장** |
+| manifest | `build_gl_extra2_manifest.py` → `build_v10e_manifest.py` |
+| GPU 일괄 | `bash scripts/run_build_v10e_manifest_gpu.sh` |
+| enhanced | `run_preprocess_enhanced_gpu.sh` → `EXTRA2_ENHANCED=1 run_build_v10e_manifest_gpu.sh` |
 | 훈련 | `V10E=1 bash scripts/start_v10_train.sh` |
 | 문서 | `docs/GL-DATA-COLLECTION.md` |
 
