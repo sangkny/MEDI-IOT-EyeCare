@@ -3,12 +3,13 @@
 # 파일명: start_v10_train.sh
 # 목적: v10/v10b/v10c/v10d 멀티태스크 훈련 — V10B/V10C/V10D env
 # 히스토리:
+#   2026-06-12 - V10E 블록 (extra2 데이터 + gl_w=0.28)
 #   2026-06-12 - V10D 블록 (GL 증강+오버샘플+weight0.32)
 #   2026-06-11 - 현재 상태 문서화 + 히스토리 추가
 # =============================================================
 # v10 통합 멀티태스크 훈련 — GPU 서버에서 실행
 # 예: bash scripts/start_v10_train.sh
-# v10b: V10B=1  v10c: V10C=1  v10d: V10D=1
+# v10b: V10B=1  v10c: V10C=1  v10d: V10D=1  v10e: V10E=1
 set -euo pipefail
 
 REPO="${REPO:-$(cd "$(dirname "$0")/.." && pwd)}"
@@ -18,7 +19,19 @@ IMAGE="${TRAIN_IMAGE:-medi-train:gpu}"
 MANIFEST="${MANIFEST:-training/manifests/unified_v10.json}"
 GL_OVERSAMPLE="${GL_OVERSAMPLE:-1.0}"
 
-if [ "${V10D:-0}" = "1" ]; then
+if [ "${V10E:-0}" = "1" ]; then
+  OUTPUT="${OUTPUT:-models/retinal_v10e}"
+  BATCH_SIZE=64
+  WARMUP_EPOCHS=8
+  DR_WEIGHT=0.25
+  GL_WEIGHT=0.28
+  AMD_WEIGHT=0.17
+  MYO_WEIGHT=0.17
+  MULTI_WEIGHT=0.13
+  GL_OVERSAMPLE=1.0
+  MANIFEST="${MANIFEST:-training/manifests/unified_v10e.json}"
+  echo "=== v10e (Glaucoma_extra2 + gl_w=0.28, oversample off) ==="
+elif [ "${V10D:-0}" = "1" ]; then
   OUTPUT="${OUTPUT:-models/retinal_v10d}"
   BATCH_SIZE=64
   WARMUP_EPOCHS=8

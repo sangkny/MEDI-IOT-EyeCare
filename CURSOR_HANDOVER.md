@@ -84,6 +84,16 @@
 - **앙상블(Part D)** 로 GL 0.90+ 달성 — `docs/GL-IMPROVEMENT-HISTORY.md`
 - 다음: REFUGE/G1020 데이터 수집 · SaMD 임상 fine-tuning · v10e 검토
 
+## GL 데이터 파이프라인 (v10e)
+
+| 단계 | 스크립트 |
+|------|----------|
+| 다운로드 | `scripts/download_gl_extra_datasets.sh` → `Glaucoma_extra2/` |
+| 전처리 | `scripts/preprocess_all.py` |
+| manifest | `build_glaucoma_v3_manifest.sh` → `USE_GL_V3=1 build_v10_manifest.sh` |
+| 훈련 | `V10E=1 bash scripts/start_v10_train.sh` |
+| 문서 | `docs/GL-DATA-COLLECTION.md` |
+
 ## 다음 우선순위
 
 1. **CoOps M1** iOS TestFlight 준비

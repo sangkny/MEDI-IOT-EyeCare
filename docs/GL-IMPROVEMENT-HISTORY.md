@@ -52,6 +52,12 @@ python scripts/measure_gl_auc.py --manifest training/manifests/unified_v10.json
 
 ## 다음 GL 개선 방향
 
-1. 데이터 추가 수집 (REFUGE / G1020 등)
+1. **데이터 추가 수집** — REFUGE / G1020 / ORIGA / DRISHTI (~2,971장)
+
+```bash
+bash scripts/download_gl_extra_datasets.sh
+# → $DATASET_ROOT/Glaucoma_extra2/ → preprocess_all.py → build_glaucoma_v3_manifest.sh
+```
+
 2. SaMD 임상 데이터로 fine-tuning
 3. 충분한 데이터 확보 후 **v10e** 재훈련 검토

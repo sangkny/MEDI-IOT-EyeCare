@@ -6,6 +6,7 @@
 #   2026-06-11 - 현재 상태 문서화 + 히스토리 추가
 # =============================================================
 # v10 통합 manifest — 5 manifest merge → unified_v10.json
+# v10e: USE_GL_V3=1 → glaucoma_v3.json + unified_v10e.json
 # GPU 서버에서 실행
 set -euo pipefail
 
@@ -15,10 +16,22 @@ DR_DATA_DIR="${DR_DATA_DIR:-$REPO/data}"
 OUTPUT="${OUTPUT:-training/manifests/unified_v10.json}"
 IMAGE="${TRAIN_IMAGE:-medi-train:gpu}"
 DR_MANIFEST="${DR_MANIFEST:-training/manifests/unified_v4.json}"
+GL_MANIFEST="${GL_MANIFEST:-training/manifests/glaucoma_v2.json}"
+
+if [ "${USE_GL_V3:-0}" = "1" ]; then
+  GL_MANIFEST="${GL_MANIFEST:-training/manifests/glaucoma_v3.json}"
+  OUTPUT="${OUTPUT:-training/manifests/unified_v10e.json}"
+  echo "=== v10e mode: glaucoma_v3 + unified_v10e ==="
+  if [ ! -f "$REPO/$GL_MANIFEST" ]; then
+    echo "WARN: $GL_MANIFEST missing — run bash scripts/build_glaucoma_v3_manifest.sh first"
+    exit 1
+  fi
+fi
 
 echo "=== build_v10_manifest ==="
 echo "dataset: $DATASET_ROOT → /dataset"
 echo "dr_data: $DR_DATA_DIR → /data_dr"
+echo "glaucoma: $GL_MANIFEST"
 echo "output:  $REPO/$OUTPUT"
 
 docker run --gpus all --rm \
@@ -47,7 +60,7 @@ docker run --gpus all --rm \
 
     python3 training/build_v10_manifest.py \
       --dr $DR_MANIFEST \
-      --glaucoma training/manifests/glaucoma_v2.json \
+      --glaucoma $GL_MANIFEST \
       --amd training/manifests/amd_v1.json \
       --myopia training/manifests/myopia_v1.json \
       --multidisease training/manifests/multidisease_v1.json \

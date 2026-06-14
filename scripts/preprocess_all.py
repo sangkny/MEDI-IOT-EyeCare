@@ -2,6 +2,7 @@
 파일명: preprocess_all.py
 목적: GL/AMD/MYO/Multi CLAHE+224 resized_cache 전처리
 히스토리:
+  2026-06-12 - Glaucoma_extra2 (REFUGE/G1020/ORIGA/DRISHTI) 경로 추가
   2026-06-11 - 현재 상태 문서화 + 히스토리 추가
 """
 import cv2, numpy as np
@@ -13,6 +14,10 @@ clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
 src_dirs = [
     ("/dataset/Glaucoma_raw",     "/dataset/resized_cache/Glaucoma_raw"),
     ("/dataset/Glaucoma_extra",   "/dataset/resized_cache/Glaucoma_extra"),
+    ("/dataset/Glaucoma_extra2/REFUGE",  "/dataset/resized_cache/Glaucoma_extra2/REFUGE"),
+    ("/dataset/Glaucoma_extra2/G1020",   "/dataset/resized_cache/Glaucoma_extra2/G1020"),
+    ("/dataset/Glaucoma_extra2/ORIGA",   "/dataset/resized_cache/Glaucoma_extra2/ORIGA"),
+    ("/dataset/Glaucoma_extra2/DRISHTI", "/dataset/resized_cache/Glaucoma_extra2/DRISHTI"),
     ("/dataset/AMD_raw",          "/dataset/resized_cache/AMD_raw"),
     ("/dataset/Multidisease_raw", "/dataset/resized_cache/Multidisease_raw"),
 ]
