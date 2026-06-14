@@ -1,7 +1,7 @@
 # MEDI-IOT-EyeCare — Cursor Agent 인수인계
 
-> 최종 업데이트: **2026-06-12**  
-> **메타 HANDOVER**: `idea-collection/CURSOR_HANDOVER.md`
+> 최종 업데이트: **2026-06-13**  
+> Git: v10e v2 전처리 커밋 예정 · GPU **preprocess_v2.py** 진행 중 · LM Studio **OFF**
 
 ---
 
@@ -9,118 +9,86 @@
 
 | 항목 | 값 |
 |------|-----|
-| unit | **152 passed** (`pytest -m unit`, LLM mock) |
-| smoke | **230 passed** (API + LLM mock) |
-| **v10c** | composite **0.8842** · GL **0.835** · `gl_weight=0.28` · ✅ **운영** |
-| **v10d** | composite **0.8793** · GL **0.833** (ep42) · ❌ **미배포** |
-| **앙상블** | fast GL **0.900+** · sklee 0.605→**0.725** · `ensemble_v10c_v2` |
-| ONNX | `scripts/export_v10.py` only |
-| fast | v10c ONNX + 불확실 구간 glaucoma_v2 앙상블 |
-| precise | ~42s (5모델) |
-| LM Studio | `192.168.0.12:1234` · `docs/LM-STUDIO-GUIDE.md` |
+| **v10c** | composite **0.8842** · GL **0.835** · ✅ **운영** (`resized_cache`) |
+| **v10e** | v2_cache 생성 중 → 훈련 **대기** |
+| **앙상블** | fast GL **0.900+** · sklee 0.605→**0.725** |
+| LM Studio | **OFF** (HDD 100%) — LLM 작업 건너뜀 |
+| GPU | `192.168.0.23` · `preprocess_v2.log` |
 
-### 운영 모델 (5질환 + v10c + 앙상블)
+### ⚠️ LM Studio 필요 시점
 
-| 질환 | 모델 | 지표 |
-|------|------|------|
-| DR | retinal_v4 | QWK=0.8204 |
-| GL | glaucoma_v2 | AUC=0.9460 |
-| AMD | retinal_amd_v1 | AUC=0.9803 |
-| MYO | retinal_myopia_v1 | AUC=0.9460 |
-| Multi | multidisease_v1 | mAUC=0.9610 |
-| **v10c fast** | retinal_v10.onnx | composite=0.8842 |
-| **앙상블** | v10c + glaucoma_v2 | fast GL 0.900+ |
+아래 작업 시 LM Studio 켜주세요:
 
-### API
+- `POST /api/v1/lab/fundus/report` (진단보고서)
+- AutoNoGaDa `workflow.run()`
+- IRB 연구계획서 생성
 
-| 엔드포인트 | 설명 |
-|-----------|------|
-| `POST /api/v1/lab/fundus/comprehensive?mode=fast` | v10c ONNX ~6s |
-| `POST /api/v1/lab/fundus/comprehensive?mode=precise` | 5모델 ~42s |
-| `POST /api/v1/lab/fundus/report` | AutoNoGaDa LLM 보고서 (~67s) |
+```
+⚠️ LM Studio를 켜주세요: Windows에서 LM Studio 실행 → port 1234 → Serve on Local Network 활성화
+```
 
 ---
 
-## 2026-06-11 완료 ✅
-
-| 영역 | 내용 |
-|------|------|
-| v10c 운영 | composite=0.8842 · GL=0.835 |
-| LM Studio | 포트 **1234** (SVG-Stock `:8000` 충돌 해소) |
-| AutoNoGaDa | 실연동 · `/lab/fundus/report` |
-| Dashboard E2E | 양안 fast v10 · GradCAM · BilateralView · Fast/Precise · FHIR · Compare |
-| Partner E2E | REGISTER → ANALYZE → FHIR (`partner_e2e_inline.py`) |
-| IRB | `generate_irb_draft.py` · gemma-4-e4b · ch45 §45.10.2 |
-| Docker | 203.5GB → 54.86GB (~149GB 절약) |
-| DockerHub | `sangkny/medi-train:gpu-v1.0` · `cpu-v1.0` |
-
----
-
-## AutoNoGaDa 연동 ✅
+## 전처리 v2 (2026-06-13)
 
 | 항목 | 경로 |
 |------|------|
-| 통합 | `services/autonogada_integration.py` |
-| 보고서 | `ReportGenerator` CONSENSUS → LM Studio |
-| LM Studio | `.env.local` · `host.docker.internal:1234` |
-| Partner | `partner_e2e_inline.py` · audit_trail + FHIR Bundle |
+| v2 파이프라인 | `services/fundus_enhancement.py` |
+| v2_cache 배치 | `scripts/preprocess_v2.py` · `run_preprocess_v2_gpu.sh` |
+| 비교 | `compare_v2.py` (v1 vs v2) · `compare_v3.py` (채널) |
+| API | `?preprocess=v2` · `?preprocess=enhanced` (v2+local DCP) |
+| 가이드 | `docs/FUNDUS-ENHANCEMENT-GUIDE.md` · ch44 §44.3 |
+
+### 캐시 정리 계획
+
+| 캐시 | 상태 | 조치 |
+|------|------|------|
+| `resized_cache` | v10c 운영 | v10e 배포 후 삭제 |
+| `enhanced_cache` | v1 과도 | **삭제 예정** |
+| **`v2_cache`** | 생성 중 | **v10e 훈련** |
+
+### v10e 파이프라인 (전처리 완료 후)
+
+```bash
+# GPU 모니터링
+ssh smartvisionglobal@192.168.0.23 \
+  "tail -5 ~/workspace/.../MEDI-IOT-EyeCare/preprocess_v2.log"
+
+EXTRA2_V2=1 bash scripts/run_build_v10e_manifest_gpu.sh
+V10E=1 bash scripts/start_v10_train.sh
+```
 
 ---
 
-## GPU · Docker
+## API
+
+| 엔드포인트 | 설명 |
+|-----------|------|
+| `POST .../fundus/comprehensive?mode=fast` | v10c ONNX ~6s |
+| `POST .../fundus/comprehensive?preprocess=v2` | v2 실시간 전처리 |
+| `POST .../fundus/comprehensive?preprocess=enhanced` | v2 + local DCP |
+| `POST .../fundus/report` | AutoNoGaDa (**LM Studio 필요**) |
+
+---
+
+## GL 데이터 (v10e)
 
 | 항목 | 값 |
 |------|-----|
-| GPU 서버 | `192.168.0.23` |
-| 디스크 | 54.86GB (정리 전 203.5GB) |
-| DockerHub | `sangkny/medi-train:gpu-v1.0` · `cpu-v1.0` |
-| SSOT | `docs/DOCKER-REGISTRY.md` |
+| GL 합계 | **14,100** (11,725 + extra2 2,375) |
+| manifest | `unified_v10e.json` · `EXTRA2_V2=1` |
+| 문서 | `docs/GL-DATA-COLLECTION.md` |
 
 ---
-
-## GL 개선 결론 (2026-06-12)
-
-- v10d &lt; v10c → **v10c 유지** · GL 증강/오버샘플 효과 미미
-- **앙상블(Part D)** 로 GL 0.90+ 달성 — `docs/GL-IMPROVEMENT-HISTORY.md`
-- 다음: REFUGE/G1020 데이터 수집 · SaMD 임상 fine-tuning · v10e 검토
 
 ## 실행 환경 (Docker 필수)
 
 | 환경 | 실행 |
 |------|------|
 | 개발 PC | `docker exec medi-iot-api-dev python3 ...` |
-| GPU | `bash scripts/run_kaggle_gl_download_gpu.sh` · `run_preprocess_enhanced_gpu.sh` |
+| GPU | `docker run --entrypoint bash medi-train:gpu -c '...'` |
 
-**금지**: WSL/GPU 호스트에서 `python3` 직접 실행 — `docs/DOCKER-POLICY.md`
-
-## 안저 고품질 전처리 (2026-06-12)
-
-| 항목 | 경로 |
-|------|------|
-| 4모드 파이프라인 | `services/fundus_enhancement.py` |
-| enhanced_cache | `scripts/preprocess_enhanced.py` |
-| 비교 | `scripts/compare_enhancement.py` |
-| 가이드 | `docs/FUNDUS-ENHANCEMENT-GUIDE.md` |
-
-## GL 데이터 파이프라인 (v10e · 2026-06-13)
-
-| 항목 | 값 |
-|------|-----|
-| 기존 GL | **11,725장** |
-| extra2 | **2,375장** (G1020 1020 + ORIGA 650 + ACRIMA 705) |
-| v10e 합계 | **14,100장** |
-| manifest | `build_gl_extra2_manifest.py` → `build_v10e_manifest.py` |
-| GPU 일괄 | `bash scripts/run_build_v10e_manifest_gpu.sh` |
-| enhanced | `run_preprocess_enhanced_gpu.sh` → `EXTRA2_ENHANCED=1 run_build_v10e_manifest_gpu.sh` |
-| 훈련 | `V10E=1 bash scripts/start_v10_train.sh` |
-| 문서 | `docs/GL-DATA-COLLECTION.md` |
-
-## 다음 우선순위
-
-1. **CoOps M1** iOS TestFlight 준비
-2. **SaMD 병원 협력** — LOI 발송 (`docs/HOSPITAL-PARTNERSHIP.md`)
-3. **GL 데이터 추가 수집** (REFUGE / G1020) → v10e 재훈련 검토
-4. **shared-libraries PyPI** 패키지화 검토
+**금지**: WSL/GPU 호스트 `python3` 직접 — `docs/DOCKER-POLICY.md`
 
 ---
 
@@ -128,5 +96,5 @@
 
 ```bash
 curl -s http://localhost:8001/health
-docker compose -f ../docker-compose.dev.yml exec medi-iot-api python -m pytest tests/unit -q
+docker exec medi-iot-api-dev python -m pytest tests/test_fundus_enhancement.py -v
 ```

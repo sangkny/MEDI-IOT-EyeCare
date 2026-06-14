@@ -30,7 +30,8 @@ if [ "${V10E:-0}" = "1" ]; then
   MULTI_WEIGHT=0.13
   GL_OVERSAMPLE=1.0
   MANIFEST="${MANIFEST:-training/manifests/unified_v10e.json}"
-  echo "=== v10e (extra2 2375 + base GL, gl_w=0.28, enhanced_cache paths) ==="
+  V10_PREPROCESS="${V10_PREPROCESS:-none}"
+  echo "=== v10e (extra2 2375 + GL 14100, gl_w=0.28, v2_cache, preprocess=$V10_PREPROCESS) ==="
 elif [ "${V10D:-0}" = "1" ]; then
   OUTPUT="${OUTPUT:-models/retinal_v10d}"
   BATCH_SIZE=64
@@ -79,6 +80,9 @@ echo "output:   $OUTPUT"
 echo "dataset:  $DATASET_ROOT → /dataset"
 echo "dr_data:  $DR_DATA_DIR → /data_dr"
 echo "weights:  dr=$DR_WEIGHT gl=$GL_WEIGHT amd=$AMD_WEIGHT myo=$MYO_WEIGHT multi=$MULTI_WEIGHT warmup=$WARMUP_EPOCHS gl_oversample=$GL_OVERSAMPLE"
+if [ "${V10E:-0}" = "1" ]; then
+  echo "v10e: manifest=$MANIFEST preprocess=${V10_PREPROCESS:-none} (v2_cache 사전 전처리)"
+fi
 
 if [ ! -f "$REPO/$MANIFEST" ]; then
   echo "FAIL: $MANIFEST not found"

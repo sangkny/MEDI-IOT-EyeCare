@@ -1,95 +1,119 @@
-# 안저 고품질 전처리 가이드
+# 안저 고품질 전처리 가이드 (v2)
 
 > **코드**: `services/fundus_enhancement.py`  
-> **배치**: `scripts/preprocess_enhanced.py` → `enhanced_cache/`  
-> **비교**: `scripts/compare_enhancement.py`  
+> **배치**: `scripts/preprocess_v2.py` → `v2_cache/`  
+> **비교**: `scripts/compare_v2.py` · `compare_v3.py` · `compare_enhancement.py`  
 > **실행**: Docker 필수 — `docs/DOCKER-POLICY.md`
 
 ---
 
-## §1. 전처리 방법 비교
+## §1. v1 vs v2 비교
 
-| 방법 | `EnhanceMode` | 효과 | 처리시간 | 적합 대상 |
-|------|---------------|------|----------|-----------|
-| CLAHE only | `clahe` | 국소 대비 | 빠름 (**현재 운영**) | 모든 이미지 |
-| CLAHE+Unsharp | `clahe_unsharp` | 선명도 | 빠름 | 흐릿한 이미지 |
-| DCP+CLAHE | `dcp_clahe` | 안개/뿌연 제거 | 중간 | 백내장·저품질 |
-| **FULL** | `full` | DCP+CLAHE+Unsharp | 중간 | **GL 특화·v10e** |
+| 항목 | v1 (`resized_cache` / `enhanced_cache`) | v2 (`v2_cache`) |
+|------|----------------------------------------|-----------------|
+| Resize | 직접 224×224 → **원형 왜곡** | **CenterCrop** 후 resize |
+| CLAHE | ✅ | ✅ |
+| Unsharp | 전체/과도 | **RGB 선택** (σ=1.5, s=1.8) |
+| DCP | 전체 이미지 (역효과) | **유두 국소** (옵션) |
+| CDR | 비율 손상 위험 | **안저 원형 보존** |
 
-출력 캐시: `resized_cache/` (CLAHE only) vs **`enhanced_cache/`** (FULL) — 분리 유지.
+v1 `EnhanceMode` enum은 **폐기**. v2는 `enhance_fundus(use_clahe=..., use_unsharp=..., use_dcp=...)` 옵션 방식.
 
 ---
 
-## §2. 논문 근거
+## §2. v2 최종 설정 (선택 이유)
 
-| 논문 | 내용 |
+| 파라미터 | 값 | 이유 |
+|----------|-----|------|
+| `unsharp_sigma` | **1.5** | 혈관/시신경 경계 — 과도한 노이즈 없음 |
+| `unsharp_strength` | **1.8** | Laplacian edge energy ↑, CDR 왜곡 없음 |
+| `unsharp_channels` | **RGB** | R(혈관)+G(조직) 동시 강조 |
+| `use_dcp` | **False** (기본) | 전체 DCP는 배경 역효과 — 고품질 시 유두만 |
+| `size` | **224** | v10 훈련/추론 해상도 |
+
+---
+
+## §3. CenterCrop 중요성 (CDR 왜곡 방지)
+
+안저 이미지는 **원형 FOV**. v1에서 가로·세로 비율이 다른 채 `cv2.resize(224,224)` 하면 **타원→원 왜곡** → CDR(컵/디스크 비) 학습·추론에 치명적.
+
+v2: `center_crop_square()` — `min(H,W)` 기준 중앙 정사각형 → 224 resize.
+
+---
+
+## §4. 채널별 Unsharp 효과
+
+| 채널 | 효과 |
 |------|------|
-| **IETK-Ret** (MICCAI 2020) | Pixel Color Amplification — Dice **+0.491** |
-| **Dark Channel Prior** (He et al. 2009) | Dehazing SOTA — 안저 뿌연 제거 |
+| **R** | 혈관 강조 |
+| **G** | 망막 조직/시신경 강조 |
+| **B** | 효과 미미 (안저에서) |
+| **RGB** | 혈관+조직 동시 강조 (**기본값**) |
+| **RG** | R+G만 — B 노이즈 억제 |
+
+경량 추론: `unsharp_channels='G'`. API `preprocess=enhanced`는 v2 + `use_dcp=True`.
 
 ---
 
-## §3. Docker 실행 방법
+## §5. 캐시 관리 정책
 
-### 개발 PC — 비교 이미지
+| 캐시 | 상태 | 조치 |
+|------|------|------|
+| `resized_cache/` | v10c 운영 중 | v10e 배포 후 삭제 |
+| `enhanced_cache/` | v1 과도 전처리 | **삭제 예정** |
+| **`v2_cache/`** | v10e 훈련용 | **생성 중** (GPU) |
 
-```powershell
-docker exec medi-iot-api-dev python3 scripts/compare_enhancement.py `
-  --image /app/fundus_right_sklee.jpg `
-  --output /app/enhancement_comparison.png
+전처리 완료 후:
+
+```bash
+EXTRA2_V2=1 bash scripts/run_build_v10e_manifest_gpu.sh
+V10E=1 bash scripts/start_v10_train.sh
 ```
 
-### 개발 PC — 단위 테스트
+---
+
+## §6. Docker 실행 방법
+
+### 개발 PC — v1 vs v2 비교
+
+```powershell
+docker exec medi-iot-api-dev python3 scripts/compare_v2.py `
+  --image fundus_right_sklee.jpg `
+  --output /tmp/compare_v2.png
+```
+
+### 개발 PC — 채널 프리셋 비교
+
+```powershell
+docker exec medi-iot-api-dev python3 scripts/compare_v3.py `
+  --image fundus_right_sklee.jpg `
+  --output /tmp/compare_v3.png
+```
+
+### 개발 PC — 단위 테스트 (LM Studio 불필요)
 
 ```powershell
 docker exec medi-iot-api-dev python -m pytest tests/test_fundus_enhancement.py -v
 ```
 
-### GPU — enhanced_cache 배치
+### GPU — v2_cache 배치
 
 ```bash
-cd MEDI-IOT-EyeCare
-bash scripts/run_preprocess_enhanced_gpu.sh
-tail -f preprocess_enhanced.log
+bash scripts/run_preprocess_v2_gpu.sh
+tail -f preprocess_v2.log
 ```
 
-또는:
-
-```bash
-docker run --rm --shm-size=4g \
-  -v ~/workspace/dataset:/dataset \
-  -v $REPO/data:/data_dr \
-  -v $REPO:/workspace \
-  medi-train:gpu \
-  bash -c 'python3 /workspace/scripts/preprocess_enhanced.py'
-```
-
----
-
-## §4. 파이프라인 연동 (v10e)
+### API 실시간 v2
 
 ```
-Glaucoma_extra2 다운로드 (run_kaggle_gl_download_gpu.sh)
-  → preprocess_enhanced.py (enhanced_cache)
-  → build_glaucoma_v3_manifest.sh
-  → USE_GL_V3=1 build_v10_manifest.sh
-  → V10E=1 start_v10_train.sh
+POST /api/v1/lab/fundus/comprehensive?preprocess=v2
+POST /api/v1/lab/fundus/comprehensive?preprocess=enhanced   # v2 + local DCP
 ```
-
----
-
-## §5. 향후 계획
-
-본인 dehazing 알고리즘 통합:
-
-1. `EnhanceMode.CUSTOM` 추가
-2. `services/fundus_enhancement.py` → `custom_dehaze()` 함수
-3. A/B: `enhanced_cache` vs `resized_cache` GL AUC 비교
 
 ---
 
 ## 관련 문서
 
-- `docs/GL-DATA-COLLECTION.md` — 데이터 수집
+- `docs/GL-DATA-COLLECTION.md` — GL extra2 + v2_cache
 - `docs/DOCKER-POLICY.md` — 실행 환경 원칙
-- `docs/GL-IMPROVEMENT-HISTORY.md` — v10 시리즈 이력
+- `book/part7/ch44-v10-multitask-architecture.md` §44.3

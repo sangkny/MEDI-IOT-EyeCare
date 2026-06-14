@@ -40,11 +40,22 @@ def merge_v10e(
     extra2: dict,
     *,
     extra2_use_enhanced: bool = False,
+    use_v2_cache: bool = False,
 ) -> dict:
     merged: dict[str, dict] = {}
 
+    def _rewrite_path(path: str) -> str:
+        key = path.replace("\\", "/")
+        if use_v2_cache:
+            key = key.replace("/data_dr/resized_cache/", "/data_dr/v2_cache/")
+            key = key.replace("resized_cache/", "v2_cache/")
+            key = key.replace("enhanced_cache/", "v2_cache/")
+        elif extra2_use_enhanced and key.startswith("Glaucoma_extra2/"):
+            key = f"enhanced_cache/{key}"
+        return key
+
     for s in base.get("samples") or []:
-        key = str(s["path"]).replace("\\", "/")
+        key = _rewrite_path(str(s["path"]))
         merged[key] = {
             "path": key,
             "split": s.get("split", "train"),
@@ -58,8 +69,8 @@ def merge_v10e(
     updated = 0
 
     for s in extra2.get("samples") or []:
-        key = str(s["path"]).replace("\\", "/")
-        if extra2_use_enhanced and key.startswith("Glaucoma_extra2/"):
+        key = _rewrite_path(str(s["path"]))
+        if extra2_use_enhanced and not use_v2_cache and key.startswith("Glaucoma_extra2/"):
             key = f"enhanced_cache/{key}"
         label = int(s["available_labels"]["glaucoma"])
         if key in merged:
@@ -116,7 +127,12 @@ def main() -> None:
     p.add_argument(
         "--extra2-enhanced-paths",
         action="store_true",
-        help="prefix extra2 paths with enhanced_cache/ (after preprocess_enhanced)",
+        help="prefix extra2 paths with enhanced_cache/ (legacy v1)",
+    )
+    p.add_argument(
+        "--v2-cache-paths",
+        action="store_true",
+        help="rewrite all paths to v2_cache/ (after preprocess_v2)",
     )
     args = p.parse_args()
 
@@ -131,6 +147,7 @@ def main() -> None:
         _load(base_path),
         _load(extra2_path),
         extra2_use_enhanced=args.extra2_enhanced_paths,
+        use_v2_cache=args.v2_cache_paths,
     )
     st = manifest["glaucoma_stats"]
     print(

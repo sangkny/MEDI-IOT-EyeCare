@@ -116,17 +116,25 @@ ACRIMA·G1020·ORIGA는 **2026-06-13 GPU 확보 완료**.
 
 ---
 
-## §5. 전처리
+## §5. 전처리 (v2)
 
-| 캐시 | 스크립트 | 용도 |
-|------|----------|------|
-| `resized_cache/` | `preprocess_all.py` | CLAHE only (기존) |
-| `enhanced_cache/` | `preprocess_enhanced.py` | DCP+CLAHE+Unsharp (**v10e**) |
+| 캐시 | 스크립트 | 용도 | 상태 |
+|------|----------|------|------|
+| `resized_cache/` | `preprocess_all.py` | CLAHE only (v1 왜곡) | v10c 운영 → 삭제 예정 |
+| `enhanced_cache/` | `preprocess_enhanced.py` | v1 DCP+FULL (과도) | **삭제 예정** |
+| **`v2_cache/`** | **`preprocess_v2.py`** | **CenterCrop+CLAHE+Unsharp** | **v10e 훈련용 (생성 중)** |
 
 ```bash
-bash scripts/run_preprocess_enhanced_gpu.sh
-tail -f preprocess_enhanced.log
+# GPU v2_cache (백그라운드)
+bash scripts/run_preprocess_v2_gpu.sh
+tail -f preprocess_v2.log
+
+# 진행 확인 (GPU SSH)
+ssh smartvisionglobal@192.168.0.23 \
+  "tail -5 ~/workspace/Office_Automation/idea-collection/MEDI-IOT-EyeCare/preprocess_v2.log"
 ```
+
+`preprocess_v2.py`는 `services/fundus_enhancement.enhance_fundus()` import — Docker 내부 전용.
 
 ---
 
@@ -143,8 +151,14 @@ V10E=1 bash scripts/start_v10_train.sh
 | GL 장수 | ~11,725 | **~14,100** |
 | gl_weight | 0.28 | **0.28** |
 | gl_oversample | 1.0 | **1.0** |
-| preprocess | none (resized_cache) | none (**enhanced_cache**) |
+| preprocess | none (resized_cache) | none (**v2_cache**) |
 | batch / warmup | 64 / 8 | 64 / 8 |
+
+manifest v2 경로:
+
+```bash
+EXTRA2_V2=1 bash scripts/run_build_v10e_manifest_gpu.sh
+```
 
 ---
 
@@ -163,8 +177,8 @@ V10E=1 bash scripts/start_v10_train.sh
 
 ```
 extra2 데이터 확보 ✅
-  → run_build_v10e_manifest_gpu.sh
-  → run_preprocess_enhanced_gpu.sh
-  → EXTRA2_ENHANCED=1 run_build_v10e_manifest_gpu.sh
+  → run_preprocess_v2_gpu.sh (v2_cache 생성)
+  → EXTRA2_V2=1 run_build_v10e_manifest_gpu.sh
   → V10E=1 start_v10_train.sh
+  → (v10e 배포 후) enhanced_cache · resized_cache 삭제
 ```

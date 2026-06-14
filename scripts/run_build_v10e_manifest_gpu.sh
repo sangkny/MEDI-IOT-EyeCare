@@ -12,9 +12,13 @@ DATASET_ROOT="${DATASET_ROOT:-$HOME/workspace/dataset}"
 IMAGE="${TRAIN_IMAGE:-medi-train:gpu}"
 PATH_ROOT="${PATH_ROOT:-Glaucoma_extra2}"
 EXTRA2_ENHANCED="${EXTRA2_ENHANCED:-0}"
+EXTRA2_V2="${EXTRA2_V2:-0}"
 
 EXTRA_ARGS=()
-if [ "$EXTRA2_ENHANCED" = "1" ]; then
+if [ "$EXTRA2_V2" = "1" ]; then
+  PATH_ROOT="v2_cache"
+  EXTRA_ARGS+=(--v2-cache-paths)
+elif [ "$EXTRA2_ENHANCED" = "1" ]; then
   PATH_ROOT="enhanced_cache"
   EXTRA_ARGS+=(--extra2-enhanced-paths)
 fi

@@ -52,6 +52,19 @@ def test_preprocess_mode_both() -> None:
 def test_resolve_preprocess_default() -> None:
     assert resolve_preprocess_mode("clahe") == "clahe"
     assert resolve_preprocess_mode("none") == "none"
+    assert resolve_preprocess_mode("enhanced") == "enhanced"
+    assert resolve_preprocess_mode("v2") == "v2"
+
+
+@pytest.mark.skipif(
+    not __import__("importlib").util.find_spec("cv2"),
+    reason="opencv not installed",
+)
+def test_preprocess_v2_mode() -> None:
+    img = np.random.randint(0, 255, (64, 64, 3), dtype=np.uint8)
+    out = preprocess_fundus_array(img, mode="v2")
+    assert out.shape == (224, 224, 3)
+    assert out.dtype == np.uint8
 
 
 @pytest.mark.skipif(

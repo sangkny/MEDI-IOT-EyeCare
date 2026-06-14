@@ -1065,17 +1065,103 @@ async def run_comprehensive_fundus(
 
     mode: str = "fast",
 
+    preprocess: str | None = None,
+
 ) -> ComprehensiveFundusResponse:
 
     """DR + Glaucoma + AMD + Myopia + 다질환 스크리닝 동시 분석."""
+
+    import os
+
+    from services.retinal_cnn import enhance_fundus_bytes, resolve_preprocess_mode
+
+    pm = resolve_preprocess_mode(preprocess)
+
+    if pm == "enhanced":
+
+        image_bytes = enhance_fundus_bytes(image_bytes)
+
+        pm = "none"
+
+    old_pp = os.environ.get("MEDI_CNN_PREPROCESS")
+
+    if pm == "none":
+
+        os.environ["MEDI_CNN_PREPROCESS"] = "none"
+
+    elif preprocess is not None:
+
+        os.environ["MEDI_CNN_PREPROCESS"] = pm
+
+    try:
+
+        return await _run_comprehensive_fundus_impl(
+
+            image_bytes,
+
+            lang=lang,
+
+            patient_id=patient_id,
+
+            location=location,
+
+            eye=eye,
+
+            include_heatmap=include_heatmap,
+
+            tasks=tasks,
+
+            mode=mode,
+
+            t0=time.perf_counter(),
+
+        )
+
+    finally:
+
+        if old_pp is None:
+
+            os.environ.pop("MEDI_CNN_PREPROCESS", None)
+
+        else:
+
+            os.environ["MEDI_CNN_PREPROCESS"] = old_pp
+
+
+
+
+
+async def _run_comprehensive_fundus_impl(
+
+    image_bytes: bytes,
+
+    *,
+
+    lang: str = "ko",
+
+    patient_id: str | None = None,
+
+    location: tuple[float, float] | None = None,
+
+    eye: str | None = None,
+
+    include_heatmap: bool = True,
+
+    tasks: list[str] | None = None,
+
+    mode: str = "fast",
+
+    t0: float,
+
+) -> ComprehensiveFundusResponse:
+
+    """내부 구현 — preprocess env는 호출 전에 설정됨."""
 
     mode_norm = (mode or "fast").strip().lower()
 
     if mode_norm not in ("fast", "precise"):
 
         mode_norm = "fast"
-
-    t0 = time.perf_counter()
 
     active = tasks or ["dr", "glaucoma", "amd", "myopia", "screening"]
 

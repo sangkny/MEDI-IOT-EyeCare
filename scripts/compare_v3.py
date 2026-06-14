@@ -1,16 +1,15 @@
 #!/usr/bin/env python3
 """
-파일명: compare_enhancement.py
-목적: v2 전처리 프리셋 시각 비교 (compare_v3와 동일 프리셋)
+파일명: compare_v3.py
+목적: v2 Unsharp 채널 조합 비교 (RGB / G / RG / +DCP)
 실행: Docker 컨테이너 내부에서만 실행
 히스토리:
-  2026-06-12 - v1 EnhanceMode 4모드
-  2026-06-13 - v2 프리셋으로 교체
+  2026-06-13 - 최초 작성
 
 개발 PC:
-  docker exec medi-iot-api-dev python3 scripts/compare_enhancement.py \\
+  docker exec medi-iot-api-dev python3 scripts/compare_v3.py \\
     --image fundus_right_sklee.jpg \\
-    --output /tmp/enhancement_comparison.png
+    --output /tmp/compare_v3.png
 """
 from __future__ import annotations
 
@@ -62,9 +61,9 @@ def build_comparison(img_bgr: np.ndarray, target_h: int = 224) -> np.ndarray:
 
 
 def main() -> None:
-    p = argparse.ArgumentParser(description="Compare fundus enhancement v2 presets")
+    p = argparse.ArgumentParser(description="Compare v2 unsharp channel presets")
     p.add_argument("--image", type=Path, required=True)
-    p.add_argument("--output", type=Path, default=ROOT / "enhancement_comparison.png")
+    p.add_argument("--output", type=Path, default=ROOT / "compare_v3.png")
     p.add_argument("--height", type=int, default=224)
     args = p.parse_args()
 
@@ -77,7 +76,7 @@ def main() -> None:
     out = args.output if args.output.is_absolute() else ROOT / args.output
     out.parent.mkdir(parents=True, exist_ok=True)
     cv2.imwrite(str(out), collage)
-    print(f"OK → {out} ({collage.shape[1]}x{collage.shape[0]}) presets={len(PRESETS)}")
+    print(f"OK → {out} ({collage.shape[1]}x{collage.shape[0]})")
 
 
 if __name__ == "__main__":

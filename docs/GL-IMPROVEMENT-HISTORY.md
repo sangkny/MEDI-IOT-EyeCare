@@ -11,6 +11,19 @@ fast mode GL AUC 목표: **0.900+** (v10c 단독 baseline 0.835)
 | v10c | 0.835 | 0.8842 | 0.28 | 균형 | ✅ **운영 중** |
 | v10d | 0.833 | 0.8793 | 0.32 | GL증강+오버샘플 | ❌ 미배포 |
 | v10c+ensemble | 0.900+ | 0.8842 | — | v10c+glaucoma_v2 앙상블 | ✅ **운영** |
+| **v10e** | **TBD** | **TBD** | **0.28** | extra2 2,375 + enhanced_cache | 🔄 **진행중** |
+
+## v10e (2026-06-13)
+
+| 항목 | 값 |
+|------|-----|
+| GL 데이터 | 기존 11,725 + extra2 **2,375** = **14,100** |
+| extra2 소스 | G1020 1,020 · ORIGA 650 · ACRIMA 705 |
+| 전처리 | `enhanced_cache` — DCP+CLAHE+Unsharp (`scripts/preprocess_enhanced.py`) |
+| manifest | `unified_v10e.json` · `EXTRA2_ENHANCED=1` 시 enhanced 경로 |
+| loss_weights | dr=0.25 gl=**0.28** amd=0.17 myo=0.17 multi=0.13 |
+| gl_oversample | **1.0** |
+| 실행 | `V10E=1 bash scripts/start_v10_train.sh` |
 
 ## 결론 (2026-06-12)
 

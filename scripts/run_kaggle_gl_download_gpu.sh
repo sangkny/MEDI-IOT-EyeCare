@@ -25,8 +25,8 @@ echo "log:     $LOG"
 docker run --rm \
   -v "$HOME/.kaggle:/root/.kaggle:ro" \
   -v "$DATASET_ROOT:/dataset" \
-  "$IMAGE" \
-  bash -c '
+  --entrypoint bash \
+  "$IMAGE" -c '
     set -euo pipefail
     pip install kaggle --break-system-packages -q
     kaggle --version

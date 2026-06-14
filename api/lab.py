@@ -567,6 +567,10 @@ async def lab_fundus_comprehensive(
         "fast",
         description="fast: v10 ONNX 단일 추론 | precise: 독립 5모델 순차",
     ),
+    preprocess: str = Query(
+        "clahe",
+        description="none | clahe | v2 | enhanced (v2+local DCP 실시간)",
+    ),
     _: dict = LAB_AUTH,
 ) -> ComprehensiveFundusResponse:
     """DR + Glaucoma + AMD + Myopia + 28-class 스크리닝 동시 분석."""
@@ -588,6 +592,7 @@ async def lab_fundus_comprehensive(
             include_heatmap=include_heatmap,
             tasks=active,
             mode=mode,
+            preprocess=preprocess,
         )
         if fmt_label and result.input_format is None:
             return result.model_copy(update={"input_format": fmt_label})

@@ -14,8 +14,8 @@ IMAGE="${TRAIN_IMAGE:-medi-train:gpu}"
 docker run --rm \
   -v "$DATASET_ROOT:/dataset" \
   -v "$REPO:/workspace:ro" \
-  "$IMAGE" \
-  bash -c '
+  --entrypoint bash \
+  "$IMAGE" -c '
     echo "=== Glaucoma_raw ==="
     find /dataset/Glaucoma_raw \( -iname "*.jpg" -o -iname "*.png" \) 2>/dev/null | wc -l
     echo "=== Glaucoma_extra ==="

@@ -10,7 +10,7 @@
 
 환경:
   ``MEDI_CNN_ARCH`` — efficientnet_b0 | efficientnet_b4 | efficientnet_b4_se | efficientnet_v2_s | msef_net
-  ``MEDI_CNN_PREPROCESS`` — none | clahe | ben_graham | both
+  ``MEDI_CNN_PREPROCESS`` — none | clahe | ben_graham | both | enhanced | v2
 """
 from __future__ import annotations
 
@@ -53,7 +53,7 @@ DEFAULT_IMAGE_SIZE = 224
 DEFAULT_CNN_ARCH = "efficientnet_b4"
 DEFAULT_PREPROCESS = "clahe"
 
-PreprocessMode = Literal["none", "clahe", "ben_graham", "both"]
+PreprocessMode = Literal["none", "clahe", "ben_graham", "both", "enhanced", "v2"]
 
 ARCH_ALIASES: dict[str, str] = {
     "efficientnet-b0": "efficientnet_b0",
@@ -98,7 +98,7 @@ def resolve_cnn_arch(name: str | None = None) -> str:
 
 def resolve_preprocess_mode(mode: str | None = None) -> PreprocessMode:
     raw = (mode or os.getenv("MEDI_CNN_PREPROCESS") or DEFAULT_PREPROCESS).strip().lower()
-    if raw in ("none", "clahe", "ben_graham", "both"):
+    if raw in ("none", "clahe", "ben_graham", "both", "enhanced", "v2"):
         return raw  # type: ignore[return-value]
     return "clahe"
 
@@ -133,11 +133,35 @@ def preprocess_fundus_array(
     """RGB uint8 HxWx3 → 전처리된 RGB."""
     pm = resolve_preprocess_mode(str(mode) if mode else None)
     out = image
+    if pm in ("v2", "enhanced"):
+        import cv2
+
+        from services.fundus_enhancement import enhance_fundus
+
+        bgr = cv2.cvtColor(out, cv2.COLOR_RGB2BGR)
+        bgr = enhance_fundus(
+            bgr,
+            size=DEFAULT_IMAGE_SIZE,
+            use_dcp=(pm == "enhanced"),
+        )
+        return cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
     if pm in ("clahe", "both"):
         out = apply_clahe(out)
     if pm in ("ben_graham", "both"):
         out = ben_graham_preprocess(out)
     return out
+
+
+def enhance_fundus_bytes(image_bytes: bytes) -> bytes:
+    """v2 실시간 전처리 — DCP(유두국소)+CLAHE+Unsharp+CenterCrop."""
+    from PIL import Image
+
+    img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
+    arr = preprocess_fundus_array(np.array(img), mode="enhanced")
+    out = Image.fromarray(arr)
+    buf = io.BytesIO()
+    out.save(buf, format="JPEG", quality=95)
+    return buf.getvalue()
 
 
 def dr_prediction_from_logits(logits: Any) -> DrPrediction:

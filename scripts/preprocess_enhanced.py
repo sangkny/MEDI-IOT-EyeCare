@@ -1,25 +1,18 @@
 #!/usr/bin/env python3
 """
 파일명: preprocess_enhanced.py
-목적: DCP+CLAHE+Unsharp 고품질 전처리로 enhanced_cache 생성
-      기존 resized_cache(CLAHE only)와 분리 유지
+목적: [DEPRECATED v1] enhanced_cache — v2는 preprocess_v2.py → v2_cache 사용
 실행: Docker 컨테이너 내부에서만 실행 (docs/DOCKER-POLICY.md)
 히스토리:
-  2026-06-12 - 최초 작성
-
-GPU 예:
-  docker run --rm --shm-size=4g \\
-    -v ~/workspace/dataset:/dataset \\
-    -v ~/workspace/.../MEDI-IOT-EyeCare/data:/data_dr \\
-    -v ~/workspace/.../MEDI-IOT-EyeCare:/workspace \\
-    medi-train:gpu \\
-    bash -c 'python3 /workspace/scripts/preprocess_enhanced.py'
+  2026-06-12 - v1 최초 작성
+  2026-06-13 - v2 fundus_enhancement import (레거시 enhanced_cache용)
 """
 from __future__ import annotations
 
 import glob
 import sys
 import time
+import warnings
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -27,10 +20,9 @@ sys.path.insert(0, str(ROOT))
 
 import cv2  # noqa: E402
 
-from services.fundus_enhancement import EnhanceMode, enhance_fundus  # noqa: E402
+from services.fundus_enhancement import enhance_fundus  # noqa: E402
 
 IMAGE_SIZE = 224
-MODE = EnhanceMode.FULL
 
 SRC_DIRS = [
     ("/dataset/Glaucoma_raw", "/dataset/enhanced_cache/Glaucoma_raw"),
@@ -69,10 +61,7 @@ def _process_tree(src: str, dst: str) -> int:
         img = cv2.imread(p)
         if img is None:
             continue
-        enhanced = enhance_fundus(img, mode=MODE)
-        enhanced = cv2.resize(
-            enhanced, (IMAGE_SIZE, IMAGE_SIZE), interpolation=cv2.INTER_LANCZOS4
-        )
+        enhanced = enhance_fundus(img, use_dcp=True, size=IMAGE_SIZE)
         cv2.imwrite(str(out), enhanced, [cv2.IMWRITE_JPEG_QUALITY, 95])
         count += 1
         if count % 500 == 0:
@@ -81,11 +70,16 @@ def _process_tree(src: str, dst: str) -> int:
 
 
 def main() -> None:
+    warnings.warn(
+        "preprocess_enhanced.py is deprecated — use scripts/preprocess_v2.py → v2_cache",
+        DeprecationWarning,
+        stacklevel=1,
+    )
     t0 = time.time()
     total = 0
     for src, dst in SRC_DIRS + DR_SRC_DIRS:
         total += _process_tree(src, dst)
-    print(f"완료: {total}장 ({time.time() - t0:.0f}s) mode={MODE.value}")
+    print(f"완료: {total}장 ({time.time() - t0:.0f}s) enhanced_cache (legacy v1-like DCP+FULL)")
 
 
 if __name__ == "__main__":
