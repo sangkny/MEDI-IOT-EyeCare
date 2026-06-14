@@ -191,7 +191,7 @@ class V10Dataset(Dataset):
             "myopia": float(al["myopia"]) if "myopia" in al else math.nan,
             "multidisease": dict(al["multidisease"]) if "multidisease" in al else None,
         }
-        return transform(img), labels
+        return img, labels
 
 
 def _collate_v10(batch: list) -> tuple[torch.Tensor, V10BatchLabels]:

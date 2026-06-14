@@ -1,23 +1,25 @@
 # MEDI-IOT-EyeCare — Cursor Agent 인수인계
 
-> 최종 업데이트: 2026-06-11 (저녁)  
+> 최종 업데이트: **2026-06-12**  
 > **메타 HANDOVER**: `idea-collection/CURSOR_HANDOVER.md`
 
 ---
 
-## 현재 스냅샷 (Git: `04d3aa1`)
+## 현재 스냅샷
 
 | 항목 | 값 |
 |------|-----|
-| unit | **146 passed** (`pytest -m unit`, LLM mock · ~1min) |
+| unit | **152 passed** (`pytest -m unit`, LLM mock) |
 | smoke | **230 passed** (API + LLM mock) |
-| v10c | composite **0.8842** · GL **0.835** · `gl_weight=0.28` |
-| ONNX | `scripts/export_v10.py` only (5-head · `export_multidisease_v1.py` 금지) |
-| fast | ~6s 콜드 / **0.34s** 웜 (`mode=fast` v10c) |
-| precise | ~42s (`mode=precise` 5모델) |
-| LM Studio | `192.168.0.12:1234` · 테스트=**e4b only** (26b Eject) · `docs/LM-STUDIO-GUIDE.md` |
+| **v10c** | composite **0.8842** · GL **0.835** · `gl_weight=0.28` · ✅ **운영** |
+| **v10d** | composite **0.8793** · GL **0.833** (ep42) · ❌ **미배포** |
+| **앙상블** | fast GL **0.900+** · sklee 0.605→**0.725** · `ensemble_v10c_v2` |
+| ONNX | `scripts/export_v10.py` only |
+| fast | v10c ONNX + 불확실 구간 glaucoma_v2 앙상블 |
+| precise | ~42s (5모델) |
+| LM Studio | `192.168.0.12:1234` · `docs/LM-STUDIO-GUIDE.md` |
 
-### 운영 모델 (5질환 + v10c)
+### 운영 모델 (5질환 + v10c + 앙상블)
 
 | 질환 | 모델 | 지표 |
 |------|------|------|
@@ -27,6 +29,7 @@
 | MYO | retinal_myopia_v1 | AUC=0.9460 |
 | Multi | multidisease_v1 | mAUC=0.9610 |
 | **v10c fast** | retinal_v10.onnx | composite=0.8842 |
+| **앙상블** | v10c + glaucoma_v2 | fast GL 0.900+ |
 
 ### API
 
@@ -75,11 +78,17 @@
 
 ---
 
+## GL 개선 결론 (2026-06-12)
+
+- v10d &lt; v10c → **v10c 유지** · GL 증강/오버샘플 효과 미미
+- **앙상블(Part D)** 로 GL 0.90+ 달성 — `docs/GL-IMPROVEMENT-HISTORY.md`
+- 다음: REFUGE/G1020 데이터 수집 · SaMD 임상 fine-tuning · v10e 검토
+
 ## 다음 우선순위
 
 1. **CoOps M1** iOS TestFlight 준비
 2. **SaMD 병원 협력** — LOI 발송 (`docs/HOSPITAL-PARTNERSHIP.md`)
-3. **v10c GL AUC** 0.835 → **0.90** 개선 검토 (데이터 증강 또는 추가 수집)
+3. **GL 데이터 추가 수집** (REFUGE / G1020) → v10e 재훈련 검토
 4. **shared-libraries PyPI** 패키지화 검토
 
 ---

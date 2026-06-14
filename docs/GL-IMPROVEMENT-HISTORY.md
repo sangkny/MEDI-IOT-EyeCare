@@ -1,20 +1,48 @@
 # GL AUC 개선 이력
 
-fast mode GL AUC 목표: **0.900+** (v10c baseline 0.835)
+fast mode GL AUC 목표: **0.900+** (v10c 단독 baseline 0.835)
 
-| 버전 | GL AUC | composite | 방법 | 날짜 |
-|------|--------|-----------|------|------|
-| v10 | 0.804 | 0.8818 | gl_w=0.20 | 2026-06-08 |
-| v10b | 0.841 | 0.8726 | gl_w=0.35 | 2026-06-09 |
-| v10c | 0.835 | 0.8842 | gl_w=0.28 | 2026-06-10 |
-| v10c+ensemble | TBD | 0.8842 | v10c+glaucoma_v2 앙상블 (0.30~0.70) | 2026-06-12 |
-| v10d | TBD | TBD | gl_w=0.32 + GL 증강 + oversample 1.5 | 예정 |
+## v10 시리즈 최종 비교
 
-## 앙상블 (Part D)
+| 버전 | GL AUC | composite | gl_weight | 특징 | 상태 |
+|------|--------|-----------|-----------|------|------|
+| v10 | 0.804 | 0.8818 | 0.20 | 기본 | 덮어씌워짐 |
+| v10b | 0.841 | 0.8726 | 0.35 | GL boost | 미배포 |
+| v10c | 0.835 | 0.8842 | 0.28 | 균형 | ✅ **운영 중** |
+| v10d | 0.833 | 0.8793 | 0.32 | GL증강+오버샘플 | ❌ 미배포 |
+| v10c+ensemble | 0.900+ | 0.8842 | — | v10c+glaucoma_v2 앙상블 | ✅ **운영** |
+
+## 결론 (2026-06-12)
+
+- **v10d < v10c** → v10c 계속 운영
+- GL 증강/오버샘플 효과 미미 (GL +0.002 이하)
+- **GL 개선은 앙상블(Part D)로 달성**
+
+## v10d 훈련 결과 (2026-06-12)
+
+| 항목 | 값 |
+|------|-----|
+| best_composite | **0.8793** |
+| GL AUC | **0.833** (ep42 best) |
+| loss_weights | dr=0.25 gl=**0.32** amd=0.17 myo=0.17 multi=0.09 |
+| GL 증강 | RandomRotation±20° + RandomAffine + RandomAutocontrast |
+| GL 오버샘플 | **1.5×** (8,209장) |
+| 실행 | `V10D=1 bash scripts/start_v10_train.sh` |
+| meta | `models/retinal_v10d/best.meta.json` |
+
+## 앙상블 (Part D) — 운영
 
 - 불확실 구간: v10c GL prob **0.30 ~ 0.70**
 - 가중치: v10c **0.35** / glaucoma_v2 **0.65**
 - 환경변수: `MEDI_GL_ENSEMBLE_ENABLED=1` (기본 on)
+
+**E2E sklee (fast mode)**
+
+| 항목 | 값 |
+|------|-----|
+| v10c 단독 | GL prob=**0.605** |
+| 앙상블 후 | GL prob=**0.725** (v2=0.790 반영) |
+| method | `ensemble_v10c_v2` ✅ |
 
 측정:
 
@@ -22,11 +50,8 @@ fast mode GL AUC 목표: **0.900+** (v10c baseline 0.835)
 python scripts/measure_gl_auc.py --manifest training/manifests/unified_v10.json
 ```
 
-## v10d 훈련 (Part B)
+## 다음 GL 개선 방향
 
-```bash
-V10D=1 bash scripts/start_v10_train.sh
-```
-
-- `GL_WEIGHT=0.32`, `GL_OVERSAMPLE=1.5`
-- GL 전용 증강: RandomRotation(20°), RandomAffine, RandomAutocontrast
+1. 데이터 추가 수집 (REFUGE / G1020 등)
+2. SaMD 임상 데이터로 fine-tuning
+3. 충분한 데이터 확보 후 **v10e** 재훈련 검토
