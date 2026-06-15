@@ -6,7 +6,17 @@
 | v10b | 미배포 | GL boost | 0.35 | ~11,725 | 2026-06 |
 | v10c | ✅ 운영 | 균형 · 앙상블 base | 0.28 | ~11,725 | 2026-06 |
 | v10d | ❌ 미배포 | GL증강+oversample | 0.32 | ~11,725 | 2026-06-12 |
-| **v10e** | **진행중** | GL증강+extra2+**v2_cache** | **0.28** | **14,100** | **2026-06-13** |
+| **v10e** | **훈련 중** | GL증강+extra2+**v2_cache** | **0.28** | **14,100** | **2026-06-14** |
+
+## v10e 훈련 (2026-06-14)
+
+| 항목 | 값 |
+|------|-----|
+| manifest | `unified_v10e.json` · **21,454** train samples |
+| 전처리 | `v2_cache` (CenterCrop+CLAHE+UnsharpRGB) |
+| epoch 4 (참고) | GL AUC **0.764** · composite **0.833** (상승 중) |
+| loss_weights | dr=0.25 gl=**0.28** amd=0.17 myo=0.17 multi=0.13 |
+| 실행 | `V10E=1 bash scripts/start_v10_train.sh` |
 
 ## v10e 준비 (2026-06-13)
 

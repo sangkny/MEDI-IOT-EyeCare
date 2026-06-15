@@ -152,16 +152,25 @@ def preprocess_fundus_array(
     return out
 
 
-def enhance_fundus_bytes(image_bytes: bytes) -> bytes:
-    """v2 실시간 전처리 — DCP(유두국소)+CLAHE+Unsharp+CenterCrop."""
+def preprocess_fundus_bytes(
+    image_bytes: bytes,
+    *,
+    mode: PreprocessMode | str = "v2",
+) -> bytes:
+    """v2/enhanced 실시간 전처리 — API comprehensive용 JPEG bytes."""
     from PIL import Image
 
     img = Image.open(io.BytesIO(image_bytes)).convert("RGB")
-    arr = preprocess_fundus_array(np.array(img), mode="enhanced")
+    arr = preprocess_fundus_array(np.array(img), mode=mode)
     out = Image.fromarray(arr)
     buf = io.BytesIO()
     out.save(buf, format="JPEG", quality=95)
     return buf.getvalue()
+
+
+def enhance_fundus_bytes(image_bytes: bytes) -> bytes:
+    """v2 + local DCP — API preprocess=enhanced."""
+    return preprocess_fundus_bytes(image_bytes, mode="enhanced")
 
 
 def dr_prediction_from_logits(logits: Any) -> DrPrediction:

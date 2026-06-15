@@ -3,6 +3,7 @@
 # 파일명: start_v10_train.sh
 # 목적: v10/v10b/v10c/v10d 멀티태스크 훈련 — V10B/V10C/V10D env
 # 히스토리:
+#   2026-06-14 - V10E manifest unified_v10e.json 고정 (:- 버그 수정)
 #   2026-06-12 - V10E 블록 (extra2 데이터 + gl_w=0.28)
 #   2026-06-12 - V10D 블록 (GL 증강+오버샘플+weight0.32)
 #   2026-06-11 - 현재 상태 문서화 + 히스토리 추가
@@ -16,7 +17,7 @@ REPO="${REPO:-$(cd "$(dirname "$0")/.." && pwd)}"
 DATASET_ROOT="${DATASET_ROOT:-$HOME/workspace/dataset}"
 DR_DATA_DIR="${DR_DATA_DIR:-$REPO/data}"
 IMAGE="${TRAIN_IMAGE:-medi-train:gpu}"
-MANIFEST="${MANIFEST:-training/manifests/unified_v10.json}"
+MANIFEST="${MANIFEST:-}"
 GL_OVERSAMPLE="${GL_OVERSAMPLE:-1.0}"
 
 if [ "${V10E:-0}" = "1" ]; then
@@ -29,7 +30,7 @@ if [ "${V10E:-0}" = "1" ]; then
   MYO_WEIGHT=0.17
   MULTI_WEIGHT=0.13
   GL_OVERSAMPLE=1.0
-  MANIFEST="${MANIFEST:-training/manifests/unified_v10e.json}"
+  MANIFEST="training/manifests/unified_v10e.json"
   V10_PREPROCESS="${V10_PREPROCESS:-none}"
   echo "=== v10e (extra2 2375 + GL 14100, gl_w=0.28, v2_cache, preprocess=$V10_PREPROCESS) ==="
 elif [ "${V10D:-0}" = "1" ]; then
@@ -42,6 +43,7 @@ elif [ "${V10D:-0}" = "1" ]; then
   MYO_WEIGHT=0.17
   MULTI_WEIGHT=0.09
   GL_OVERSAMPLE=1.5
+  MANIFEST="${MANIFEST:-training/manifests/unified_v10.json}"
   echo "=== v10d (GL 증강 + weight 0.32 + oversample 1.5) ==="
 elif [ "${V10C:-0}" = "1" ]; then
   OUTPUT="${OUTPUT:-models/retinal_v10c}"
@@ -52,6 +54,7 @@ elif [ "${V10C:-0}" = "1" ]; then
   AMD_WEIGHT=0.17
   MYO_WEIGHT=0.17
   MULTI_WEIGHT=0.13
+  MANIFEST="${MANIFEST:-training/manifests/unified_v10.json}"
   echo "=== v10c retrain (GL weight 0.28) ==="
 elif [ "${V10B:-0}" = "1" ]; then
   OUTPUT="${OUTPUT:-models/retinal_v10b}"
@@ -62,6 +65,7 @@ elif [ "${V10B:-0}" = "1" ]; then
   AMD_WEIGHT=0.15
   MYO_WEIGHT=0.15
   MULTI_WEIGHT=0.10
+  MANIFEST="${MANIFEST:-training/manifests/unified_v10.json}"
   echo "=== v10b retrain (GL weight boost) ==="
 else
   OUTPUT="${OUTPUT:-models/retinal_v10}"
@@ -72,6 +76,7 @@ else
   AMD_WEIGHT=0.20
   MYO_WEIGHT=0.20
   MULTI_WEIGHT=0.10
+  MANIFEST="${MANIFEST:-training/manifests/unified_v10.json}"
 fi
 
 echo "=== start_v10_train ==="
@@ -88,7 +93,7 @@ if [ ! -f "$REPO/$MANIFEST" ]; then
   echo "FAIL: $MANIFEST not found"
   if [ "${V10E:-0}" = "1" ]; then
     echo "  → bash scripts/run_build_v10e_manifest_gpu.sh"
-    echo "  → enhanced 후: EXTRA2_ENHANCED=1 bash scripts/run_build_v10e_manifest_gpu.sh"
+    echo "  → EXTRA2_V2=1 bash scripts/run_build_v10e_manifest_gpu.sh"
   else
     echo "  → bash scripts/build_v10_manifest.sh"
   fi

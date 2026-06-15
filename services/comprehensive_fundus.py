@@ -1073,13 +1073,13 @@ async def run_comprehensive_fundus(
 
     import os
 
-    from services.retinal_cnn import enhance_fundus_bytes, resolve_preprocess_mode
+    from services.retinal_cnn import preprocess_fundus_bytes, resolve_preprocess_mode
 
     pm = resolve_preprocess_mode(preprocess)
 
-    if pm == "enhanced":
+    if pm in ("enhanced", "v2"):
 
-        image_bytes = enhance_fundus_bytes(image_bytes)
+        image_bytes = preprocess_fundus_bytes(image_bytes, mode=pm)
 
         pm = "none"
 
