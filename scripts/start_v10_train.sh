@@ -10,7 +10,7 @@
 # =============================================================
 # v10 통합 멀티태스크 훈련 — GPU 서버에서 실행
 # 예: bash scripts/start_v10_train.sh
-# v10b: V10B=1  v10c: V10C=1  v10d: V10D=1  v10e: V10E=1
+# v10b: V10B=1  v10c: V10C=1  v10d: V10D=1  v10e: V10E=1  v10f: V10F=1
 set -euo pipefail
 
 REPO="${REPO:-$(cd "$(dirname "$0")/.." && pwd)}"
@@ -20,7 +20,19 @@ IMAGE="${TRAIN_IMAGE:-medi-train:gpu}"
 MANIFEST="${MANIFEST:-}"
 GL_OVERSAMPLE="${GL_OVERSAMPLE:-1.0}"
 
-if [ "${V10E:-0}" = "1" ]; then
+if [ "${V10F:-0}" = "1" ]; then
+  OUTPUT="${OUTPUT:-models/retinal_v10f}"
+  MANIFEST="training/manifests/unified_v10f.json"
+  BATCH_SIZE=64
+  WARMUP_EPOCHS=8
+  DR_WEIGHT=0.28
+  GL_WEIGHT=0.28
+  AMD_WEIGHT=0.18
+  MYO_WEIGHT=0.18
+  MULTI_WEIGHT=0.08
+  GL_OVERSAMPLE=1.0
+  echo "=== v10f (v2_cache only, extra2 제외) ==="
+elif [ "${V10E:-0}" = "1" ]; then
   OUTPUT="${OUTPUT:-models/retinal_v10e}"
   BATCH_SIZE=64
   WARMUP_EPOCHS=8
@@ -94,6 +106,8 @@ if [ ! -f "$REPO/$MANIFEST" ]; then
   if [ "${V10E:-0}" = "1" ]; then
     echo "  → bash scripts/run_build_v10e_manifest_gpu.sh"
     echo "  → EXTRA2_V2=1 bash scripts/run_build_v10e_manifest_gpu.sh"
+  elif [ "${V10F:-0}" = "1" ]; then
+    echo "  → docker run ... python3 /workspace/scripts/build_v10f_manifest.py"
   else
     echo "  → bash scripts/build_v10_manifest.sh"
   fi

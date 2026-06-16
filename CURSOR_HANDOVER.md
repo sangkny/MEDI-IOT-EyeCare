@@ -10,8 +10,8 @@
 | 항목 | 값 |
 |------|-----|
 | **v10c** | composite **0.8842** · ✅ **운영** |
-| **v10e** | 🔄 **GPU 훈련 중** (unified_v10e · 21,454장) |
-| v10e ep4 | GL **0.764** · composite **0.833** (상승 중) |
+| **v10e** | composite **0.8790** · GL **0.821** · ❌ **미배포** (v2_cache 미반영) |
+| **v10f** | 🔜 **계획** (v2_cache only, extra2 제외) |
 | **v2_cache** | ✅ 생성 완료 (GPU) |
 | **앙상블** | fast GL **0.900+** (v10c+glaucoma_v2) |
 | LM Studio | **OFF** (HDD 100%) |
@@ -31,14 +31,35 @@
 
 | 항목 | 값 |
 |------|-----|
-| manifest | `training/manifests/unified_v10e.json` (v2_cache) |
-| samples | **21,454** train |
-| 스크립트 | `V10E=1 bash scripts/start_v10_train.sh` |
-| manifest 검증 | `python3 scripts/verify_v10e_manifest.py` |
+| manifest | `training/manifests/unified_v10e.json` (extra2 merge) |
+| 상태 | v2_cache 경로 미반영 → v2 효과 분리 불가 |
+| 결과 | composite **0.8790** · GL **0.821** |
 
 ```bash
 ssh smartvisionglobal@192.168.0.23 \
   "docker logs \$(docker ps -q --filter ancestor=medi-train:gpu) --tail 10"
+```
+
+## v10f (Option B — v2_cache only, extra2 제외)
+
+목적: extra2 변수를 제거하고 **v2_cache 전처리 효과만** 분리 검증.
+
+### Step 1 — manifest 생성
+
+```bash
+docker run --rm --entrypoint bash \
+  -v ~/workspace/dataset:/dataset \
+  -v ~/workspace/Office_Automation/idea-collection/MEDI-IOT-EyeCare/data:/data_dr \
+  -v ~/workspace/Office_Automation/idea-collection/MEDI-IOT-EyeCare:/workspace \
+  medi-train:gpu -c '
+    python3 /workspace/scripts/build_v10f_manifest.py
+  '
+```
+
+### Step 2 — 훈련 시작
+
+```bash
+V10F=1 bash scripts/start_v10_train.sh &
 ```
 
 ### v10e 완료 후

@@ -11,9 +11,10 @@ fast mode GL AUC 목표: **0.900+** (v10c 단독 baseline 0.835)
 | v10c | 0.835 | 0.8842 | 0.28 | 균형 | ✅ **운영 중** |
 | v10d | 0.833 | 0.8793 | 0.32 | GL증강+오버샘플 | ❌ 미배포 |
 | v10c+ensemble | 0.900+ | 0.8842 | — | v10c+glaucoma_v2 앙상블 | ✅ **운영** |
-| **v10e** | **0.764*** | **0.833*** | **0.28** | extra2+v2_cache | 🔄 **훈련 중** |
+| **v10e** | **0.821** | **0.8790** | **0.28** | resized_cache + extra2 (v2_cache 미반영) | ❌ **미배포** |
+| **v10f (계획)** | ??? | ??? | **0.28** | **v2_cache only** (extra2 제외) | 🔜 검증 예정 |
 
-\* epoch 4 val (2026-06-14, 상승 중)
+\* v10e: resized_cache + extra2 만 반영되어 v2_cache 효과 분리 불가. (Option B로 v10f 분리 검증)
 
 ## v10e (2026-06-14)
 
@@ -21,12 +22,23 @@ fast mode GL AUC 목표: **0.900+** (v10c 단독 baseline 0.835)
 |------|-----|
 | GL 데이터 | 기존 11,725 + extra2 **2,375** = **14,100** |
 | extra2 소스 | G1020 1,020 · ORIGA 650 · ACRIMA 705 |
-| 전처리 | **`v2_cache`** — CenterCrop+CLAHE+UnsharpRGB (`preprocess_v2.py`) |
-| manifest | `unified_v10e.json` · **21,454** samples · `EXTRA2_V2=1` |
-| epoch 4 | GL **0.764** · composite **0.833** |
+| 전처리 | **resized_cache** (+extra2). v2_cache는 **미반영** |
+| manifest | `unified_v10e.json` (extra2 merge) |
+| 결과 | GL **0.821** · composite **0.8790** |
 | loss_weights | dr=0.25 gl=**0.28** amd=0.17 myo=0.17 multi=0.13 |
 | gl_oversample | **1.0** |
 | 실행 | `V10E=1 bash scripts/start_v10_train.sh` |
+
+## v10f (Option B: v2_cache only, extra2 제외)
+
+목적: **v2 전처리 효과만** 분리 측정. (extra2 품질 변수 제거)
+
+| 항목 | 값 |
+|------|-----|
+| 비교 | v10c (resized_cache) vs v10f (v2_cache) |
+| manifest | `training/manifests/unified_v10f.json` |
+| 생성 스크립트 | `scripts/build_v10f_manifest.py` |
+| 실행 | `V10F=1 bash scripts/start_v10_train.sh` |
 
 ## v10e 준비 (2026-06-13, 레거시)
 
