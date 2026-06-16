@@ -1,0 +1,26 @@
+{
+  "arch": "efficientnet_b4_v10",
+  "manifest": "unified_v10f.json",
+  "preprocess": "v2_cache",
+  "image_size": 224,
+  "version": "v10f",
+  "best_composite": 0.8397,
+  "best_composite_epoch": 34,
+  "best_gl_auc": 0.7806,
+  "best_gl_auc_epoch": 34,
+  "peak_gl_auc": 0.7831,
+  "peak_gl_epoch": 45,
+  "early_stop_epoch": 46,
+  "v2_cache_ratio": 1.0,
+  "loss_weights": {
+    "dr": 0.28,
+    "glaucoma": 0.28,
+    "amd": 0.18,
+    "myopia": 0.18,
+    "multidisease": 0.08
+  },
+  "warmup_epochs": 8,
+  "gl_oversample": 1.0,
+  "deploy_status": "not_deployed",
+  "deploy_reason": "composite 0.8397 < v10c 0.8842; GL 0.7806 < v10c 0.835 — v2_cache 단독 효과 없음"
+}
