@@ -1,7 +1,27 @@
 # MEDI-IOT-EyeCare — Cursor Agent 인수인계
 
 > 최종 업데이트: **2026-06-17**  
-> Git: **e0c6146** → v10 실험 결론 문서 커밋 예정 · LM Studio **OFF**
+> Git: v12 seg head 커밋 예정 · LM Studio **OFF**
+
+---
+
+## v12 — Disc/Cup 보조 세그 헤드 (진행 중)
+
+| 항목 | 상태 |
+|------|-----|
+| 코드 | `train_v10.py` seg_head · `build_disc_cup_masks.py` · `unified_v12.json` |
+| 테스트 | `tests/test_v12_seg_head.py` **7 passed** (Docker) |
+| GPU | G1020 마스크 생성 · smoke/본 훈련 — **SSH 후 실행** |
+| SSOT | `docs/V12-DISC-CUP-SEGMENTATION.md` |
+
+```bash
+# GPU (docker run 중첩 금지)
+bash scripts/run_check_g1020_labels_gpu.sh
+bash scripts/run_build_disc_cup_masks_gpu.sh
+bash scripts/run_build_v12_manifest_gpu.sh
+docker run --rm --gpus all ... python3 training/train_v10.py --manifest unified_v12.json --smoke --seg-head --epochs 1
+V12=1 bash scripts/start_v10_train.sh
+```
 
 ---
 
@@ -52,7 +72,18 @@ SSOT: `docs/GL-IMPROVEMENT-HISTORY.md` · `docs/MODEL-VERSION-HISTORY.md`
 1. **SaMD 병원 협력** — LOI 발송 (`docs/HOSPITAL-PARTNERSHIP.md`)
 2. **CoOps M1** — iOS EAS Build / TestFlight
 3. **shared-libraries** — AutoNoGaDa 실사용 시나리오
-4. **GL** — v10c GL head fine-tuning 검토 (옵션 B · `GL-IMPROVEMENT-HISTORY.md`)
+4. **GL** — **v12** Disc/Cup seg head (구조 변경) 또는 v10c GL head FT
+
+---
+
+## v12 산출물 (코드 준비 · GPU 훈련 TBD)
+
+| 항목 | 값 |
+|------|-----|
+| manifest | `unified_v12.json` (+ `disc_cup_mask`) |
+| weights | `models/retinal_v12/` (훈련 후) |
+| loss | 5-head v10c + seg CE **0.05** |
+| 실행 | `V12=1 bash scripts/start_v10_train.sh` |
 
 ---
 

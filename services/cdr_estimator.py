@@ -3,9 +3,12 @@ from __future__ import annotations
 
 import asyncio
 from dataclasses import dataclass
-from typing import Literal, Protocol, runtime_checkable
+from typing import TYPE_CHECKING, Literal, Protocol, runtime_checkable
 
 import numpy as np
+
+if TYPE_CHECKING:
+    import torch
 
 CDRCategory = Literal["normal", "suspect", "glaucoma"]
 EstimationMethod = Literal["probability_based", "segmentation_based"]
@@ -52,6 +55,25 @@ def _clinical_note(cdr: float, category: CDRCategory) -> str:
             "정밀 검사 및 추적 관찰 권장."
         )
     return f"CDR {cdr:.2f} — 정상 범위(<0.65)."
+
+
+def cdr_from_disc_cup_mask(mask: np.ndarray) -> float:
+    """픽셀 마스크(0=배경, 1=disc, 2=cup)에서 CDR 계산."""
+    cup_area = float((mask == 2).sum())
+    disc_area = float(((mask == 1) | (mask == 2)).sum())
+    if disc_area < 1.0:
+        return 0.0
+    return float(np.clip(cup_area / disc_area, 0.0, 1.0))
+
+
+def cdr_from_seg_logits(logits: "torch.Tensor") -> "torch.Tensor":
+    """세그멘테이션 logits (N,3,H,W) → 배치 CDR."""
+    import torch
+
+    pred = logits.argmax(dim=1)
+    cup = (pred == 2).sum(dim=(1, 2)).float()
+    disc = ((pred == 1) | (pred == 2)).sum(dim=(1, 2)).float()
+    return (cup / disc.clamp(min=1.0)).clamp(0.0, 1.0)
 
 
 def estimate_cdr_from_probability(probability: float) -> CDRResult:
