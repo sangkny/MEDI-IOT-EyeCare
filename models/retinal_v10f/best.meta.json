@@ -22,5 +22,5 @@
   "warmup_epochs": 8,
   "gl_oversample": 1.0,
   "deploy_status": "not_deployed",
-  "deploy_reason": "composite 0.8397 < v10c 0.8842; GL 0.7806 < v10c 0.835 — v2_cache 단독 효과 없음"
+  "deploy_reason": "composite 0.8397 < v10c 0.8842; GL ~0.783 < v10c 0.835. retinal_v4.pt pretrained on resize domain — mismatch with v2_cache (CenterCrop+UnsharpRGB)"
 }
