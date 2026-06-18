@@ -612,9 +612,16 @@ def main() -> None:
     data = json.loads(manifest_path.read_text(encoding="utf-8"))
     train_entries, val_entries, _ = _manifest_splits(data)
     if args.smoke:
-        train_entries = train_entries[:64]
-        val_entries = val_entries[:32]
-        print(f"smoke: train={len(train_entries)} val={len(val_entries)}")
+        # 마스크 보유 샘플을 우선 포함 (seg_head smoke test 검증용)
+        train_masked = [e for e in train_entries if e.get("disc_cup_mask")]
+        train_rest = [e for e in train_entries if not e.get("disc_cup_mask")]
+        train_entries = (train_masked[:16] + train_rest)[:64]
+        val_masked = [e for e in val_entries if e.get("disc_cup_mask")]
+        val_rest = [e for e in val_entries if not e.get("disc_cup_mask")]
+        val_entries = (val_masked[:8] + val_rest)[:32]
+        n_mask_tr = sum(1 for e in train_entries if e.get("disc_cup_mask"))
+        n_mask_val = sum(1 for e in val_entries if e.get("disc_cup_mask"))
+        print(f"smoke: train={len(train_entries)}(mask={n_mask_tr}) val={len(val_entries)}(mask={n_mask_val})")
     data_dir = _resolve_data_dir(str(data.get("data_dir") or "/dataset"))
     dr_raw = data.get("dr_data_dir")
     dr_data_dir = Path(str(dr_raw)) if dr_raw else None
