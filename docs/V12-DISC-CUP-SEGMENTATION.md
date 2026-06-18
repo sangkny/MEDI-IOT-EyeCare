@@ -39,7 +39,8 @@ EfficientNet-B4 features
 ```
 
 - v10c 5-head는 **변경 없음**
-- `seg_head`: Conv1×1 → Upsample → Conv1×1 (3-class)
+- `seg_head`: Conv1×1(256) → Conv1×1(3) → Upsample — **Conv를 7×7에서 먼저** 적용해 메모리 절감
+  - (구버전 Upsample→Conv는 배치64 기준 ~12.8GB activation → epoch9 unfreeze 시 CUDA OOM)
 - 1차: GL 헤드에 CDR concat 없이 **multi-task loss**만 적용
 
 ## 4. CDR 계산 로직
@@ -64,7 +65,16 @@ cdr = cup_area / max(disc_area, 1)
 | seg loss | CrossEntropyLoss(ignore_index=-1) — 마스크 없는 샘플 제외 |
 | composite | 기존 5-task ×0.95 + seg_dice ×0.05 |
 | 실행 | `V12=1 bash scripts/start_v10_train.sh` |
-| smoke | `python3 training/train_v10.py --manifest unified_v12.json --smoke --seg-head --epochs 1` |
+| smoke | `--smoke --seg-head --epochs 11 --warmup-epochs 9` (unfreeze 지점 검증) |
+
+### 메모리 이슈 (2026-06-17)
+
+| 항목 | 내용 |
+|------|------|
+| 증상 | epoch 9(backbone unfreeze) `CUDA driver error: invalid argument` |
+| 원인 | seg_head가 Upsample 후 256채널×224² Conv → activation ~12.8GB |
+| 수정 | Conv(3ch) 먼저 → Upsample 마지막 (~150MB) |
+| 모니터링 | epoch마다 `GPU peak mem: X.XXGB` 로그 |
 
 ## 6. 훈련 결과
 

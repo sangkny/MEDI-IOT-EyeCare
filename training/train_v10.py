@@ -91,15 +91,16 @@ class MultiTaskV10Model(nn.Module):
         self.seg_head_enabled = seg_head
         self.image_size = image_size
         if seg_head:
+            # Conv→Conv at 7×7, then Upsample — avoids 256×224×224 activation (OOM at unfreeze)
             self.seg_head = nn.Sequential(
                 nn.Conv2d(self.feat_dim, 256, kernel_size=1),
                 nn.ReLU(inplace=True),
+                nn.Conv2d(256, 3, kernel_size=1),
                 nn.Upsample(
                     size=(image_size, image_size),
                     mode="bilinear",
                     align_corners=False,
                 ),
-                nn.Conv2d(256, 3, kernel_size=1),
             )
 
     def encode(self, x: torch.Tensor) -> torch.Tensor:
@@ -712,6 +713,8 @@ def main() -> None:
     )
 
     for epoch in range(1, args.epochs + 1):
+        if use_cuda:
+            torch.cuda.reset_peak_memory_stats(device)
         if epoch == args.warmup_epochs + 1:
             model.set_backbone_trainable(True)
             for g in opt.param_groups:
@@ -755,10 +758,15 @@ def main() -> None:
         )
 
         seg_msg = f" segDice={seg_dice:.4f}" if args.seg_head else ""
+        mem_msg = ""
+        if use_cuda:
+            mem_gb = torch.cuda.max_memory_allocated(device) / 1e9
+            mem_msg = f" GPU peak mem: {mem_gb:.2f}GB"
+            torch.cuda.reset_peak_memory_stats(device)
         print(
             f"epoch {epoch}/{args.epochs} loss={running/max(len(train_loader),1):.4f} "
             f"QWK={qwk:.4f} GL={gl_auc:.4f} AMD={amd_auc:.4f} MYO={myo_auc:.4f} "
-            f"mAUC={mauc:.4f}{seg_msg} composite={composite:.4f}"
+            f"mAUC={mauc:.4f}{seg_msg} composite={composite:.4f}{mem_msg}"
         )
 
         if composite > best_score:
