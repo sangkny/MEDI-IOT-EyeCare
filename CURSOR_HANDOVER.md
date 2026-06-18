@@ -11,6 +11,7 @@
 |------|-----|
 | Option 3 | ❌ glaucoma_v2 ONNX **분류만** `(batch,)` |
 | Phase 1 | SAM ViT-B + G1020 discLoc BBox → `generate_pseudo_masks_sam.py` |
+| 파일럿 Dice | n=100 mean **0.544** → **본 훈련 보류** (OSAM Phase 2 필요) |
 | manifest | `build_v13_manifest.py` → `unified_v13.json` (GL mask **70%+** 목표) |
 | 훈련 | `V13=1` seg_weight **0.10** |
 | SSOT | `docs/V13-SAM-PSEUDO-MASK.md` |

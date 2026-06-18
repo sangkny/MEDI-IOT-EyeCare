@@ -71,7 +71,7 @@ bash scripts/run_build_v13_manifest_gpu.sh
 V13=1 bash scripts/start_v10_train.sh
 ```
 
-## 5. 품질 기준
+## 5. 품질 기준 · 파일럿 결과 (2026-06-19)
 
 | Dice | 판정 |
 |------|------|
@@ -79,7 +79,18 @@ V13=1 bash scripts/start_v10_train.sh
 | mean < **0.70** | SAM prompt/방식 개선 필요 |
 | bad (Dice<0.7) 비율 | 10% 미만 목표 |
 
-> G1020 1,020장 GT로 `evaluate_pseudo_mask_quality.py` 검증 후 manifest 생성.
+### G1020 파일럿 (SAM ViT-B + discLoc BBox, n=100)
+
+| 지표 | 값 |
+|------|-----|
+| mean Dice | **0.544** |
+| median Dice | 0.572 |
+| Dice ≥ 0.85 | **2%** |
+| Dice < 0.70 | **83%** |
+
+**판정**: vanilla SAM Phase 1 품질 **미달** → GL 전체 pseudo-mask / v13 본 훈련 **보류**
+
+**다음**: OSAM-Fundus(DINOv2+SAM) 또는 Med-SA fine-tune 검토. 파이프라인 코드는 유지.
 
 ## 6. v13 훈련 계획
 
