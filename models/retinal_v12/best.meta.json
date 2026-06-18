@@ -1,0 +1,34 @@
+{
+  "arch": "efficientnet_b4_v12",
+  "manifest": "unified_v12.json",
+  "preprocess": "none",
+  "image_size": 224,
+  "best_composite": 0.8719,
+  "gl_auc": 0.829,
+  "seg_dice": 0.978,
+  "gpu_peak_mem_gb": 7.69,
+  "loss_weights": {
+    "dr": 0.25,
+    "glaucoma": 0.28,
+    "amd": 0.17,
+    "myopia": 0.17,
+    "multidisease": 0.13
+  },
+  "warmup_epochs": 8,
+  "seg_head": true,
+  "seg_weight": 0.05,
+  "mask_coverage": {
+    "mask_samples": 1020,
+    "total_samples": 27546,
+    "pct_total": 3.7,
+    "gl_samples": 11725,
+    "gl_with_mask": 1020,
+    "pct_gl": 8.7
+  },
+  "status": "not_deployed",
+  "baseline_v10c": {
+    "composite": 0.8842,
+    "gl_auc": 0.835
+  },
+  "completed": "2026-06-19"
+}
