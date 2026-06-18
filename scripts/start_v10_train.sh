@@ -10,7 +10,7 @@
 # =============================================================
 # v10 통합 멀티태스크 훈련 — GPU 서버에서 실행
 # 예: bash scripts/start_v10_train.sh
-# v10b: V10B=1  v10c: V10C=1  v10d: V10D=1  v10e: V10E=1  v10f: V10F=1  v12: V12=1
+# v10b: V10B=1 ... v12: V12=1  v13: V13=1
 set -euo pipefail
 
 REPO="${REPO:-$(cd "$(dirname "$0")/.." && pwd)}"
@@ -21,7 +21,21 @@ MANIFEST="${MANIFEST:-}"
 GL_OVERSAMPLE="${GL_OVERSAMPLE:-1.0}"
 SEG_EXTRA=""
 
-if [ "${V12:-0}" = "1" ]; then
+if [ "${V13:-0}" = "1" ]; then
+  OUTPUT="${OUTPUT:-models/retinal_v13}"
+  MANIFEST="training/manifests/unified_v13.json"
+  BATCH_SIZE=64
+  WARMUP_EPOCHS=8
+  DR_WEIGHT=0.25
+  GL_WEIGHT=0.28
+  AMD_WEIGHT=0.17
+  MYO_WEIGHT=0.17
+  MULTI_WEIGHT=0.13
+  SEG_WEIGHT=0.10
+  GL_OVERSAMPLE=1.0
+  SEG_EXTRA="--seg-head --seg-weight ${SEG_WEIGHT}"
+  echo "=== v13 (SAM pseudo-mask + Disc/Cup seg_head, seg_w=0.10) ==="
+elif [ "${V12:-0}" = "1" ]; then
   OUTPUT="${OUTPUT:-models/retinal_v12}"
   MANIFEST="training/manifests/unified_v12.json"
   BATCH_SIZE=64
@@ -121,6 +135,9 @@ if [ ! -f "$REPO/$MANIFEST" ]; then
   if [ "${V10E:-0}" = "1" ]; then
     echo "  → bash scripts/run_build_v10e_manifest_gpu.sh"
     echo "  → EXTRA2_V2=1 bash scripts/run_build_v10e_manifest_gpu.sh"
+  elif [ "${V13:-0}" = "1" ]; then
+    echo "  → bash scripts/run_generate_pseudo_masks_gpu.sh"
+    echo "  → python3 /workspace/scripts/build_v13_manifest.py"
   elif [ "${V12:-0}" = "1" ]; then
     echo "  → docker run ... python3 /workspace/scripts/build_disc_cup_masks.py"
     echo "  → docker run ... python3 /workspace/scripts/build_v12_manifest.py"

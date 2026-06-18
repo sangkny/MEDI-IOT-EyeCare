@@ -1,7 +1,28 @@
 # MEDI-IOT-EyeCare — Cursor Agent 인수인계
 
 > 최종 업데이트: **2026-06-19**  
-> Git: v12 완료 문서 · LM Studio **OFF**
+> Git: v13 SAM pseudo-mask 파이프라인 · LM Studio **OFF**
+
+---
+
+## v13 — SAM pseudo-mask (진행 중)
+
+| 항목 | 상태 |
+|------|-----|
+| Option 3 | ❌ glaucoma_v2 ONNX **분류만** `(batch,)` |
+| Phase 1 | SAM ViT-B + G1020 discLoc BBox → `generate_pseudo_masks_sam.py` |
+| manifest | `build_v13_manifest.py` → `unified_v13.json` (GL mask **70%+** 목표) |
+| 훈련 | `V13=1` seg_weight **0.10** |
+| SSOT | `docs/V13-SAM-PSEUDO-MASK.md` |
+
+```bash
+bash scripts/install_sam_gpu.sh
+PHASE=g1020 bash scripts/run_generate_pseudo_masks_gpu.sh
+bash scripts/run_eval_pseudo_masks_gpu.sh
+PHASE=manifest bash scripts/run_generate_pseudo_masks_gpu.sh
+bash scripts/run_build_v13_manifest_gpu.sh
+V13=1 bash scripts/start_v10_train.sh
+```
 
 ---
 
@@ -31,12 +52,12 @@ SSOT: `docs/GL-IMPROVEMENT-HISTORY.md` · `docs/V12-DISC-CUP-SEGMENTATION.md`
 
 ---
 
-## 다음 우선순위 (v12 이후)
+## 다음 우선순위 (v13)
 
-1. **SAM pseudo-mask** → GL 11,725장 disc/cup 자동 마스크 → **v13** (마스크 ~100%)
-2. **SaMD 병원 협력** — LOI 발송 (`docs/HOSPITAL-PARTNERSHIP.md`)
-3. **CoOps M1** — iOS EAS Build / TestFlight
-4. **Synology DS1522+** — CPU 추론 데모 배포·벤치마크
+1. **SAM pseudo-mask** — G1020 품질 검증(Dice≥0.85) → GL 전체 → **v13** 훈련
+2. **SaMD 병원 협력** — LOI
+3. **CoOps M1** — iOS EAS Build
+4. **Synology DS1522+** — CPU 추론 데모
 
 ---
 
