@@ -22,6 +22,7 @@ from scripts.sam_disc_cup_utils import (
     MASK_CUP,
     MASK_DISC,
     combine_disc_cup_masks,
+    cup_box_from_disc_box,
     mean_disc_cup_dice,
     resize_mask,
 )
@@ -29,6 +30,8 @@ from scripts.sam_disc_cup_utils import (
 logger = logging.getLogger(__name__)
 
 PATCH_SIZE = 14
+MAX_DINO_SIDE = 1024
+DISC_RADIUS_RATIO = 0.18
 IMAGENET_MEAN = (0.485, 0.456, 0.406)
 IMAGENET_STD = (0.229, 0.224, 0.225)
 
@@ -60,6 +63,19 @@ def load_dinov2(device: torch.device) -> torch.nn.Module:
         logger.info("DINOv2 loaded via timm")
     model.eval().to(device)
     return model
+
+
+def _resize_rgb_max_side(image_rgb: np.ndarray, max_side: int) -> tuple[np.ndarray, float]:
+    """긴 변을 max_side 이하로 축소. (image, scale) — scale<1 이면 축소됨."""
+    h, w = image_rgb.shape[:2]
+    longest = max(h, w)
+    if longest <= max_side:
+        return image_rgb, 1.0
+    scale = max_side / float(longest)
+    nh = max(int(round(h * scale)), PATCH_SIZE)
+    nw = max(int(round(w * scale)), PATCH_SIZE)
+    resized = cv2.resize(image_rgb, (nw, nh), interpolation=cv2.INTER_AREA)
+    return resized, scale
 
 
 def _preprocess_rgb(image_rgb: np.ndarray, device: torch.device) -> tuple[torch.Tensor, int, int]:
@@ -200,37 +216,43 @@ def _bottom_point_indices(
     return order[:k]
 
 
-def _indices_to_points(
+def _indices_centroid(
     indices: list[int],
-    labels: list[int],
     grid_h: int,
     grid_w: int,
-    orig_h: int,
-    orig_w: int,
-) -> tuple[np.ndarray, np.ndarray]:
-    centers = _patch_centers(grid_h, grid_w, orig_h, orig_w)
-    pts = np.array([centers[i] for i in indices], dtype=np.float32)
-    lbl = np.array(labels, dtype=np.int32)
-    return pts, lbl
+    feat_h: int,
+    feat_w: int,
+    *,
+    inv_scale: float = 1.0,
+) -> tuple[float, float]:
+    """DINO 패치 인덱스 → 원본 이미지 좌표 중심 (x, y)."""
+    if not indices:
+        return feat_w / 2.0 * inv_scale, feat_h / 2.0 * inv_scale
+    centers = _patch_centers(grid_h, grid_w, feat_h, feat_w)
+    pts = centers[indices]
+    return float(pts[:, 0].mean() * inv_scale), float(pts[:, 1].mean() * inv_scale)
 
 
-def _sam_predict_points(
-    predictor,
-    image_rgb: np.ndarray,
-    point_coords: np.ndarray,
-    point_labels: np.ndarray,
-) -> np.ndarray:
+def _disc_box_from_center(cx: float, cy: float, oh: int, ow: int, *, radius_ratio: float = DISC_RADIUS_RATIO) -> np.ndarray:
+    r = max(int(min(oh, ow) * radius_ratio), 12)
+    x1 = max(int(cx - r), 0)
+    y1 = max(int(cy - r), 0)
+    x2 = min(int(cx + r), ow - 1)
+    y2 = min(int(cy + r), oh - 1)
+    return np.array([x1, y1, x2, y2], dtype=np.float32)
+
+
+def _sam_predict_box(predictor, image_rgb: np.ndarray, box: np.ndarray) -> np.ndarray:
     predictor.set_image(image_rgb)
     masks, scores, _ = predictor.predict(
-        point_coords=point_coords,
-        point_labels=point_labels,
+        box=box.astype(np.float32),
         multimask_output=True,
     )
     return masks[int(np.argmax(scores))]
 
 
 class OSAMFundus:
-    """DINOv2 prototype matching + SAM point prompts."""
+    """DINOv2 prototype matching + SAM box prompts (고해상도 안저용)."""
 
     def __init__(
         self,
@@ -306,21 +328,29 @@ class OSAMFundus:
         protos = self._prototypes_for(references)
         if protos is None:
             return None
-        tokens, gh, gw, oh, ow = extract_patch_features(self.dino, image_rgb, self.device)
-        disc_idx = _top_point_indices(tokens, protos.disc, k=4)
-        cup_idx = _top_point_indices(tokens, protos.cup, k=3, exclude=set(disc_idx))
-        neg_idx = _bottom_point_indices(tokens, [protos.disc, protos.cup], k=3)
-        disc_pts, disc_lbl = _indices_to_points(disc_idx + neg_idx, [1] * len(disc_idx) + [0] * len(neg_idx), gh, gw, oh, ow)
-        disc_mask = _sam_predict_points(self.predictor, image_rgb, disc_pts, disc_lbl)
-        cup_pts, cup_lbl = _indices_to_points(
-            cup_idx + neg_idx[:2],
-            [1] * len(cup_idx) + [0] * min(2, len(neg_idx)),
-            gh,
-            gw,
-            oh,
-            ow,
-        )
-        cup_mask = _sam_predict_points(self.predictor, image_rgb, cup_pts, cup_lbl)
+        oh, ow = image_rgb.shape[:2]
+        dino_rgb, scale = _resize_rgb_max_side(image_rgb, MAX_DINO_SIDE)
+        inv_scale = 1.0 / scale
+        tokens, gh, gw, feat_h, feat_w = extract_patch_features(self.dino, dino_rgb, self.device)
+        disc_idx = _top_point_indices(tokens, protos.disc, k=8)
+        cup_idx = _top_point_indices(tokens, protos.cup, k=4, exclude=set(disc_idx))
+        disc_cx, disc_cy = _indices_centroid(disc_idx, gh, gw, feat_h, feat_w, inv_scale=inv_scale)
+        cup_cx, cup_cy = _indices_centroid(cup_idx, gh, gw, feat_h, feat_w, inv_scale=inv_scale)
+        disc_box = _disc_box_from_center(disc_cx, disc_cy, oh, ow)
+        cup_box = cup_box_from_disc_box(disc_box)
+        if cup_idx:
+            cup_r = max(int(min(oh, ow) * DISC_RADIUS_RATIO * 0.55), 8)
+            cup_box = np.array(
+                [
+                    max(cup_cx - cup_r, disc_box[0]),
+                    max(cup_cy - cup_r, disc_box[1]),
+                    min(cup_cx + cup_r, disc_box[2]),
+                    min(cup_cy + cup_r, disc_box[3]),
+                ],
+                dtype=np.float32,
+            )
+        disc_mask = _sam_predict_box(self.predictor, image_rgb, disc_box)
+        cup_mask = _sam_predict_box(self.predictor, image_rgb, cup_box)
         return combine_disc_cup_masks(disc_mask, cup_mask)
 
     def segment_bgr(self, bgr: np.ndarray, references: list[ReferenceSample]) -> np.ndarray | None:
