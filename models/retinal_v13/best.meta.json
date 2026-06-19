@@ -1,0 +1,31 @@
+{
+  "arch": "efficientnet_b4_v12",
+  "manifest": "unified_v13.json",
+  "preprocess": "none",
+  "image_size": 224,
+  "best_composite": 0.8798,
+  "best_epoch": 33,
+  "early_stop_epoch": 45,
+  "gl_auc": 0.8296,
+  "seg_dice": 0.9806,
+  "qwk": 0.8334,
+  "amd_auc": 0.9372,
+  "myo_auc": 0.9464,
+  "multidisease_mauc": 0.8872,
+  "gpu_peak_mem_gb": 7.69,
+  "plan": "B",
+  "mask_coverage_gl_pct": 14.2,
+  "mask_sources": "G1020(1020)+ORIGA(650)",
+  "loss_weights": {
+    "dr": 0.25,
+    "glaucoma": 0.28,
+    "amd": 0.17,
+    "myopia": 0.17,
+    "multidisease": 0.13
+  },
+  "warmup_epochs": 8,
+  "seg_head": true,
+  "seg_weight": 0.05,
+  "status": "not_deployed",
+  "deploy_reason": "composite/GL below v10c (0.8842 / 0.835)"
+}
