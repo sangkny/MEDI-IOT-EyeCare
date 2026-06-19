@@ -204,19 +204,7 @@ def _top_point_indices(
     return picked
 
 
-def _bottom_point_indices(
-    tokens: torch.Tensor,
-    protos: list[torch.Tensor],
-    *,
-    k: int,
-) -> list[int]:
-    sims = torch.stack([F.cosine_similarity(tokens, p.unsqueeze(0), dim=1) for p in protos], dim=0)
-    max_sim = sims.max(dim=0).values
-    order = torch.argsort(max_sim, descending=False).cpu().tolist()
-    return order[:k]
-
-
-def _indices_centroid(
+class OSAMFundus:
     indices: list[int],
     grid_h: int,
     grid_w: int,
