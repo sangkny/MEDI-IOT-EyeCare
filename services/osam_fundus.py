@@ -93,7 +93,11 @@ def extract_patch_features(
         out = dino(tensor)
 
     if isinstance(out, dict):
-        tokens = out.get("x_norm_patchtokens") or out.get("x_prenorm") or out.get("x")
+        tokens = out.get("x_norm_patchtokens")
+        if tokens is None:
+            tokens = out.get("x_prenorm")
+        if tokens is None:
+            tokens = out.get("x")
     else:
         tokens = out
 
@@ -239,6 +243,16 @@ class OSAMFundus:
         self.predictor = sam_predictor
         self.max_references = max_references
         self.dino = load_dinov2(self.device)
+        self._proto_cache: dict[tuple[str, ...], ClassPrototypes] = {}
+
+    def _prototypes_for(self, references: list[ReferenceSample]) -> ClassPrototypes | None:
+        key = tuple(sorted(r.stem for r in references))
+        if key not in self._proto_cache:
+            protos = build_prototypes(self.dino, references, self.device)
+            if protos is None:
+                return None
+            self._proto_cache[key] = protos
+        return self._proto_cache[key]
 
     def _resolve_g1020_image(self, stem: str, dataset_root: Path) -> Path | None:
         img_dir = dataset_root / "Glaucoma_extra2/G1020/G1020/Images"
