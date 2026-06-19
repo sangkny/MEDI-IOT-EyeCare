@@ -34,8 +34,8 @@ def test_build_v13_plan_b_manifest(tmp_path: Path) -> None:
         json.dumps(
             {
                 "samples": [
-                    {"path": "x/G1020/img_a.jpg", "available_labels": {"glaucoma": 1}},
-                    {"path": "x/ORIGA/360.jpg", "available_labels": {"glaucoma": 0}},
+                    {"path": "resized_cache/Glaucoma_raw/G1020/Images/img_a.jpg", "available_labels": {"glaucoma": 1}},
+                    {"path": "resized_cache/Glaucoma_raw/ORIGA/Images/360.jpg", "available_labels": {"glaucoma": 0}},
                     {"path": "x/other/nomask.jpg", "available_labels": {"glaucoma": 1}},
                 ]
             }
@@ -55,3 +55,32 @@ def test_build_v13_plan_b_manifest(tmp_path: Path) -> None:
     assert stats["gl_with_mask"] == 2
     data = json.loads(out.read_text(encoding="utf-8"))
     assert data["plan_b"] is True
+
+
+def test_origa_mask_not_applied_to_other_datasets(tmp_path: Path) -> None:
+    ds = tmp_path / "dataset"
+    (ds / "disc_cup_masks/ORIGA").mkdir(parents=True)
+    cv2 = pytest.importorskip("cv2")
+    cv2.imwrite(str(ds / "disc_cup_masks/ORIGA/001_mask.png"), np.full((224, 224), 2, dtype=np.uint8))
+
+    base = tmp_path / "base.json"
+    base.write_text(
+        json.dumps(
+            {
+                "samples": [
+                    {"path": "resized_cache/Glaucoma_raw/ORIGA/Images/001.jpg", "available_labels": {"glaucoma": 1}},
+                    {"path": "resized_cache/Glaucoma_raw/RIM-ONE/001.jpg", "available_labels": {"glaucoma": 1}},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    out = tmp_path / "v13.json"
+    stats = build_v13_manifest(
+        base_manifest=base,
+        dataset_root=ds,
+        out_path=out,
+        plan_b=True,
+    )
+    assert stats["origa_hits"] == 1
+    assert stats["mask_hits"] == 1

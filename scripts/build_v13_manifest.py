@@ -45,11 +45,25 @@ def _image_stem(path: str) -> str:
     return Path(path.replace("\\", "/")).stem
 
 
-def _find_gt_mask(stem: str, dataset_root: Path) -> tuple[str, str] | None:
-    for sub, source in GT_MASK_SUBDIRS:
-        rel = f"disc_cup_masks/{sub}/{stem}_mask.png"
+def _path_tags(path: str) -> str:
+    return path.replace("\\", "/").lower()
+
+
+def _find_gt_mask(entry: dict, stem: str, dataset_root: Path) -> tuple[str, str] | None:
+    """경로 기반 GT 매칭 — ORIGA stem(001 등) 타 데이터셋 오염 방지."""
+    path = _path_tags(str(entry.get("path", "")))
+    source = str(entry.get("source", "")).lower()
+
+    if "g1020" in path or source == "g1020":
+        rel = f"disc_cup_masks/G1020/{stem}_mask.png"
         if (dataset_root / rel).is_file():
-            return rel, source
+            return rel, "gt_g1020"
+
+    if "origa" in path or source == "origa":
+        rel = f"disc_cup_masks/ORIGA/{stem}_mask.png"
+        if (dataset_root / rel).is_file():
+            return rel, "gt_origa"
+
     return None
 
 
@@ -78,7 +92,7 @@ def build_v13_manifest(
     for entry in samples:
         stem = _image_stem(str(entry.get("path", "")))
         found: tuple[str, str] | None = None
-        gt = _find_gt_mask(stem, dataset_root)
+        gt = _find_gt_mask(entry, stem, dataset_root)
         if gt:
             found = gt
             if gt[1] == "gt_g1020":
