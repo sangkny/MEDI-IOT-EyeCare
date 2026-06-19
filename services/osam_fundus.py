@@ -303,7 +303,7 @@ class OSAMFundus:
         image_rgb: np.ndarray,
         references: list[ReferenceSample],
     ) -> np.ndarray | None:
-        protos = build_prototypes(self.dino, references, self.device)
+        protos = self._prototypes_for(references)
         if protos is None:
             return None
         tokens, gh, gw, oh, ow = extract_patch_features(self.dino, image_rgb, self.device)
