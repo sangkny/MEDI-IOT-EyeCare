@@ -5,24 +5,19 @@
 
 ---
 
-## v13 — SAM pseudo-mask (진행 중)
+## v13 — OSAM Phase 2 (DINOv2 + SAM)
 
 | 항목 | 상태 |
 |------|-----|
-| Option 3 | ❌ glaucoma_v2 ONNX **분류만** `(batch,)` |
-| Phase 1 | SAM ViT-B + G1020 discLoc BBox → `generate_pseudo_masks_sam.py` |
-| 파일럿 Dice | n=100 mean **0.544** → **본 훈련 보류** (OSAM Phase 2 필요) |
-| manifest | `build_v13_manifest.py` → `unified_v13.json` (GL mask **70%+** 목표) |
-| 훈련 | `V13=1` seg_weight **0.10** |
+| Phase 1 BBox SAM | ❌ mean Dice **0.544** |
+| Phase 2 | `services/osam_fundus.py` · `--method osam --target eval` |
+| few-shot 기준 | leave-one-out mean Dice **≥ 0.80** |
 | SSOT | `docs/V13-SAM-PSEUDO-MASK.md` |
 
 ```bash
-bash scripts/install_sam_gpu.sh
-PHASE=g1020 bash scripts/run_generate_pseudo_masks_gpu.sh
-bash scripts/run_eval_pseudo_masks_gpu.sh
-PHASE=manifest bash scripts/run_generate_pseudo_masks_gpu.sh
-bash scripts/run_build_v13_manifest_gpu.sh
-V13=1 bash scripts/start_v10_train.sh
+bash scripts/check_dinov2_gpu.sh
+LIMIT=10 bash scripts/run_osam_fewshot_gpu.sh
+# Dice≥0.80 → --target all_gl
 ```
 
 ---

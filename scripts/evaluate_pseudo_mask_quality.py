@@ -70,10 +70,11 @@ def main() -> None:
     p.add_argument("--dataset-root", type=Path, default=Path("/dataset"))
     p.add_argument("--limit", type=int, default=0)
     p.add_argument("--bad-threshold", type=float, default=0.70)
+    p.add_argument("--pred-subdir", type=str, default="pseudo/G1020")
     args = p.parse_args()
 
     gt_dir = args.dataset_root / "disc_cup_masks/G1020"
-    pred_dir = args.dataset_root / "disc_cup_masks/pseudo/G1020"
+    pred_dir = args.dataset_root / "disc_cup_masks" / args.pred_subdir
     stats = evaluate(gt_dir=gt_dir, pred_dir=pred_dir, limit=args.limit, bad_threshold=args.bad_threshold)
     print(f"GT dir:   {gt_dir}")
     print(f"Pred dir: {pred_dir}")

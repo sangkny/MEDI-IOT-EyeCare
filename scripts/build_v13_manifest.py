@@ -33,6 +33,8 @@ def _image_stem(path: str) -> str:
 # 우선순위: GT G1020 > pseudo G1020 > manifest pseudo > 기타 pseudo
 MASK_SUBDIRS = (
     "G1020",
+    "pseudo_osam/G1020",
+    "pseudo_osam/manifest",
     "pseudo/G1020",
     "pseudo/manifest",
     "pseudo/RIM-ONE",
