@@ -31,10 +31,10 @@ if [ "${V13:-0}" = "1" ]; then
   AMD_WEIGHT=0.17
   MYO_WEIGHT=0.17
   MULTI_WEIGHT=0.13
-  SEG_WEIGHT=0.10
+  SEG_WEIGHT="${SEG_WEIGHT:-0.05}"
   GL_OVERSAMPLE=1.0
   SEG_EXTRA="--seg-head --seg-weight ${SEG_WEIGHT}"
-  echo "=== v13 (SAM pseudo-mask + Disc/Cup seg_head, seg_w=0.10) ==="
+  echo "=== v13 Plan B (G1020+ORIGA GT seg_head, seg_w=${SEG_WEIGHT}) ==="
 elif [ "${V12:-0}" = "1" ]; then
   OUTPUT="${OUTPUT:-models/retinal_v12}"
   MANIFEST="training/manifests/unified_v12.json"
@@ -136,8 +136,7 @@ if [ ! -f "$REPO/$MANIFEST" ]; then
     echo "  → bash scripts/run_build_v10e_manifest_gpu.sh"
     echo "  → EXTRA2_V2=1 bash scripts/run_build_v10e_manifest_gpu.sh"
   elif [ "${V13:-0}" = "1" ]; then
-    echo "  → bash scripts/run_generate_pseudo_masks_gpu.sh"
-    echo "  → python3 /workspace/scripts/build_v13_manifest.py"
+    echo "  → bash scripts/run_build_v13_planb_gpu.sh"
   elif [ "${V12:-0}" = "1" ]; then
     echo "  → docker run ... python3 /workspace/scripts/build_disc_cup_masks.py"
     echo "  → docker run ... python3 /workspace/scripts/build_v12_manifest.py"

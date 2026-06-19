@@ -53,13 +53,13 @@ LIMIT=10 bash scripts/run_osam_fewshot_gpu.sh
 
 **원인 요약**: G1020 안저 해상도·도메인에서 DINOv2 prototype 위치 추정이 discloc BBox 대비 불안정. `all_gl` pseudo-mask 생성 **실행 안 함**.
 
-**다음**: §5 Plan B (ORIGA 651 + G1020 GT) 또는 Plan C (Med-SA fine-tune).
+**다음**: §5 Plan B — **진행 중** (`docs/V13-PLAN-B.md`)
 
 ## 5. Plan B / C (Phase 2 미달 — **현재 경로**)
 
 | Plan | 내용 | 커버리지 | 상태 |
 |------|------|----------|------|
-| **B** | ORIGA Masks_Square **651** + G1020 GT **1,020** | **14.3%** | **권장 다음 단계** — pseudo-mask 없이 실제 GT만 |
+| **B** | ORIGA **650** + G1020 GT **1,020** | **14.3%** | ✅ **진행** — `run_build_v13_planb_gpu.sh` |
 | **C** | Med-SA fine-tune SAM on G1020 | 품질 최고 · 시간 큼 | OSAM/BBox 모두 미달 시 |
 
 **원칙**: 품질 검증 없이 v13 본 훈련 **금지** (v12 교훈).
