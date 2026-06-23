@@ -7,21 +7,24 @@ GET /dashboard/llm-usage — 일간 LLM 호출·추정 토큰, provider bucket
 """
 import logging
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import get_db
+from auth.dependencies import require_role
 from auth.policy import policy_require
 from schemas.dashboard import (
     DashboardStatsResponse,
     DashboardAlertsResponse,
     DashboardLLMUsageResponse,
 )
+from schemas.admin_audit import AuditLogListResponse
 from services.dashboard_service import (
     load_dashboard_stats,
     load_dashboard_alerts,
     load_llm_dashboard,
 )
+from services.audit_log_service import load_audit_logs
 
 log = logging.getLogger("api.dashboard")
 router = APIRouter()
@@ -95,3 +98,20 @@ async def dashboard_llm_usage(
     _: dict = Depends(policy_require("medi-iot", "dashboard_stats")),
 ) -> DashboardLLMUsageResponse:
     return await load_llm_dashboard()
+
+
+@router.get(
+    "/audit-logs",
+    response_model=AuditLogListResponse,
+    summary="감사 로그 목록 (admin)",
+)
+async def dashboard_audit_logs(
+    db: AsyncSession = Depends(get_db),
+    from_date: str | None = Query(default=None, alias="from"),
+    to_date: str | None = Query(default=None, alias="to"),
+    decision: str | None = Query(default=None),
+    _admin: dict = Depends(require_role("admin")),
+) -> AuditLogListResponse:
+    return await load_audit_logs(
+        db, from_date=from_date, to_date=to_date, decision=decision
+    )
