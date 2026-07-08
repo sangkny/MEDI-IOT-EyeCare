@@ -10,7 +10,7 @@
 # =============================================================
 # v10 통합 멀티태스크 훈련 — GPU 서버에서 실행
 # 예: bash scripts/start_v10_train.sh
-# v10b: V10B=1 ... v12: V12=1  v13: V13=1  v14: V14=1
+# v10b: V10B=1 ... v12: V12=1  v13: V13=1  v14: V14=1  v15: V15=1
 set -euo pipefail
 
 REPO="${REPO:-$(cd "$(dirname "$0")/.." && pwd)}"
@@ -18,10 +18,27 @@ DATASET_ROOT="${DATASET_ROOT:-$HOME/workspace/dataset}"
 DR_DATA_DIR="${DR_DATA_DIR:-$REPO/data}"
 IMAGE="${TRAIN_IMAGE:-medi-train:gpu}"
 MANIFEST="${MANIFEST:-}"
+PRETRAINED="${PRETRAINED:-models/retinal_v4.pt}"
 GL_OVERSAMPLE="${GL_OVERSAMPLE:-1.0}"
 SEG_EXTRA=""
+GRADE_EXTRA=""
 
-if [ "${V14:-0}" = "1" ]; then
+if [ "${V15:-0}" = "1" ]; then
+  OUTPUT="${OUTPUT:-models/retinal_v15}"
+  MANIFEST="training/manifests/unified_v15.json"
+  PRETRAINED="${PRETRAINED:-models/retinal_v14/best.pt}"
+  BATCH_SIZE=64
+  WARMUP_EPOCHS=8
+  DR_WEIGHT=0.28
+  GL_WEIGHT=0.25
+  AMD_WEIGHT=0.17
+  MYO_WEIGHT=0.17
+  MULTI_WEIGHT=0.08
+  GRADE_WEIGHT="${GRADE_WEIGHT:-0.05}"
+  GL_OVERSAMPLE=2.0
+  GRADE_EXTRA="--grade-head --grade-weight ${GRADE_WEIGHT}"
+  echo "=== v15 glaucoma_grade 헤드 추가 NTG 변별력 개선 (gl_oversample=2.0) ==="
+elif [ "${V14:-0}" = "1" ]; then
   OUTPUT="${OUTPUT:-models/retinal_v14}"
   MANIFEST="training/manifests/unified_v14.json"
   BATCH_SIZE=64
@@ -137,7 +154,10 @@ echo "manifest: $MANIFEST"
 echo "output:   $OUTPUT"
 echo "dataset:  $DATASET_ROOT → /dataset"
 echo "dr_data:  $DR_DATA_DIR → /data_dr"
-echo "weights:  dr=$DR_WEIGHT gl=$GL_WEIGHT amd=$AMD_WEIGHT myo=$MYO_WEIGHT multi=$MULTI_WEIGHT warmup=$WARMUP_EPOCHS gl_oversample=$GL_OVERSAMPLE"
+echo "weights:  dr=$DR_WEIGHT gl=$GL_WEIGHT amd=$AMD_WEIGHT myo=$MYO_WEIGHT multi=$MULTI_WEIGHT warmup=$WARMUP_EPOCHS gl_oversample=$GL_OVERSAMPLE pretrained=$PRETRAINED"
+if [ -n "$GRADE_EXTRA" ]; then
+  echo "v15: grade_head grade_weight=${GRADE_WEIGHT:-0.05}"
+fi
 if [ "${V10E:-0}" = "1" ]; then
   echo "v10e: manifest=$MANIFEST preprocess=${V10_PREPROCESS:-none} (v2_cache 사전 전처리)"
 fi
@@ -147,6 +167,8 @@ if [ ! -f "$REPO/$MANIFEST" ]; then
   if [ "${V10E:-0}" = "1" ]; then
     echo "  → bash scripts/run_build_v10e_manifest_gpu.sh"
     echo "  → EXTRA2_V2=1 bash scripts/run_build_v10e_manifest_gpu.sh"
+  elif [ "${V15:-0}" = "1" ]; then
+    echo "  → bash scripts/run_build_v15_manifest_gpu.sh"
   elif [ "${V14:-0}" = "1" ]; then
     echo "  → python3 scripts/build_v14_manifest.py (unified_v10 + korean clinical)"
   elif [ "${V13:-0}" = "1" ]; then
@@ -175,7 +197,7 @@ docker run --gpus all --rm \
     mkdir -p $OUTPUT
     python3 training/train_v10.py \
       --manifest $MANIFEST \
-      --pretrained models/retinal_v4.pt \
+      --pretrained $PRETRAINED \
       --output $OUTPUT \
       --epochs 60 \
       --batch-size $BATCH_SIZE \
@@ -191,6 +213,7 @@ docker run --gpus all --rm \
       --early-stop 12 \
       --device cuda \
       $SEG_EXTRA \
+      $GRADE_EXTRA \
       2>&1 | tee /tmp/retinal_v10_train.log | tee /workspace/$OUTPUT/train.log
   "
 

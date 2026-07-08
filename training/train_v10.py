@@ -62,6 +62,8 @@ LOSS_WEIGHTS = {
 }
 SEG_LOSS_WEIGHT = 0.05
 SEG_COMPOSITE_WEIGHT = 0.05
+GRADE_LOSS_WEIGHT = 0.05
+GRADE_COMPOSITE_WEIGHT = 0.05
 SEG_IGNORE_INDEX = -1
 WARMUP_EPOCHS = 10
 MULTI_NUM_CLASSES = len(MULTIDISEASE_TRAIN_CLASSES)
@@ -75,6 +77,7 @@ class MultiTaskV10Model(nn.Module):
         *,
         pretrained_imagenet: bool = False,
         seg_head: bool = False,
+        grade_head: bool = False,
         image_size: int = 224,
     ) -> None:
         super().__init__()
@@ -88,6 +91,10 @@ class MultiTaskV10Model(nn.Module):
         self.amd_head = nn.Linear(self.feat_dim, 1)
         self.myo_head = nn.Linear(self.feat_dim, 1)
         self.multi_head = nn.Linear(self.feat_dim, MULTI_NUM_CLASSES)
+        self.grade_head_enabled = grade_head
+        if grade_head:
+            # Grade 0(정상) / 1(경증) / 2(중등도) / 3(중증)
+            self.grade_head = nn.Linear(self.feat_dim, 4)
         self.seg_head_enabled = seg_head
         self.image_size = image_size
         if seg_head:
@@ -118,6 +125,8 @@ class MultiTaskV10Model(nn.Module):
             "myopia": self.myo_head(h).squeeze(-1),
             "multidisease": self.multi_head(h),
         }
+        if self.grade_head_enabled:
+            out["glaucoma_grade"] = self.grade_head(h)
         if self.seg_head_enabled:
             seg_logits = self.seg_head(feat_map)
             out["seg"] = seg_logits
@@ -143,6 +152,8 @@ class V10BatchLabels:
     mask_amd: torch.Tensor
     mask_myo: torch.Tensor
     mask_multi: torch.Tensor
+    glaucoma_grade: torch.Tensor | None = None
+    mask_grade: torch.Tensor | None = None
     disc_cup_mask: torch.Tensor | None = None
     mask_seg: torch.Tensor | None = None
 
@@ -223,7 +234,10 @@ class V10Dataset(Dataset):
             "amd": float(al["amd"]) if "amd" in al else math.nan,
             "myopia": float(al["myopia"]) if "myopia" in al else math.nan,
             "multidisease": dict(al["multidisease"]) if "multidisease" in al else None,
+            "korean_clinical": bool(entry.get("korean_clinical")),
         }
+        if "glaucoma_grade" in al:
+            labels["glaucoma_grade"] = float(al["glaucoma_grade"])
         mask_rel = entry.get("disc_cup_mask")
         if mask_rel:
             import cv2
@@ -269,6 +283,7 @@ def _collate_v10(batch: list) -> tuple[torch.Tensor, V10BatchLabels]:
     amd = torch.full((n,), float("nan"))
     myo = torch.full((n,), float("nan"))
     multi = torch.full((n, MULTI_NUM_CLASSES), float("nan"))
+    grade = torch.full((n,), -1, dtype=torch.long)
     seg_masks = torch.full((n, image_size, image_size), SEG_IGNORE_INDEX, dtype=torch.long)
 
     for i, (_, labels) in enumerate(batch):
@@ -284,11 +299,19 @@ def _collate_v10(batch: list) -> tuple[torch.Tensor, V10BatchLabels]:
         if isinstance(md, dict):
             for j, name in enumerate(MULTIDISEASE_TRAIN_CLASSES):
                 multi[i, j] = float(md.get(name, 0))
+        raw_grade = labels.get("glaucoma_grade")
+        if raw_grade is not None and not (
+            isinstance(raw_grade, float) and math.isnan(raw_grade)
+        ):
+            ig = int(raw_grade)
+            if labels.get("korean_clinical") and ig in (1, 2, 3):
+                grade[i] = ig
         seg_t = labels.get("disc_cup_mask")
         if isinstance(seg_t, torch.Tensor):
             seg_masks[i] = seg_t.long()
 
     mask_seg = seg_masks.ne(SEG_IGNORE_INDEX).any(dim=(1, 2))
+    mask_grade = grade.ge(0)
 
     return imgs, V10BatchLabels(
         dr=dr,
@@ -301,6 +324,8 @@ def _collate_v10(batch: list) -> tuple[torch.Tensor, V10BatchLabels]:
         mask_amd=~torch.isnan(amd),
         mask_myo=~torch.isnan(myo),
         mask_multi=~torch.isnan(multi).all(dim=1),
+        glaucoma_grade=grade,
+        mask_grade=mask_grade,
         disc_cup_mask=seg_masks,
         mask_seg=mask_seg,
     )
@@ -318,6 +343,8 @@ def _v10_labels_to_device(lb: V10BatchLabels, device: torch.device) -> V10BatchL
         mask_amd=lb.mask_amd.to(device),
         mask_myo=lb.mask_myo.to(device),
         mask_multi=lb.mask_multi.to(device),
+        glaucoma_grade=lb.glaucoma_grade.to(device) if lb.glaucoma_grade is not None else None,
+        mask_grade=lb.mask_grade.to(device) if lb.mask_grade is not None else None,
         disc_cup_mask=lb.disc_cup_mask.to(device) if lb.disc_cup_mask is not None else None,
         mask_seg=lb.mask_seg.to(device) if lb.mask_seg is not None else None,
     )
@@ -337,12 +364,17 @@ class V10Loss(nn.Module):
         super().__init__()
         self.loss_weights = loss_weights or dict(LOSS_WEIGHTS)
         self.seg_weight = seg_weight
+        self.grade_weight = 0.0
         self.focal = FocalLoss(gamma=focal_gamma)
         self.multi_criterion = nn.BCEWithLogitsLoss(
             pos_weight=multi_pos_weight,
             reduction="none",
         )
         self.seg_criterion = nn.CrossEntropyLoss(ignore_index=SEG_IGNORE_INDEX)
+        self.grade_criterion = nn.CrossEntropyLoss()
+
+    def set_grade_weight(self, weight: float) -> None:
+        self.grade_weight = weight
 
     def forward(
         self,
@@ -388,13 +420,30 @@ class V10Loss(nn.Module):
             seg_targets = labels.disc_cup_mask[labels.mask_seg]
             parts["seg"] = self.seg_criterion(seg_logits, seg_targets)
 
+        if (
+            self.grade_weight > 0
+            and "glaucoma_grade" in outputs
+            and labels.mask_grade is not None
+            and labels.glaucoma_grade is not None
+            and labels.mask_grade.any()
+        ):
+            g_logits = outputs["glaucoma_grade"][labels.mask_grade]
+            g_targets = labels.glaucoma_grade[labels.mask_grade]
+            parts["grade"] = self.grade_criterion(g_logits, g_targets)
+
         if not parts:
             zero = outputs["dr"].sum() * 0.0
             return zero, {}
 
-        total = sum(self.loss_weights.get(k, 0.0) * v for k, v in parts.items() if k != "seg")
+        total = sum(
+            self.loss_weights.get(k, 0.0) * v
+            for k, v in parts.items()
+            if k not in ("seg", "grade")
+        )
         if "seg" in parts:
             total = total + self.seg_weight * parts["seg"]
+        if "grade" in parts:
+            total = total + self.grade_weight * parts["grade"]
         return total, {k: float(v.detach()) for k, v in parts.items()}
 
 
@@ -504,8 +553,10 @@ def composite_score(
     myo_auc: float,
     mauc: float,
     seg_dice: float = 0.0,
+    grade_qwk: float = 0.0,
     loss_weights: dict[str, float] | None = None,
     seg_composite_weight: float = 0.0,
+    grade_composite_weight: float = 0.0,
 ) -> float:
     w = loss_weights or LOSS_WEIGHTS
     base = (
@@ -515,10 +566,35 @@ def composite_score(
         + myo_auc * w["myopia"]
         + mauc * w["multidisease"]
     )
-    if seg_composite_weight > 0:
-        scale = max(1.0 - seg_composite_weight, 0.0)
-        return base * scale + seg_dice * seg_composite_weight
+    extra = seg_composite_weight + grade_composite_weight
+    if extra > 0:
+        scale = max(1.0 - extra, 0.0)
+        return (
+            base * scale
+            + seg_dice * seg_composite_weight
+            + grade_qwk * grade_composite_weight
+        )
     return base
+
+
+@torch.no_grad()
+def eval_grade_qwk(
+    model: MultiTaskV10Model,
+    loader: DataLoader,
+    device: torch.device,
+) -> float:
+    if not getattr(model, "grade_head_enabled", False):
+        return 0.0
+    ys, ps = [], []
+    for xb, lb in loader:
+        xb = xb.to(device)
+        lb = _v10_labels_to_device(lb, device)
+        if lb.mask_grade is None or lb.glaucoma_grade is None or not lb.mask_grade.any():
+            continue
+        logits = model.forward(xb[lb.mask_grade])["glaucoma_grade"]
+        ps.extend(logits.argmax(dim=1).cpu().tolist())
+        ys.extend(lb.glaucoma_grade[lb.mask_grade].cpu().tolist())
+    return quadratic_weighted_kappa(ys, ps) if ys else 0.0
 
 
 @torch.no_grad()
@@ -595,6 +671,14 @@ def main() -> None:
         type=float,
         default=SEG_COMPOSITE_WEIGHT,
     )
+    p.add_argument("--grade-head", dest="grade_head", action="store_true")
+    p.add_argument("--grade-weight", dest="grade_weight", type=float, default=GRADE_LOSS_WEIGHT)
+    p.add_argument(
+        "--grade-composite-weight",
+        dest="grade_composite_weight",
+        type=float,
+        default=GRADE_COMPOSITE_WEIGHT,
+    )
     p.add_argument("--smoke", action="store_true", help="소량 샘플 1 epoch smoke test")
     args = p.parse_args()
 
@@ -613,16 +697,29 @@ def main() -> None:
     data = json.loads(manifest_path.read_text(encoding="utf-8"))
     train_entries, val_entries, _ = _manifest_splits(data)
     if args.smoke:
-        # 마스크 보유 샘플을 우선 포함 (seg_head smoke test 검증용)
+        # 마스크·한국인 grade 샘플 우선 포함 (seg/grade smoke 검증용)
+        train_korean = [e for e in train_entries if e.get("korean_clinical")]
         train_masked = [e for e in train_entries if e.get("disc_cup_mask")]
-        train_rest = [e for e in train_entries if not e.get("disc_cup_mask")]
-        train_entries = (train_masked[:16] + train_rest)[:64]
+        train_rest = [
+            e
+            for e in train_entries
+            if not e.get("disc_cup_mask") and not e.get("korean_clinical")
+        ]
+        train_entries = (train_korean[:16] + train_masked[:16] + train_rest)[:64]
+        val_korean = [e for e in val_entries if e.get("korean_clinical")]
         val_masked = [e for e in val_entries if e.get("disc_cup_mask")]
-        val_rest = [e for e in val_entries if not e.get("disc_cup_mask")]
-        val_entries = (val_masked[:8] + val_rest)[:32]
+        val_rest = [
+            e for e in val_entries if not e.get("disc_cup_mask") and not e.get("korean_clinical")
+        ]
+        val_entries = (val_korean[:8] + val_masked[:8] + val_rest)[:32]
+        n_kr_tr = sum(1 for e in train_entries if e.get("korean_clinical"))
+        n_kr_val = sum(1 for e in val_entries if e.get("korean_clinical"))
         n_mask_tr = sum(1 for e in train_entries if e.get("disc_cup_mask"))
         n_mask_val = sum(1 for e in val_entries if e.get("disc_cup_mask"))
-        print(f"smoke: train={len(train_entries)}(mask={n_mask_tr}) val={len(val_entries)}(mask={n_mask_val})")
+        print(
+            f"smoke: train={len(train_entries)}(kr={n_kr_tr},mask={n_mask_tr}) "
+            f"val={len(val_entries)}(kr={n_kr_val},mask={n_mask_val})"
+        )
     data_dir = _resolve_data_dir(str(data.get("data_dir") or "/dataset"))
     dr_raw = data.get("dr_data_dir")
     dr_data_dir = Path(str(dr_raw)) if dr_raw else None
@@ -687,13 +784,27 @@ def main() -> None:
     model = MultiTaskV10Model(
         pretrained_imagenet=not pretrained.is_file(),
         seg_head=args.seg_head,
+        grade_head=args.grade_head,
         image_size=args.image_size,
     )
     if pretrained.is_file():
-        load_v4_into_v10(model, pretrained)
+        ckpt = torch.load(pretrained, map_location="cpu", weights_only=True)
+        if isinstance(ckpt, dict) and "model_state" in ckpt:
+            missing, unexpected = model.load_state_dict(ckpt["model_state"], strict=False)
+            print(
+                f"loaded checkpoint {pretrained.name}: "
+                f"missing={len(missing)} unexpected={len(unexpected)}"
+            )
+        else:
+            load_v4_into_v10(model, pretrained)
     model.to(device)
 
-    criterion = V10Loss(loss_weights=loss_weights, seg_weight=args.seg_weight if args.seg_head else 0.0)
+    criterion = V10Loss(
+        loss_weights=loss_weights,
+        seg_weight=args.seg_weight if args.seg_head else 0.0,
+    )
+    if args.grade_head:
+        criterion.set_grade_weight(args.grade_weight)
     opt = torch.optim.AdamW(filter(lambda t: t.requires_grad, model.parameters()), lr=args.lr)
     scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=max(args.epochs, 1))
     scaler = GradScaler("cuda", enabled=use_amp)
@@ -709,7 +820,7 @@ def main() -> None:
     print(
         f"v10 train={len(train_entries)} val={len(val_entries)} "
         f"device={device} amp={use_amp} warmup={args.warmup_epochs} "
-        f"seg_head={args.seg_head}"
+        f"seg_head={args.seg_head} grade_head={args.grade_head}"
     )
 
     for epoch in range(1, args.epochs + 1):
@@ -746,6 +857,7 @@ def main() -> None:
         myo_auc = eval_myo_auc(model, val_loader, device)
         mauc = eval_multidisease_mauc(model, val_loader, device)
         seg_dice = eval_seg_dice(model, val_loader, device) if args.seg_head else 0.0
+        grade_qwk = eval_grade_qwk(model, val_loader, device) if args.grade_head else 0.0
         composite = composite_score(
             qwk=qwk,
             gl_auc=gl_auc,
@@ -753,11 +865,14 @@ def main() -> None:
             myo_auc=myo_auc,
             mauc=mauc,
             seg_dice=seg_dice,
+            grade_qwk=grade_qwk,
             loss_weights=loss_weights,
             seg_composite_weight=args.seg_composite_weight if args.seg_head else 0.0,
+            grade_composite_weight=args.grade_composite_weight if args.grade_head else 0.0,
         )
 
         seg_msg = f" segDice={seg_dice:.4f}" if args.seg_head else ""
+        grade_msg = f" gradeQWK={grade_qwk:.4f}" if args.grade_head else ""
         mem_msg = ""
         if use_cuda:
             mem_gb = torch.cuda.max_memory_allocated(device) / 1e9
@@ -766,7 +881,7 @@ def main() -> None:
         print(
             f"epoch {epoch}/{args.epochs} loss={running/max(len(train_loader),1):.4f} "
             f"QWK={qwk:.4f} GL={gl_auc:.4f} AMD={amd_auc:.4f} MYO={myo_auc:.4f} "
-            f"mAUC={mauc:.4f}{seg_msg} composite={composite:.4f}{mem_msg}"
+            f"mAUC={mauc:.4f}{seg_msg}{grade_msg} composite={composite:.4f}{mem_msg}"
         )
 
         if composite > best_score:
@@ -791,6 +906,8 @@ def main() -> None:
             "loss_weights": loss_weights,
             "seg_head": args.seg_head,
             "seg_weight": args.seg_weight if args.seg_head else 0.0,
+            "grade_head": args.grade_head,
+            "grade_weight": args.grade_weight if args.grade_head else 0.0,
         },
         best_pt,
     )
@@ -804,6 +921,8 @@ def main() -> None:
         "warmup_epochs": args.warmup_epochs,
         "seg_head": args.seg_head,
         "seg_weight": args.seg_weight if args.seg_head else 0.0,
+        "grade_head": args.grade_head,
+        "grade_weight": args.grade_weight if args.grade_head else 0.0,
     }
     (out_dir / "best.meta.json").write_text(json.dumps(meta, indent=2), encoding="utf-8")
     print(f"OK {best_pt} composite={best_score:.4f}")
