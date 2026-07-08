@@ -12,23 +12,45 @@
 
 ---
 
-## §2 v10c 검증 결과 (eval 후 채울 자리)
+## §2 v10c 검증 결과 (2026-07-08 실측)
 
 | 항목 | 값 |
 |------|-----|
 | 스크립트 | `scripts/eval_korean_gl.py` |
 | 출력 | `/dataset/korean_glaucoma_fundus/eval_v10c_korean.json` |
 | 실행 | `bash scripts/run_eval_korean_gl_gpu.sh` |
+| ONNX provider | **CPUExecutionProvider** (컨테이너에 CUDA EP 없음) |
 
-**TODO (전처리·eval 완료 후 갱신)**
+### v10c 한국인 성능 (CPU eval)
 
-| 지표 | v10c (한국인 modified) |
-|------|------------------------|
-| mean GL prob | _TBD_ |
-| detection@0.5 | _TBD_ |
-| NTG subgroup mean | _TBD_ |
-| POAG subgroup mean | _TBD_ |
-| severity AUC (grade≥2) | _TBD_ |
+| 지표 | 값 |
+|------|-----|
+| N | 300 |
+| mean GL prob | **0.633** |
+| detection@0.5 | **0.713** |
+| AUC(severity, grade≥2 vs 1) | **0.660** |
+| NTG mean prob (n=170) | **0.621** ← 핵심 약점 |
+| POAG mean prob (n=119) | **0.655** |
+
+### v14 목표
+
+| 지표 | 목표 |
+|------|------|
+| NTG mean_prob | ≥ **0.700** |
+| GL AUC(severity) | ≥ **0.750** |
+
+### GPU 환경 비고 (2026-07-08 진단)
+
+| 항목 | 상태 |
+|------|------|
+| `torch.cuda.is_available()` | **True** (TITAN X) |
+| PyTorch cuDNN | 90100 (번들) |
+| 호스트 `libcudnn.so.9` | 없음 · **so.8**만 ldconfig |
+| ONNX Runtime providers | `CPUExecutionProvider`만 (CUDA EP 미설치) |
+| **훈련** | PyTorch CUDA → **정상** |
+| **eval** | ONNX RT CPU fallback → 결과 유효 |
+
+진단: `bash scripts/diagnose_gpu_env.sh`
 
 ---
 

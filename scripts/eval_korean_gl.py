@@ -39,10 +39,18 @@ def _sigmoid(x: float) -> float:
 def load_session(model_path: Path):
     import onnxruntime as ort
 
-    return ort.InferenceSession(
-        str(model_path),
-        providers=["CUDAExecutionProvider", "CPUExecutionProvider"],
-    )
+    providers = ["CUDAExecutionProvider", "CPUExecutionProvider"]
+    try:
+        session = ort.InferenceSession(str(model_path), providers=providers)
+        provider_used = session.get_providers()[0]
+    except Exception:
+        session = ort.InferenceSession(
+            str(model_path),
+            providers=["CPUExecutionProvider"],
+        )
+        provider_used = "CPUExecutionProvider"
+    print(f"ONNX provider: {provider_used}")
+    return session
 
 
 def preprocess_image(path: Path) -> np.ndarray:

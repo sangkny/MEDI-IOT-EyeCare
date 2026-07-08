@@ -10,7 +10,7 @@
 # =============================================================
 # v10 통합 멀티태스크 훈련 — GPU 서버에서 실행
 # 예: bash scripts/start_v10_train.sh
-# v10b: V10B=1 ... v12: V12=1  v13: V13=1
+# v10b: V10B=1 ... v12: V12=1  v13: V13=1  v14: V14=1
 set -euo pipefail
 
 REPO="${REPO:-$(cd "$(dirname "$0")/.." && pwd)}"
@@ -21,7 +21,19 @@ MANIFEST="${MANIFEST:-}"
 GL_OVERSAMPLE="${GL_OVERSAMPLE:-1.0}"
 SEG_EXTRA=""
 
-if [ "${V13:-0}" = "1" ]; then
+if [ "${V14:-0}" = "1" ]; then
+  OUTPUT="${OUTPUT:-models/retinal_v14}"
+  MANIFEST="training/manifests/unified_v14.json"
+  BATCH_SIZE=64
+  WARMUP_EPOCHS=8
+  DR_WEIGHT=0.28
+  GL_WEIGHT=0.28
+  AMD_WEIGHT=0.18
+  MYO_WEIGHT=0.18
+  MULTI_WEIGHT=0.08
+  GL_OVERSAMPLE=2.0
+  echo "=== v14 한국인 임상 GL 추가 NTG 특화 (gl_oversample=2.0) ==="
+elif [ "${V13:-0}" = "1" ]; then
   OUTPUT="${OUTPUT:-models/retinal_v13}"
   MANIFEST="training/manifests/unified_v13.json"
   BATCH_SIZE=64
@@ -135,6 +147,8 @@ if [ ! -f "$REPO/$MANIFEST" ]; then
   if [ "${V10E:-0}" = "1" ]; then
     echo "  → bash scripts/run_build_v10e_manifest_gpu.sh"
     echo "  → EXTRA2_V2=1 bash scripts/run_build_v10e_manifest_gpu.sh"
+  elif [ "${V14:-0}" = "1" ]; then
+    echo "  → python3 scripts/build_v14_manifest.py (unified_v10 + korean clinical)"
   elif [ "${V13:-0}" = "1" ]; then
     echo "  → bash scripts/run_build_v13_planb_gpu.sh"
   elif [ "${V12:-0}" = "1" ]; then
