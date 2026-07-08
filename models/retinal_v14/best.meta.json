@@ -1,0 +1,41 @@
+{
+  "arch": "efficientnet_b4_v14",
+  "manifest": "unified_v14.json",
+  "preprocess": "none",
+  "image_size": 224,
+  "version": "v14",
+  "best_composite": 0.8769,
+  "gl_auc_public": 0.842,
+  "korean_ntg_mean_prob": 0.842,
+  "korean_detection_at_05": 1.0,
+  "korean_severity_auc": 0.602,
+  "korean_eval_date": "2026-07-09",
+  "training_data": "unified_v10 + korean_clinical_699",
+  "gl_oversample": 2.0,
+  "irb": "Korean Clinical Institution 2019",
+  "loss_weights": {
+    "dr": 0.28,
+    "glaucoma": 0.28,
+    "amd": 0.18,
+    "myopia": 0.18,
+    "multidisease": 0.08
+  },
+  "warmup_epochs": 8,
+  "outputs": [
+    "dr",
+    "glaucoma",
+    "amd",
+    "myopia",
+    "multidisease"
+  ],
+  "output_activations": {
+    "dr": "softmax",
+    "glaucoma": "sigmoid",
+    "amd": "sigmoid",
+    "myopia": "sigmoid",
+    "multidisease": "sigmoid"
+  },
+  "onnx": "retinal_v14.onnx",
+  "source_checkpoint": "best.pt",
+  "deployment_note": "Korean clinical mode recommended; general population v10c ensemble retained"
+}

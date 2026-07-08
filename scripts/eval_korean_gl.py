@@ -71,11 +71,11 @@ def infer_glaucoma_prob(session, tensor: np.ndarray) -> float:
     for name, out in zip(output_names, outputs):
         if "glaucoma" in name.lower():
             val = float(np.asarray(out).reshape(-1)[0])
-            return _sigmoid(val) if val < 0.0 or val > 1.0 else val
+            return _sigmoid(val)
 
     if len(outputs) >= 2:
         val = float(np.asarray(outputs[1]).reshape(-1)[0])
-        return _sigmoid(val) if val < 0.0 or val > 1.0 else val
+        return _sigmoid(val)
 
     val = float(np.asarray(outputs[0]).reshape(-1)[0])
     return _sigmoid(val)

@@ -12,6 +12,7 @@
 | v10d | 미배포 | 0.8793 | 0.833 | resized_cache | GL증강+oversample | 2026-06-12 |
 | v10e | 미배포 | 0.8790 | 0.821 | resized_cache | +extra2 2,375 | 2026-06-14 |
 | **v10f** | ❌ 미배포 | **0.8397** | **~0.783** | **v2_cache** | v2 only | **2026-06-17** |
+| **v14** | ✅ **한국인 특화** | **0.8769** | **0.842** | resized_cache | +KR 699 · gl_os=2.0 | **2026-07-09** |
 
 ## 실험 결론 (2026-06-17)
 
@@ -47,11 +48,41 @@ V10F=1 bash scripts/start_v10_train.sh
 | 결과 | composite **0.8790** · GL **0.821** |
 | 실행 | `V10E=1 bash scripts/start_v10_train.sh` |
 
+## v14 (2026-07-09) — 한국인 NTG 특화 ✅
+
+| 항목 | 값 |
+|------|-----|
+| manifest | `unified_v14.json` (28,243 · korean_clinical 699) |
+| best_composite | **0.8769** |
+| GL AUC (공개 val) | **0.842** (+0.007 vs v10c) |
+| gl_oversample | **2.0** |
+| meta | `models/retinal_v14/best.meta.json` |
+| ONNX | `retinal_v14.onnx` (export 후) |
+
+**한국인 eval (2026-07-09, CPU ONNX)**
+
+| 지표 | v10c | v14 |
+|------|------|-----|
+| NTG mean_prob | 0.665 | **0.842** |
+| detection@0.5 | 0.983 | **1.000** |
+| AUC(severity) | 0.677 | 0.602 |
+
+**배포**: 한국인 환자 → v14 우선 · 일반 → v10c 유지 · 향후 v14+glaucoma_v2 앙상블
+
+```bash
+V14=1 bash scripts/start_v10_train.sh
+python3 scripts/eval_korean_gl.py --model models/retinal_v14.onnx \
+  --out-json /dataset/korean_glaucoma_fundus/eval_v14_korean.json
+```
+
+---
+
 ## 운영 모델 (현재)
 
 | 역할 | 아티팩트 | 지표 |
 |------|----------|------|
-| fast 멀티태스크 | `models/retinal_v10.onnx` (v10c) | composite 0.8842 |
+| fast 멀티태스크 (일반) | `models/retinal_v10.onnx` (v10c) | composite 0.8842 |
+| fast 멀티태스크 (한국인) | `models/retinal_v14.onnx` | NTG mean 0.842 · det 1.000 |
 | GL 앙상블 | v10c + glaucoma_v2 | fast GL 0.900+ |
 | precise GL | glaucoma_v2 | AUC 0.946 |
 
@@ -63,15 +94,14 @@ V10F=1 bash scripts/start_v10_train.sh
 
 ---
 
-## 한국인 임상 데이터 (추가 예정, v14)
+## 한국인 임상 데이터 (v14 반영 완료)
 
-| 데이터셋 | 환자수 | 안구수 | 특징 |
-|---------|------|------|-----|
-| Korean GL Modified | 173명 | ~300안 (컬러) | 안저사진만, 수정본 |
-| Korean GL Origin | 173폴더 | ~400안 (컬러) | 안저+시야+OCT, 복수방문 ~60명 |
-| 합계 추가 예정 | ~1,400장 | — | IRB 2019, 로컬 전용 |
+| 데이터셋 | 장수 | 특징 |
+|---------|------|------|
+| Korean GL (manifest) | **699** | IRB 2019 · `korean_clinical=true` |
+| Korean GL Modified (전처리) | 300 컬러 | eval 기준 |
+| Korean GL Origin (전처리) | 399 안저 | 시계열 ~60명 |
 
-- 전처리: `scripts/run_all_korean_gl_gpu.sh`
-- manifest: `scripts/build_v14_manifest.py` → `unified_v14.json`
-- 검증: `scripts/eval_korean_gl.py` → `eval_v10c_korean.json`
-- 계획: `docs/V14-KOREAN-GL-TRAINING-PLAN.md`
+- manifest: `training/manifests/unified_v14.json`
+- eval: `eval_v10c_korean.json` / `eval_v14_korean.json`
+- 계획: `docs/V14-KOREAN-GL-TRAINING-PLAN.md` ✅
