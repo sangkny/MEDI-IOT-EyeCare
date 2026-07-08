@@ -41,3 +41,11 @@ training/manifests/*_eyepacs.json
 !training/manifests/README.md
 # CI workflow 는 추적 (.github/workflows/ci.yml) — Appendix F cicd-guide.md
 models/pretrained/
+
+# 한국인 녹내장 임상 데이터 (IRB 2019 승인, 로컬 전용)
+glaucoma_*_info.xlsx
+timeseries_labels.csv
+timeseries_analysis.json
+labels_modified.csv
+labels_origin.csv
+manifest_*.json
