@@ -6,6 +6,9 @@
     --data-root ~/workspace/dataset \\
     --sources refuge,airogs,adam,odir \\
     --output training/manifests/multi_indication.json
+
+# v14 이후: korean_clinical 데이터 추가 시
+# build_v14_manifest.py 참조 (scripts/build_v14_manifest.py)
 """
 from __future__ import annotations
 

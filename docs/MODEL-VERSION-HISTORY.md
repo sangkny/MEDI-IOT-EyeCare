@@ -60,3 +60,18 @@ V10F=1 bash scripts/start_v10_train.sh
 | 삭제 예정 | 유지 |
 |-----------|------|
 | `enhanced_cache`, `v2_cache` (`/dataset`, `/data_dr`) | `resized_cache` (v10c) |
+
+---
+
+## 한국인 임상 데이터 (추가 예정, v14)
+
+| 데이터셋 | 환자수 | 안구수 | 특징 |
+|---------|------|------|-----|
+| Korean GL Modified | 173명 | ~300안 (컬러) | 안저사진만, 수정본 |
+| Korean GL Origin | 173폴더 | ~400안 (컬러) | 안저+시야+OCT, 복수방문 ~60명 |
+| 합계 추가 예정 | ~1,400장 | — | IRB 2019, 로컬 전용 |
+
+- 전처리: `scripts/run_all_korean_gl_gpu.sh`
+- manifest: `scripts/build_v14_manifest.py` → `unified_v14.json`
+- 검증: `scripts/eval_korean_gl.py` → `eval_v10c_korean.json`
+- 계획: `docs/V14-KOREAN-GL-TRAINING-PLAN.md`
