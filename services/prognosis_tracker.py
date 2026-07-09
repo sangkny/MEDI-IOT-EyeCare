@@ -18,6 +18,14 @@ IRB: 국내 임상기관 IRB 승인 (2019) — 로컬 전용
 """
 from __future__ import annotations
 
+import json
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
 IRB_INFO = {
     "institution": "Korean Clinical Institution",
     "approved_year": 2019,
@@ -96,15 +104,103 @@ CREATE TABLE IF NOT EXISTS gl_prognosis_reports (
 """
 
 
+def risk_level_from_prob(prob: float) -> str:
+    """progression 확률 → 위험도 레벨."""
+    if prob < 0.3:
+        return "low"
+    if prob <= 0.6:
+        return "medium"
+    return "high"
+
+
 class PrognosisTracker:
     """
     녹내장 환자 예후 추적 인터페이스 (현재 stub — DB 미연결)
     향후 medi-audit-engine 연동 시 구현 예정
     """
 
-    def __init__(self, db_url: str | None = None):
+    def __init__(
+        self,
+        db_url: str | None = None,
+        *,
+        model_path: str | Path | None = None,
+        backbone_path: str | Path | None = None,
+        device: str = "cpu",
+    ):
         self.db_url = db_url
         self._stub = db_url is None
+        self.model_path = Path(model_path) if model_path else ROOT / "models/prognosis_v1/best.pt"
+        self.backbone_path = (
+            Path(backbone_path) if backbone_path else ROOT / "models/retinal_v14/best.pt"
+        )
+        self.device_str = device
+        self._extractor = None
+        self._mlp = None
+
+    def _ensure_models(self) -> None:
+        if self._mlp is not None:
+            return
+        import torch
+
+        scripts_dir = ROOT / "scripts"
+        if str(scripts_dir) not in sys.path:
+            sys.path.insert(0, str(scripts_dir))
+        import train_prognosis_mlp as tpm  # noqa: WPS433
+
+        use_cuda = self.device_str == "cuda" and torch.cuda.is_available()
+        device = torch.device("cuda" if use_cuda else "cpu")
+
+        if not self.backbone_path.is_file():
+            raise FileNotFoundError(f"backbone not found: {self.backbone_path}")
+        if not self.model_path.is_file():
+            raise FileNotFoundError(f"prognosis model not found: {self.model_path}")
+
+        self._extractor = tpm.EmbeddingExtractor(self.backbone_path, device=device)
+        ckpt = torch.load(self.model_path, map_location="cpu", weights_only=True)
+        self._mlp = tpm.PrognosisMLP(input_dim=int(ckpt.get("input_dim", tpm.INPUT_DIM)))
+        self._mlp.load_state_dict(ckpt["model_state"])
+        self._mlp.eval().to(device)
+        self._device = device
+        self._tpm = tpm
+
+    def predict_progression(
+        self,
+        fundus_od_path: str | Path,
+        fundus_os_path: str | Path,
+        *,
+        grade: int,
+        is_ntg: bool,
+        days_since_last_visit: int,
+    ) -> dict:
+        """
+        Phase 1 MLP — 다음 방문까지 progression 확률 추론.
+
+        반환:
+          progression_prob (0~1), risk_level (low/medium/high), model_version
+        """
+        import numpy as np
+        import torch
+
+        self._ensure_models()
+        emb_r = self._extractor.extract(Path(fundus_od_path))
+        emb_l = self._extractor.extract(Path(fundus_os_path))
+        grade_n = float(grade) / 3.0
+        is_ntg_n = 1.0 if is_ntg else 0.0
+        days_n = float(days_since_last_visit) / 365.0
+        feat = np.concatenate(
+            [emb_r, emb_l, np.array([grade_n, is_ntg_n, days_n], dtype=np.float32)]
+        )
+        with torch.no_grad():
+            logits = self._mlp(torch.from_numpy(feat).unsqueeze(0).to(self._device))
+            prob = float(torch.sigmoid(logits).item())
+
+        return {
+            "progression_prob": round(prob, 4),
+            "risk_level": risk_level_from_prob(prob),
+            "model_version": self.model_path.name,
+            "backbone": self.backbone_path.name,
+            "interpretation": "exploratory_only",
+        }
 
     def register_patient(
         self,
