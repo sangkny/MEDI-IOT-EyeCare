@@ -1,181 +1,128 @@
 #!/usr/bin/env python3
-"""
-파일명: scripts/inspect_korean_gl_crops.py
-목적:   한국인 녹내장 전처리 크롭 결과 시각적 검증
-        원본 합본 이미지 vs OD/OS 크롭 결과를 HTML로 나란히 비교
-IRB: 국내 임상기관 IRB 승인 (2019) — 로컬 전용
-"""
+"""한국인 GL 크롭 결과 HTML 검증 페이지 생성."""
+from __future__ import annotations
+
+import argparse
 import base64
-import csv
-import random
+import json
+import sys
 from pathlib import Path
 
-DATASET_ROOT = Path('/dataset/korean_glaucoma_fundus')
-INPUT_ROOT   = Path('/dataset/korean_fundus_input')
-OUTPUT_HTML  = Path('/workspace/inspect_korean_gl_crops.html')
-N_SAMPLES    = 10
+import cv2
+import numpy as np
 
-def img_to_b64(path: Path) -> str:
-    if not path.exists():
-        return ''
-    return base64.b64encode(path.read_bytes()).decode()
+_SCRIPTS = Path(__file__).resolve().parent
+_ROOT = _SCRIPTS.parent
+if str(_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS))
 
-def make_html(samples: list, stats: dict) -> str:
-    rows = []
-    for s in samples:
-        img_no = s['image_no']
-        eye    = s['eye']
-        grade  = s['grade']
-        diag   = s['diagnosis']
-        fname  = s['filename']
-        mod    = s.get('modality', 'color')
+DEFAULT_INPUT = Path("/dataset/korean_fundus_input/glaucoma_modified")
+DEFAULT_CROPS = Path("/dataset/korean_glaucoma_fundus/modified")
+DEFAULT_LAYOUT = _ROOT / "crop_layout_analysis.json"
+DEFAULT_OUT = _ROOT / "inspect_korean_gl_crops.html"
+HIGHLIGHT = [1, 3, 6, 19]
 
-        sub       = 'OD' if eye == 'R' else 'OS'
-        eye_label = '우안(OD)' if eye == 'R' else '좌안(OS)'
-        color     = 'blue' if eye == 'R' else 'green'
 
-        crop_path = DATASET_ROOT / 'modified' / mod / sub / fname
-        orig_path = INPUT_ROOT / 'glaucoma_modified' / f'{img_no}.jpg'
+def _b64_jpeg(img: np.ndarray, quality: int = 85) -> str:
+    ok, buf = cv2.imencode(".jpg", img, [cv2.IMWRITE_JPEG_QUALITY, quality])
+    if not ok:
+        return ""
+    return base64.b64encode(buf.tobytes()).decode("ascii")
 
-        crop_b64 = img_to_b64(crop_path)
-        orig_b64 = img_to_b64(orig_path)
 
-        crop_img = (f'<img src="data:image/jpeg;base64,{crop_b64}" '
-                    f'style="width:280px;border:3px solid {color};border-radius:4px">'
-                    if crop_b64 else '<div style="color:red;padding:20px">❌ 파일없음</div>')
-        orig_img = (f'<img src="data:image/jpeg;base64,{orig_b64}" '
-                    f'style="width:380px;border:1px solid #ccc;border-radius:4px">'
-                    if orig_b64 else '<div style="color:red;padding:20px">❌ 원본없음</div>')
+def _draw_boxes(img: np.ndarray, entry: dict) -> np.ndarray:
+    out = img.copy()
+    split_row = int(entry.get("split_row", 0))
+    h, w = out.shape[:2]
+    cv2.line(out, (0, split_row), (w, split_row), (0, 255, 255), 2)
+    for label, color in (("od_box", (0, 200, 0)), ("os_box", (0, 0, 255))):
+        box = entry.get(label)
+        if not box:
+            continue
+        y0, x0, y1, x1 = [int(v) for v in box]
+        cv2.rectangle(out, (x0, y0), (x1, y1), color, 2)
+        cv2.putText(
+            out,
+            label.replace("_box", "").upper(),
+            (x0 + 4, max(y0 + 20, 20)),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.6,
+            color,
+            2,
+        )
+    return out
 
-        status = '✅' if crop_b64 else '❌'
-        rows.append(f'''
-        <tr>
-          <td style="padding:12px;font-size:13px;vertical-align:top;min-width:120px">
-            <b style="font-size:15px">No.{img_no}</b><br><br>
-            <span style="background:{"#e3f0ff" if eye=="R" else "#e3ffe3"};
-                  padding:3px 8px;border-radius:10px;font-size:12px">
-              {eye_label}
-            </span><br><br>
-            Grade <b>{grade}</b><br>
-            <small style="color:#666">{diag}</small><br><br>
-            {status} {'정상' if crop_b64 else '누락'}
-          </td>
-          <td style="padding:8px;vertical-align:top">
-            <div style="font-size:11px;color:#888;margin-bottom:4px">
-              ← 원본 합본 (1500×1159)
-            </div>
-            {orig_img}
-          </td>
-          <td style="padding:8px;vertical-align:top">
-            <div style="font-size:11px;color:{color};margin-bottom:4px">
-              ← 크롭 결과 {eye_label} (512×512, CLAHE)
-            </div>
-            {crop_img}
-          </td>
-        </tr>''')
 
-    return f'''<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <title>한국인 녹내장 크롭 검증</title>
-  <style>
-    body {{ font-family: "Malgun Gothic", sans-serif; margin: 24px; background:#fafafa; }}
-    h2 {{ color: #1a1a2e; }}
-    .warn {{ background:#fff3cd; padding:10px 16px; border-radius:6px;
-             border-left:4px solid #ffc107; margin-bottom:16px; }}
-    .stat {{ background:#e8f4fd; padding:10px 16px; border-radius:6px;
-             margin-bottom:20px; font-size:13px; }}
-    table {{ border-collapse: collapse; width:100%; background:white;
-             box-shadow:0 1px 4px rgba(0,0,0,0.1); border-radius:8px;
-             overflow:hidden; }}
-    tr {{ border-bottom: 1px solid #eee; }}
-    tr:hover {{ background:#f0f7ff; }}
-    th {{ background:#2c3e50; color:white; padding:12px; text-align:left; }}
-  </style>
-</head>
-<body>
-  <h2>🔬 한국인 녹내장 전처리 크롭 검증</h2>
-  <div class="warn">
-    ⚠️ IRB 2019 승인 데이터 — 로컬 전용, 외부 반출 금지
+def _find_crop(path_dir: Path, img_no: int, eye: str, modality: str) -> Path | None:
+    prefix = f"MEDI_KR_GL_modified_{img_no:04d}_{eye}_{modality}"
+    matches = sorted(path_dir.glob(f"{prefix}*.jpg"))
+    return matches[0] if matches else None
+
+
+def main() -> None:
+    p = argparse.ArgumentParser()
+    p.add_argument("--input-dir", type=Path, default=DEFAULT_INPUT)
+    p.add_argument("--crops-dir", type=Path, default=DEFAULT_CROPS)
+    p.add_argument("--layout-json", type=Path, default=DEFAULT_LAYOUT)
+    p.add_argument("--output", type=Path, default=DEFAULT_OUT)
+    p.add_argument("--samples", type=str, default=",".join(str(x) for x in HIGHLIGHT))
+    args = p.parse_args()
+
+    layout = json.loads(args.layout_json.read_text(encoding="utf-8"))
+    by_no = {int(f["img_no"]): f for f in layout["files"] if "img_no" in f}
+    stats = layout["stats"]
+    samples = [int(x.strip()) for x in args.samples.split(",") if x.strip()]
+
+    cards: list[str] = []
+    for n in samples:
+        entry = by_no.get(n)
+        if not entry:
+            continue
+        src = cv2.imread(str(args.input_dir / f"{n}.jpg"))
+        if src is None:
+            continue
+        overlay = _draw_boxes(src, entry)
+        od_crop = _find_crop(args.crops_dir / "color" / "OD", n, "R", "color")
+        os_crop = _find_crop(args.crops_dir / "color" / "OS", n, "L", "color")
+        od_img = cv2.imread(str(od_crop)) if od_crop else None
+        os_img = cv2.imread(str(os_crop)) if os_crop else None
+        cards.append(
+            f"""
+<section class="card">
+  <h2>No.{n} — {entry.get('layout')} splits={entry.get('bottom_splits')}</h2>
+  <div class="row">
+    <figure><figcaption>원본+박스</figcaption>
+      <img src="data:image/jpeg;base64,{_b64_jpeg(cv2.resize(overlay, (750, int(750*overlay.shape[0]/overlay.shape[1]))))}"/></figure>
+    <figure><figcaption>OD color</figcaption>
+      <img src="data:image/jpeg;base64,{_b64_jpeg(od_img) if od_img is not None else ''}"/></figure>
+    <figure><figcaption>OS color</figcaption>
+      <img src="data:image/jpeg;base64,{_b64_jpeg(os_img) if os_img is not None else ''}"/></figure>
   </div>
-  <div class="stat">
-    <b>전체 통계:</b>
-    총 color 레코드 {stats["total"]}장 |
-    OD {stats["od"]}장 | OS {stats["os"]}장 |
-    파일 누락 {stats["missing"]}장 |
-    Grade 분포: {stats["grades"]} |
-    진단: {stats["diags"]}
-  </div>
-  <p style="color:#666;font-size:13px">
-    검사 샘플 {len(samples)}장 |
-    <span style="color:blue">■ 파란 테두리 = 우안(OD)</span> &nbsp;
-    <span style="color:green">■ 초록 테두리 = 좌안(OS)</span>
-  </p>
-  <table>
-    <tr>
-      <th>정보</th>
-      <th>원본 합본</th>
-      <th>크롭 결과</th>
-    </tr>
-    {''.join(rows)}
-  </table>
-  <p style="color:#aaa;font-size:11px;margin-top:20px">
-    생성: inspect_korean_gl_crops.py | 국내 임상기관 IRB 2019
-  </p>
-</body>
-</html>'''
+</section>"""
+        )
 
-def main():
-    csv_path = DATASET_ROOT / 'labels_modified.csv'
-    if not csv_path.exists():
-        print(f'오류: {csv_path} 없음')
-        return
+    html = f"""<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8"/>
+<title>Korean GL Crop Inspect</title>
+<style>
+body {{ font-family: sans-serif; margin: 16px; background: #111; color: #eee; }}
+.card {{ border: 1px solid #444; padding: 12px; margin-bottom: 20px; border-radius: 8px; }}
+.row {{ display: flex; gap: 12px; flex-wrap: wrap; }}
+figure {{ margin: 0; }}
+img {{ max-width: 360px; border: 1px solid #666; }}
+.stats {{ background: #222; padding: 12px; border-radius: 8px; margin-bottom: 20px; }}
+</style></head><body>
+<h1>Korean GL Crop Inspection</h1>
+<div class="stats">
+  <p>총 {stats['total']} — 2split={stats['split_2']} 3split={stats.get('split_3',0)} 4split={stats['split_4']} unknown={stats['unknown']}</p>
+  <p>detector: gradient_v2 | analyzed: {layout.get('analyzed_at','')}</p>
+</div>
+{''.join(cards)}
+</body></html>"""
 
-    records = list(csv.DictReader(open(csv_path, encoding='utf-8')))
-    color_r = [r for r in records if r.get('modality') == 'color']
-    print(f'전체 color 레코드: {len(color_r)}장')
+    args.output.write_text(html, encoding="utf-8")
+    print(f"OK {args.output} ({len(cards)} samples)")
 
-    od = [r for r in color_r if r['eye'] == 'R']
-    os_ = [r for r in color_r if r['eye'] == 'L']
 
-    # 파일 존재 확인 (전체)
-    missing = 0
-    for r in color_r:
-        sub  = 'OD' if r['eye'] == 'R' else 'OS'
-        path = DATASET_ROOT / 'modified' / 'color' / sub / r['filename']
-        if not path.exists():
-            missing += 1
-    print(f'파일 누락: {missing}/{len(color_r)}장')
-
-    # Grade/진단 분포
-    grades = {}
-    diags  = {}
-    for r in color_r:
-        g = r.get('grade', '?')
-        d = r.get('diagnosis', '?')
-        grades[g] = grades.get(g, 0) + 1
-        diags[d]  = diags.get(d, 0) + 1
-    print('Grade 분포:', grades)
-    print('진단 분포:', diags)
-
-    # 샘플 선택 (OD/OS 균형)
-    n_each  = N_SAMPLES // 2
-    samples = (random.sample(od, min(n_each, len(od))) +
-               random.sample(os_, min(n_each, len(os_))))
-    random.shuffle(samples)
-
-    stats = {
-        'total': len(color_r),
-        'od': len(od), 'os': len(os_),
-        'missing': missing,
-        'grades': str(grades),
-        'diags': str(diags),
-    }
-
-    html = make_html(samples, stats)
-    OUTPUT_HTML.write_text(html, encoding='utf-8')
-    print(f'\nHTML 리포트: {OUTPUT_HTML}')
-
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -19,7 +19,7 @@ import cv2
 _SCRIPTS = Path(__file__).resolve().parent
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
-from korean_gl_crop_utils import analyze_bottom_layout
+from korean_gl_crop_utils import analyze_bottom_layout, analyze_bottom_layout_v2
 
 IRB_INFO = {
     "institution": "Korean Clinical Institution",
@@ -55,6 +55,7 @@ def analyze_directory(
     *,
     source: str,
     threshold_ratio: float,
+    min_distance: int = 100,
 ) -> dict:
     if source == "modified":
         items = list(_iter_modified(input_dir))
@@ -66,6 +67,7 @@ def analyze_directory(
     stats = {
         "total": 0,
         "split_2": 0,
+        "split_3": 0,
         "split_4": 0,
         "unknown": 0,
         "skip": 0,
@@ -80,7 +82,11 @@ def analyze_directory(
             skip_log.append({"key": key, "path": str(path), "reason": "load_failed"})
             continue
 
-        layout = analyze_bottom_layout(img, threshold_ratio=threshold_ratio)
+        layout = analyze_bottom_layout(
+            img,
+            ratio_threshold=threshold_ratio,
+            min_distance=min_distance,
+        )
         entry = {
             "key": key,
             "source": source,
@@ -94,6 +100,8 @@ def analyze_directory(
             files.append(entry)
             if layout["layout"] == "2split":
                 stats["split_2"] += 1
+            elif layout["layout"] == "3split":
+                stats["split_3"] += 1
             elif layout["layout"] == "4split":
                 stats["split_4"] += 1
         else:
@@ -126,7 +134,9 @@ def main() -> None:
     p.add_argument("--input-dir", type=Path, default=None)
     p.add_argument("--source", choices=("modified", "origin"), default="modified")
     p.add_argument("--output-json", type=Path, default=DEFAULT_OUTPUT)
-    p.add_argument("--threshold-ratio", type=float, default=0.3)
+    p.add_argument("--threshold-ratio", type=float, default=2.5,
+                   help="gradient peak ratio vs mean (default 2.5)")
+    p.add_argument("--min-distance", type=int, default=100)
     args = p.parse_args()
 
     input_dir = args.input_dir
@@ -141,6 +151,7 @@ def main() -> None:
         input_dir,
         source=args.source,
         threshold_ratio=args.threshold_ratio,
+        min_distance=args.min_distance,
     )
     args.output_json.parent.mkdir(parents=True, exist_ok=True)
     args.output_json.write_text(
@@ -152,6 +163,7 @@ def main() -> None:
     print(f"OK {args.output_json}")
     print(f"총: {st['total']}")
     print(f"2분할: {st['split_2']}")
+    print(f"3분할: {st.get('split_3', 0)}")
     print(f"4분할: {st['split_4']}")
     print(f"unknown: {st['unknown']}")
     print(f"스킵: {st['skip']}")
