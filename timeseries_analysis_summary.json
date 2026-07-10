@@ -1,0 +1,39 @@
+{
+  "analyzed_at": "2026-07-09",
+  "source": "timeseries_labels.csv",
+  "irb": "Korean Clinical Institution 2019 — LOCAL_ONLY",
+  "total_patients": 173,
+  "multi_visit_patients": 92,
+  "adjacent_pairs": 113,
+  "grade_change_transitions": {
+    "stable": 108,
+    "progression": 3,
+    "improvement": 2
+  },
+  "grade_change_pct": {
+    "stable": 95.6,
+    "progression": 2.7,
+    "improvement": 1.8
+  },
+  "interval_days": {
+    "count": 113,
+    "avg": 204,
+    "min": 4,
+    "max": 854
+  },
+  "modality_overlap": {
+    "fundus_and_vf": 167,
+    "fundus_patients": 173
+  },
+  "phase1_decision": {
+    "status": "on_hold",
+    "reason": "progression=3 pairs — insufficient for stable 5-fold CV; always-stable baseline 95.6%",
+    "note": "Not a data quality issue — Grade changes occur slowly over years in clinical reality"
+  },
+  "phase2_threshold": {
+    "min_progression_pairs": 50,
+    "current_progression_pairs": 3,
+    "expansion_factor_needed": 16.7
+  },
+  "short_term_alternative": "GL probability trend analysis (analyze_gl_trend.py)"
+}

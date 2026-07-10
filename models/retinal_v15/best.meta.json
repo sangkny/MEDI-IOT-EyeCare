@@ -1,0 +1,46 @@
+{
+  "arch": "efficientnet_b4_v15",
+  "manifest": "unified_v15.json",
+  "preprocess": "clahe",
+  "image_size": 224,
+  "version": "v15",
+  "best_composite": 0.803,
+  "gl_auc_public": 0.832,
+  "grade_qwk_val": 0.551,
+  "korean_severity_auc": 0.652,
+  "korean_eval_date": "2026-07-09",
+  "training_data": "unified_v15 (v14 + grade labels)",
+  "pretrained_from": "retinal_v14/best.pt",
+  "gl_oversample": 2.0,
+  "grade_head": true,
+  "grade_weight": 0.05,
+  "irb": "Korean Clinical Institution 2019",
+  "loss_weights": {
+    "dr": 0.28,
+    "glaucoma": 0.25,
+    "amd": 0.17,
+    "myopia": 0.17,
+    "multidisease": 0.08,
+    "grade": 0.05
+  },
+  "warmup_epochs": 8,
+  "outputs": [
+    "dr",
+    "glaucoma",
+    "amd",
+    "myopia",
+    "multidisease",
+    "glaucoma_grade"
+  ],
+  "output_activations": {
+    "dr": "softmax",
+    "glaucoma": "sigmoid",
+    "amd": "sigmoid",
+    "myopia": "sigmoid",
+    "multidisease": "sigmoid",
+    "glaucoma_grade": "softmax"
+  },
+  "onnx": "retinal_v15.onnx",
+  "source_checkpoint": "best.pt",
+  "deployment_note": "Use when Grade severity discrimination needed; general/Korean detection still v10c/v14"
+}

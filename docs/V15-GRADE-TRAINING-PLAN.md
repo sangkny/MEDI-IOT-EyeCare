@@ -65,19 +65,28 @@ bash scripts/run_build_v15_manifest_gpu.sh
 bash scripts/run_v15_smoke_gpu.sh   # device=cuda + gradeQWK 로그 확인
 ```
 
-## §6 성공 기준
+## §6 성공 기준 (실측, 2026-07-09)
 
-| 지표 | v14 | v15 목표 |
-|:---|:---|:---|
-| GL AUC (공개) | 0.842 | **≥ 0.842** (유지) |
-| NTG mean_prob | 0.842 | **≥ 0.800** |
-| AUC(severity) | 0.602 | **≥ 0.700** |
-| gradeQWK (val) | — | > 0 (smoke+) |
+| 지표 | v14 | v15 목표 | **v15 실측** |
+|:---|:---|:---|:---|
+| GL AUC (공개) | 0.842 | ≥ 0.842 | **0.832** |
+| NTG mean_prob | 0.842 | ≥ 0.800 | (v14 유지 권장) |
+| AUC(severity) | 0.602 | ≥ 0.700 | **0.652** ✅ (+0.050) |
+| gradeQWK (val) | — | > 0 | **0.551** ✅ |
+| composite | 0.877 | — | **0.803** |
 
-eval: `python3 scripts/eval_korean_gl.py --model models/retinal_v15/best.pt`
+**판정**: severity AUC 목표(0.700) 미달이나 v14(0.602) 대비 **유의 개선**. GL AUC 소폭 하락(0.842→0.832) — Grade 헤드 trade-off.
 
-## §7 배포 전략 (예정)
+**운영**:
+- 한국인 **검출** → **v14** (det 1.000)
+- **Grade 변별** 필요 → **v15** (severity AUC 0.652)
+- 일반 → **v10c**
 
-- 한국인 + severity 필요 → **v15**
-- 한국인 검출만 → v14 유지
+eval: `python3 scripts/eval_korean_gl.py --model models/retinal_v15/best.pt`  
+export: `python3 scripts/export_v15_onnx.py --checkpoint models/retinal_v15/best.pt --output models/retinal_v15.onnx`
+
+## §7 배포 전략
+
+- 한국인 + **severity(Grade) 필요** → **v15**
+- 한국인 **검출만** → v14 유지
 - 일반 → v10c
