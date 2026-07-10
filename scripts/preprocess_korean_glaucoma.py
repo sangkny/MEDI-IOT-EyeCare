@@ -23,6 +23,11 @@ import cv2
 import numpy as np
 from openpyxl import load_workbook
 
+_SCRIPTS = Path(__file__).resolve().parent
+if str(_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS))
+from korean_gl_crop_utils import build_bottom_color_boxes
+
 IRB_INFO = {
     "institution": "Korean Clinical Institution",
     "approved_year": 2019,
@@ -189,13 +194,23 @@ def process_dataset(
             stats["error"] += 1
             continue
 
-        h, w = img_bgr.shape[:2]
+        _, w = img_bgr.shape[:2]
         img_masked, pii_count = mask_pii(img_bgr)
         if pii_count > 0:
             stats["masking"]["total_green_pixels"] += pii_count
             stats["masking"]["files_with_pii"] += 1
 
         split_row, split_col = detect_boundaries(img_bgr)
+        color_boxes, crop_info = build_bottom_color_boxes(img_bgr, split_row)
+        od_os_boundary = crop_info["od_os_boundary"]
+        od_split = crop_info["od_split"]
+        os_split = crop_info["os_split"]
+
+        print(
+            f"  [{img_no}] 상하={split_row} OD/OS={od_os_boundary} "
+            f"OD내부={od_split} OS내부={os_split}"
+        )
+
         crops: dict[str, dict] = {}
         if save_ir:
             crops["ir_R"] = {
@@ -211,13 +226,13 @@ def process_dataset(
                 "dir": dirs["ir_os"],
             }
         crops["color_R"] = {
-            "box": (split_row, split_col // 2, h, split_col),
+            "box": color_boxes["color_R"],
             "eye": "R",
             "modality": "color",
             "dir": dirs["color_od"],
         }
         crops["color_L"] = {
-            "box": (split_row, split_col, h, split_col + (w - split_col) // 2),
+            "box": color_boxes["color_L"],
             "eye": "L",
             "modality": "color",
             "dir": dirs["color_os"],
@@ -271,9 +286,6 @@ def process_dataset(
             stats["success"] += 1
             stats["grade"][g] = stats["grade"].get(g, 0) + 1
             stats["diagnosis"][d] = stats["diagnosis"].get(d, 0) + 1
-
-        if img_no % 20 == 0 or img_no <= 5:
-            print(f"  [{img_no:3d}] bounds=({split_row},{split_col}) pii={pii_count}")
 
     if not dry_run and records:
         csv_path = output_dir / "labels_modified.csv"

@@ -42,6 +42,11 @@ import cv2
 import numpy as np
 from openpyxl import load_workbook
 
+_SCRIPTS = Path(__file__).resolve().parent
+if str(_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(_SCRIPTS))
+from korean_gl_crop_utils import build_bottom_color_boxes
+
 # ── 상수 ──────────────────────────────────────────────────────────────────────
 DATASET_PREFIX = "MEDI_KR_GL"
 OUTPUT_SIZE    = (512, 512)    # 안저사진 출력 크기
@@ -299,12 +304,19 @@ def process_origin(
             img_masked, pii_cnt = mask_pii(img_bgr)
             split_row, split_col = detect_fundus_boundaries(img_bgr)
             h, w = img_bgr.shape[:2]
+            color_boxes, crop_info = build_bottom_color_boxes(img_bgr, split_row)
+            od_os_boundary = crop_info["od_os_boundary"]
+            od_split = crop_info["od_split"]
+            os_split = crop_info["os_split"]
+
+            print(
+                f"  [{folder_no}] 상하={split_row} OD/OS={od_os_boundary} "
+                f"OD내부={od_split} OS내부={os_split} ({fundus_file.name})"
+            )
 
             crops = {
-                "R_color": (split_row, split_col//2, h, split_col,
-                            dirs["fundus_od"], True),
-                "L_color": (split_row, split_col, h, split_col+(w-split_col)//2,
-                            dirs["fundus_os"], True),
+                "R_color": (*color_boxes["color_R"], dirs["fundus_od"], True),
+                "L_color": (*color_boxes["color_L"], dirs["fundus_os"], True),
                 "R_ir":    (0, 0, split_row, split_col,
                             dirs["fundus_ir_od"], False),
                 "L_ir":    (0, split_col, split_row, w,
