@@ -43,9 +43,16 @@ import numpy as np
 from openpyxl import load_workbook
 
 _SCRIPTS = Path(__file__).resolve().parent
+_ROOT = _SCRIPTS.parent
 if str(_SCRIPTS) not in sys.path:
     sys.path.insert(0, str(_SCRIPTS))
-from korean_gl_crop_utils import build_bottom_color_boxes
+from korean_gl_crop_utils import (
+    analyze_bottom_layout,
+    detect_boundaries,
+    layout_to_color_boxes,
+)
+
+DEFAULT_LAYOUT_JSON = _ROOT / "crop_layout_analysis_origin.json"
 
 # ── 상수 ──────────────────────────────────────────────────────────────────────
 DATASET_PREFIX = "MEDI_KR_GL"
@@ -149,17 +156,14 @@ def mask_text_regions(img: np.ndarray) -> np.ndarray:
 
 
 def detect_fundus_boundaries(img: np.ndarray) -> tuple[int, int]:
-    """안저사진 합본 상하/좌우 경계 자동 감지"""
-    h, w = img.shape[:2]
-    row_means = img.mean(axis=(1, 2))
-    s, e = int(h * 0.30), int(h * 0.70)
-    split_row = s + int(row_means[s:e].argmin())
+    return detect_boundaries(img)
 
-    col_means = img[:split_row].mean(axis=(0, 2))
-    cs, ce = int(w * 0.30), int(w * 0.70)
-    split_col = cs + int(col_means[cs:ce].argmin())
 
-    return split_row, split_col
+def load_layout_index(layout_path: Path) -> dict[str, dict]:
+    if not layout_path.is_file():
+        return {}
+    data = json.loads(layout_path.read_text(encoding="utf-8"))
+    return {str(e.get("key")): e for e in (data.get("files") or [])}
 
 
 def apply_clahe(img_bgr: np.ndarray) -> np.ndarray:
@@ -219,6 +223,7 @@ def process_origin(
     xlsx_path: Path,
     output_dir: Path,
     dry_run: bool = False,
+    layout_path: Path | None = None,
 ) -> None:
     print("=" * 60)
     print("MEDI-IoT 한국인 녹내장 원본 데이터 전처리")
@@ -245,6 +250,17 @@ def process_origin(
     labels = load_label_xlsx(xlsx_path)
     print(f"라벨: {len(labels)}개 Folder_No")
 
+    lp = layout_path or DEFAULT_LAYOUT_JSON
+    if not lp.is_absolute():
+        lp = _ROOT / lp
+    layout_index = load_layout_index(lp)
+    if layout_index:
+        print(f"Layout: {len(layout_index)} entries ({lp.name})")
+    else:
+        print(f"WARN: layout JSON 없음 — 이미지별 inline 분석 ({lp})")
+
+    skip_log: list[dict] = []
+
     # 폴더 목록 (숫자 폴더만)
     folders = sorted(
         [f for f in input_dir.iterdir()
@@ -262,6 +278,7 @@ def process_origin(
         "oct_saved":     0,
         "multi_visit":   0,   # 복수 방문 있는 폴더
         "error":         0,
+        "skip_layout":   0,
         "grade": {}, "diagnosis": {},
     }
     errors = []
@@ -302,16 +319,40 @@ def process_origin(
                 continue
 
             img_masked, pii_cnt = mask_pii(img_bgr)
-            split_row, split_col = detect_fundus_boundaries(img_bgr)
+            layout_key = f"{folder_no}/{fundus_file.name}"
+            layout_entry = layout_index.get(layout_key)
+            if layout_entry is None:
+                layout_entry = analyze_bottom_layout(img_bgr)
+
+            if not layout_entry.get("crop_possible"):
+                stats["skip_layout"] += 1
+                skip_log.append({
+                    "key": layout_key,
+                    "folder_no": folder_no,
+                    "path": str(fundus_file),
+                    "layout": layout_entry.get("layout"),
+                    "bottom_splits": layout_entry.get("bottom_splits"),
+                    "reason": layout_entry.get("reason", "layout_unknown"),
+                })
+                print(
+                    f"  [{folder_no}] SKIP {fundus_file.name} "
+                    f"layout={layout_entry.get('layout')}"
+                )
+                continue
+
+            color_boxes = layout_to_color_boxes(layout_entry)
+            if not color_boxes:
+                stats["skip_layout"] += 1
+                continue
+
+            split_row = int(layout_entry["split_row"])
+            split_col = int(layout_entry["split_col"])
             h, w = img_bgr.shape[:2]
-            color_boxes, crop_info = build_bottom_color_boxes(img_bgr, split_row)
-            od_os_boundary = crop_info["od_os_boundary"]
-            od_split = crop_info["od_split"]
-            os_split = crop_info["os_split"]
 
             print(
-                f"  [{folder_no}] 상하={split_row} OD/OS={od_os_boundary} "
-                f"OD내부={od_split} OS내부={os_split} ({fundus_file.name})"
+                f"  [{folder_no}] {layout_entry.get('layout')} "
+                f"상하={split_row} splits={layout_entry.get('bottom_splits')} "
+                f"({fundus_file.name})"
             )
 
             crops = {
@@ -485,6 +526,22 @@ def process_origin(
             stats["oct_saved"] += 1
 
     # ── 저장 ─────────────────────────────────────────────────────────────────
+    if not dry_run:
+        skip_path = output_dir / "skip_log_origin.json"
+        skip_path.write_text(
+            json.dumps(
+                {
+                    "subset": "origin",
+                    "skipped": len(skip_log),
+                    "entries": skip_log,
+                },
+                indent=2,
+                ensure_ascii=False,
+            ),
+            encoding="utf-8",
+        )
+        print(f"\nSkip log: {skip_path} ({len(skip_log)})")
+
     if not dry_run and records:
         csv_path = output_dir / "labels_origin.csv"
         with open(csv_path, "w", newline="", encoding="utf-8") as f:
@@ -548,6 +605,7 @@ def main():
     p.add_argument("--input-dir", type=Path, default=DEFAULT_INPUT)
     p.add_argument("--xlsx", type=Path, default=DEFAULT_XLSX)
     p.add_argument("--output-dir", type=Path, default=DEFAULT_OUTPUT)
+    p.add_argument("--layout-json", type=Path, default=DEFAULT_LAYOUT_JSON)
     p.add_argument("--dry-run",    action="store_true")
     args = p.parse_args()
 
@@ -556,11 +614,16 @@ def main():
     if not args.xlsx.exists():
         print(f"오류: {args.xlsx} 없음"); sys.exit(1)
 
+    layout_path = args.layout_json
+    if not layout_path.is_absolute():
+        layout_path = _ROOT / layout_path
+
     process_origin(
         input_dir=args.input_dir,
         xlsx_path=args.xlsx,
         output_dir=args.output_dir,
         dry_run=args.dry_run,
+        layout_path=layout_path,
     )
 
 if __name__ == "__main__":
