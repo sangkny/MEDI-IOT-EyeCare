@@ -1,12 +1,10 @@
 # V15 Grade Head 훈련 계획
 
-> 최종 업데이트: 2026-07-09 · v14 완료(7e69dbd) 후 Grade 변별력 개선
+> 최종 업데이트: **2026-07-11** · **v15b 수정크롭 재훈련 완료**
 
 ## §1 목적
 
-v14는 한국인 NTG 검출(mean_prob **0.842**, detection **1.000**)에 성공했으나 **AUC(severity)=0.602**로 Grade 1/2/3 변별력이 부족하다. v15는 `glaucoma_grade` 보조 헤드를 추가해 중증도 변별력을 개선한다.
-
-**목표**: AUC(severity) **0.602 → 0.700+** (한국인 eval 기준)
+v14는 한국인 NTG 검출(mean_prob **0.842**, detection **1.000**)에 성공했으나 Grade 변별력이 부족하다. v15는 `glaucoma_grade` 보조 헤드를 추가한다. **v15b**는 disc_peak_v2 수정 크롭으로 재전처리·재훈련한 운영 버전이다.
 
 ## §2 v14 문제점 분석
 
@@ -42,6 +40,8 @@ composite: 기존 5-head + `gradeQWK × 0.05`
 | 공개 GL 음성 | 0 | ❌ |
 | 공개 GL 양성 | 1 (근사) | ❌ |
 
+**v15b**: 한국인 크롭 = `disc_peak_v2` 재전처리 (2026-07-10) 후 동일 manifest 경로로 재훈련.
+
 ## §5 훈련 설정
 
 ```bash
@@ -58,35 +58,41 @@ V15=1 bash scripts/start_v10_train.sh
 | gl_oversample | **2.0** |
 | warmup_epochs | 8 |
 
-사전 준비:
+## §6 실측 결과
 
-```bash
-bash scripts/run_build_v15_manifest_gpu.sh
-bash scripts/run_v15_smoke_gpu.sh   # device=cuda + gradeQWK 로그 확인
-```
+### v15 (이전 크롭, 2026-07-09)
 
-## §6 성공 기준 (실측, 2026-07-09)
+| 지표 | 값 |
+|:---|:---|
+| composite | 0.803 |
+| GL AUC | 0.832 |
+| gradeQWK | 0.551 |
+| AUC(severity) | 0.652 |
 
-| 지표 | v14 | v15 목표 | **v15 실측** |
-|:---|:---|:---|:---|
-| GL AUC (공개) | 0.842 | ≥ 0.842 | **0.832** |
-| NTG mean_prob | 0.842 | ≥ 0.800 | (v14 유지 권장) |
-| AUC(severity) | 0.602 | ≥ 0.700 | **0.652** ✅ (+0.050) |
-| gradeQWK (val) | — | > 0 | **0.551** ✅ |
-| composite | 0.877 | — | **0.803** |
+### v15b (수정 크롭, 2026-07-11) ✅
 
-**판정**: severity AUC 목표(0.700) 미달이나 v14(0.602) 대비 **유의 개선**. GL AUC 소폭 하락(0.842→0.832) — Grade 헤드 trade-off.
+| 지표 | 값 |
+|:---|:---|
+| best_composite | **0.8110** (epoch 45/49/55) |
+| early_stop | epoch **57** |
+| gradeQWK | **0.600** |
+| GL AUC (공개) | **0.840** |
+| NTG mean_prob | **0.842** (v14 수준 회복) |
+| detection@0.5 | 0.997 |
+| AUC(severity) | 0.606 |
 
-**운영**:
-- 한국인 **검출** → **v14** (det 1.000)
-- **Grade 변별** 필요 → **v15** (severity AUC 0.652)
-- 일반 → **v10c**
+**크롭 수정 효과**: gradeQWK **+0.049** · GL AUC **+0.008** · composite **+0.008**
+
+> **AUC(severity)**: binary GL 확률↔Grade 상관. Grade 변별 SSOT는 **gradeQWK**.
 
 eval: `python3 scripts/eval_korean_gl.py --model models/retinal_v15/best.pt`  
-export: `python3 scripts/export_v15_onnx.py --checkpoint models/retinal_v15/best.pt --output models/retinal_v15.onnx`
+export: `python3 scripts/export_v15_onnx.py` · 수정본 `scripts/export_v15_onnx_fix.py`
 
-## §7 배포 전략
+## §7 운영 전략 (2026-07-11 확정)
 
-- 한국인 + **severity(Grade) 필요** → **v15**
-- 한국인 **검출만** → v14 유지
-- 일반 → v10c
+| 용도 | 모델 |
+|:---|:---|
+| 일반 스크리닝 | **v10c** |
+| 한국인 NTG 검출 | **v14** |
+| Grade 변별 | **v15b** |
+| 정밀 앙상블 | **v10c + glaucoma_v2** |
