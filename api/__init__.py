@@ -14,6 +14,7 @@ from .lab import router as lab_router
 from .partner import router as partner_router
 from .iot import router as iot_router
 from .wearable import router as wearable_router
+from .mvp_screening import router as mvp_screening_router
 
 api_router = APIRouter()
 api_router.include_router(auth_router, prefix="/auth", tags=["auth"])
@@ -30,3 +31,4 @@ api_router.include_router(lab_router, prefix="/lab", tags=["lab"])
 api_router.include_router(partner_router, prefix="/partner", tags=["partner"])
 api_router.include_router(iot_router, prefix="/iot", tags=["iot"])
 api_router.include_router(wearable_router, prefix="/wearable", tags=["wearable"])
+api_router.include_router(mvp_screening_router, tags=["mvp"])
