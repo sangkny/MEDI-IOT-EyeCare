@@ -1,0 +1,57 @@
+name: medi-mvp03c-ci
+
+on:
+  push:
+    branches: ["feature/mvp03c-integrated-demo", "feature/mvp03b-business-operations", "main"]
+  pull_request:
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install deps
+        run: pip install -q numpy pillow pytest fastapi httpx pydantic
+      - name: Contract / QC / governance unit tests
+        run: |
+          PYTHONPATH=. python -m pytest \
+            tests/test_mvp_result_contract.py \
+            tests/test_preprocessing_lock.py \
+            tests/test_mvp03a_qc_governance.py \
+            -q --tb=short
+      - name: Model hash freeze check
+        run: |
+          python - <<'PY'
+          import json, pathlib
+          p=pathlib.Path("models/model_registry.json")
+          assert p.exists()
+          data=json.loads(p.read_text())
+          # locate retinal_v10 hash
+          blob=json.dumps(data)
+          assert "a5d3467e2d27ccf2e7bc9bdf42f611ba7ab4d8f221ddcf8921742c38b4ef6ecc" in blob
+          print("MODEL_HASH_FROZEN_OK")
+          PY
+      - name: Secret pattern scan
+        run: |
+          python - <<'PY'
+          import re, pathlib
+          parts = [
+            "sk_", "(live|test)_",
+            "|rk_", "(live|test)_",
+            "|", "wh", "sec_",
+            "|BEGIN ", "PRIVATE ", "KEY|",
+            "pk_", "live_",
+          ]
+          pat = re.compile("".join(parts), re.I)
+          bad=[]
+          for p in pathlib.Path(".").rglob("*"):
+            if p.suffix.lower() not in {".py",".yml",".yaml",".sh",".json",".md"}: continue
+            if any(x in p.parts for x in {".git","__pycache__","models"}): continue
+            if pat.search(p.read_text(encoding="utf-8", errors="ignore")):
+              bad.append(str(p))
+          assert not bad, bad
+          print("SECRET_SCAN_CLEAN")
+          PY
