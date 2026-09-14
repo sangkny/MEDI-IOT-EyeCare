@@ -1,0 +1,46 @@
+name: medi-mvp03b-contract-ci
+
+on:
+  push:
+    branches: ["feature/mvp03b-business-operations", "main", "feature/mvp03a-product-completion"]
+  pull_request:
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install deps
+        run: pip install -q numpy pillow pytest fastapi httpx pydantic
+      - name: Contract / QC / governance unit tests
+        run: |
+          PYTHONPATH=. python -m pytest \
+            tests/test_mvp_result_contract.py \
+            tests/test_preprocessing_lock.py \
+            tests/test_mvp03a_qc_governance.py \
+            tests/test_dicom_foundation.py \
+            -q --tb=short
+      - name: Secret pattern scan
+        run: |
+          python - <<'PY'
+          import re, pathlib
+          parts = [
+            "sk_", "(live|test)_",
+            "|rk_", "(live|test)_",
+            "|", "wh", "sec_",
+            "|BEGIN ", "PRIVATE ", "KEY|",
+            "pk_", "live_",
+          ]
+          pat = re.compile("".join(parts), re.I)
+          bad=[]
+          for p in pathlib.Path(".").rglob("*"):
+            if p.suffix.lower() not in {".py",".yml",".yaml",".sh",".json",".md"}: continue
+            if any(x in p.parts for x in {".git","__pycache__","models"}): continue
+            if pat.search(p.read_text(encoding="utf-8", errors="ignore")):
+              bad.append(str(p))
+          assert not bad, bad
+          print("SECRET_SCAN_CLEAN")
+          PY
