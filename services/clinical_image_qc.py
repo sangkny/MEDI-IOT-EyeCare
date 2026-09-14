@@ -196,11 +196,26 @@ def run_clinical_image_qc(image_bytes: bytes, *, filename: str | None = None) ->
     if std < SOLID_COLOR_STD_FAIL:
         escalate("FAIL", "gross_artifact_or_solid")
 
+    # QC-v2 feature preview — MUST NOT influence status/reasons above
+    try:
+        from services.qc_v2_features import QC_FEATURE_VERSION, compute_qc_v2_features
+
+        features = compute_qc_v2_features(rgb, gray, base_metrics=metrics)
+    except Exception as exc:  # noqa: BLE001
+        log.warning("qc_v2 features skipped: %s", type(exc).__name__)
+        features = {
+            "qc_feature_version": "qc-v2-feature-preview",
+            "gate_influence": "NONE",
+            "error": "feature_compute_failed",
+        }
+
     return {
         "qc_version": QC_VERSION,
+        "qc_feature_version": features.get("qc_feature_version"),
         "qc_status": status,
         "qc_reasons": reasons,
         "qc_metrics": metrics,
+        "qc_features": features,
         "status": "failed" if status == "FAIL" else ("review" if status == "REVIEW" else "passed"),
         "checks": reasons or ["ok"],
         "detail": ";".join(reasons) if reasons else "ok",

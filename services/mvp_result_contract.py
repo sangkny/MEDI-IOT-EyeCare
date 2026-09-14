@@ -155,12 +155,30 @@ def build_mvp_result_from_comprehensive(
     qc_version = qc_out.get("qc_version")
     preproc = preprocessing_version or PREPROCESSING_VERSION
 
+    try:
+        from services.model_governance import get_model_governance
+
+        governance = get_model_governance(
+            preprocess_version=preproc,
+            qc_version=str(qc_version or "qc-v1.0-provisional"),
+            contract_version=SCHEMA_VERSION,
+        )
+    except Exception:  # noqa: BLE001
+        governance = {
+            "model_id": "retinal_v10",
+            "model_version": str(model_version),
+            "preprocessing_version": preproc,
+            "qc_version": qc_version,
+            "contract_version": SCHEMA_VERSION,
+        }
+
     return {
         "schema_version": SCHEMA_VERSION,
         "clinical_mode": "CLINICAL",
         "model_version": str(model_version),
         "preprocessing_version": preproc,
         "qc_version": qc_version,
+        "qc_feature_version": qc_out.get("qc_feature_version"),
         "image_id": image_id,
         "eye": eye.upper() if eye else "R",
         "predictions": predictions,
@@ -169,6 +187,7 @@ def build_mvp_result_from_comprehensive(
         "reason": reason,
         "risk_flag": risk_flag,
         "disease_labels": disease_labels,
+        "governance": governance,
         "grade_raw": {
             "schema_version": SCHEMA_VERSION,
             "decision": decision,
@@ -180,6 +199,10 @@ def build_mvp_result_from_comprehensive(
             "qc_status": qc_out.get("qc_status"),
             "preprocessing_version": preproc,
             "xai_status": xai_status,
+            "model_id": governance.get("model_id"),
+            "model_artifact_hash": governance.get("model_artifact_hash"),
+            "qc_feature_version": qc_out.get("qc_feature_version"),
+            "deployment_build_version": governance.get("deployment_build_version"),
         },
         "xai": xai,
         "xai_status": xai_status,
@@ -192,5 +215,5 @@ def build_mvp_result_from_comprehensive(
             "multi": "no_verified_below_gate_min",
         },
         "qc": qc_out,
-        "note": "MVP-02 contract over MEDI comprehensive_fundus (SSOT); QC thresholds provisional",
+        "note": "MVP-03A contract; QC thresholds unchanged (provisional); QC-v2 features non-gating",
     }

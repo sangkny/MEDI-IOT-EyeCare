@@ -1,0 +1,18 @@
+{
+  "schema_version": "model-registry.v1",
+  "updated": "2026-09-14",
+  "note": "Machine-readable registry. ONNX weights remain gitignored; hash is recorded for traceability.",
+  "models": {
+    "retinal_v10": {
+      "model_id": "retinal_v10",
+      "model_version": "v10c",
+      "artifact": "models/retinal_v10.onnx",
+      "artifact_sha256": "a5d3467e2d27ccf2e7bc9bdf42f611ba7ab4d8f221ddcf8921742c38b4ef6ecc",
+      "architecture": "efficientnet_b4",
+      "serving_default_preprocess": "none",
+      "preprocessing_version": "retinal-preproc-v1",
+      "heads": ["dr", "glaucoma", "amd", "myopia", "multi"],
+      "ssot_repo": "MEDI-IOT-EyeCare"
+    }
+  }
+}

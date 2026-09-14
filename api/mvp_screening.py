@@ -27,6 +27,8 @@ async def mvp_clinical_screening(
     lang: str = Form("ko"),
     patient_id: str | None = Form(None),
     image_id: str | None = Form(None),
+    tenant_id: str | None = Form(None),
+    location_id: str | None = Form(None),
     include_heatmap: bool = Form(False),
     mode: str = Query("fast", description="fast=v10c | precise=specialists"),
     preprocess: str = Query(
@@ -34,8 +36,13 @@ async def mvp_clinical_screening(
         description="serving preprocess; v10c meta default none",
     ),
 ) -> dict:
-    """Versioned clinical result for eyecare-platform consumers (MVP-02)."""
-    # PHI rule: never log patient_id / filename beyond technical ids
+    """Versioned clinical result for eyecare-platform consumers (MVP-03A).
+
+    Data minimization: accept only technical IDs (tenant/location/image).
+    Do not send patient name/contact to this endpoint for inference.
+    """
+    # PHI rule: ignore patient_id for logging/inference forwarding
+    _ = patient_id
     image_bytes = await file.read()
     qc = run_clinical_image_qc(image_bytes, filename=None)
     if not inference_allowed(qc, review_policy=_review_policy()):
@@ -58,7 +65,7 @@ async def mvp_clinical_screening(
         result = await run_comprehensive_fundus(
             image_bytes,
             lang=lang,
-            patient_id=None,  # do not forward PHI into inference internals from this adapter
+            patient_id=None,
             eye=eye,
             include_heatmap=include_heatmap,
             tasks=["dr", "glaucoma", "amd", "myopia", "screening"],
@@ -88,7 +95,7 @@ async def mvp_clinical_screening(
         if not (isinstance(hm, dict) and any(hm.values())):
             xai_failed = True
 
-    return build_mvp_result_from_comprehensive(
+    out = build_mvp_result_from_comprehensive(
         payload,
         eye=eye,
         trace_id=trace_id,
@@ -98,6 +105,16 @@ async def mvp_clinical_screening(
         xai_failed=xai_failed,
         preprocessing_version=PREPROCESSING_VERSION,
     )
+    # Technical tenant context only (optional)
+    if tenant_id or location_id:
+        out["tenant_context"] = {
+            "tenant_id": tenant_id,
+            "location_id": location_id,
+            "note": "technical IDs only — no PHI",
+        }
+        out["grade_raw"]["tenant_id"] = tenant_id
+        out["grade_raw"]["location_id"] = location_id
+    return out
 
 
 @router.get("/mvp/pilot-console", response_class=HTMLResponse)
