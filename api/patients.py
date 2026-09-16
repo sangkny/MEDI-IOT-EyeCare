@@ -31,9 +31,17 @@ router = APIRouter()
 
 
 def _mask_name(name: str | None) -> str | None:
-    """이름 마스킹: '김철수' → '김**'"""
+    """이름 마스킹: '김철수' → '김**' (decrypt first if Fernet-stored)."""
     if not name:
         return None
+    try:
+        from services.patient_crypto import decrypt_patient_name
+
+        name = decrypt_patient_name(name) or name
+    except Exception:  # noqa: BLE001
+        # If key missing for encrypted row, do not leak ciphertext length patterns as name
+        if name.startswith("fernet:v1:"):
+            return "***"
     return name[0] + "*" * (len(name) - 1)
 
 
@@ -66,11 +74,13 @@ async def create_patient(
             detail=f"이미 존재하는 환자 코드: {data.patient_code}",
         )
 
+    from services.patient_crypto import encrypt_patient_name
+
     patient = Patient(
         id=str(uuid.uuid4()),
         patient_code=data.patient_code,
-        # TODO: 실제 운영에서는 AES-256 암호화 적용
-        name_encrypted=data.name,
+        # Fernet encryption-at-rest when MEDI_PATIENT_ENCRYPTION_KEY is set (MVP-04C)
+        name_encrypted=encrypt_patient_name(data.name),
         date_of_birth=data.date_of_birth,
         gender=data.gender,
         primary_diagnosis_code=data.primary_diagnosis_code,
@@ -79,7 +89,7 @@ async def create_patient(
     db.add(patient)
     await db.flush()
 
-    log.info(f"환자 등록: {patient.patient_code}")
+    log.info("patient_registered patient_code=%s", patient.patient_code)
 
     return PatientResponse(
         id=patient.id,

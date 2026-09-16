@@ -43,6 +43,7 @@ async def mvp_clinical_screening(
     """
     # PHI rule: ignore patient_id for logging/inference forwarding
     _ = patient_id
+    # Neutralize client filename — never use potentially PII-bearing names
     image_bytes = await file.read()
     qc = run_clinical_image_qc(image_bytes, filename=None)
     if not inference_allowed(qc, review_policy=_review_policy()):
