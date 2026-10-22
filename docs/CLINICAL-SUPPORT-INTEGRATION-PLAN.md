@@ -8,6 +8,20 @@
 
 ## 진행 기록
 
+### 2026-10-22 22:42 KST — PC2 기능 브랜치 게시
+
+- 작업 ID: PC2-CLINICAL-GIT-PUBLISH-001
+- 시작: 2026-10-22T22:42:55+09:00
+- 종료: 2026-10-22T22:45:21+09:00
+- PC: SVG-SKLEE / PC2
+- MEDI-IOT-EyeCare: 브랜치 `feat/clinical-support-002`, 이전 HEAD `a5e2f71f98011ad52684bef62ded28432a5f8df0`, 작업 커밋 `3d8e5702e439db7cfd658e42b6977520845260a2`
+- push: `origin` `feat/clinical-support-002` 신규 브랜치. main 병합과 force push 없음
+- shared-libraries: 브랜치 `feat/medi-iot-clinical-policy`, 이전 HEAD `bd7d353f90328b8fecb31df897a8e74ecd5e0c43`, 커밋 `81a222baaa3ee256fe13fb33494ab2b6fd73ec76`. `origin`에 그 브랜치만 push. `main`은 `bd7d353` 유지
+- 테스트: EYECARE 합성 19 passed, PostgreSQL 전용 1 skipped. 정책 테스트 6 passed
+- 파일: EYECARE 임상 모델·서비스·API·medi006·medi007·문서·테스트 20개. shared-libraries는 `auth/policy.py`, `tests/test_policy.py`
+- 남은 문제: main 미병합. 부모 서브모듈 포인터는 갱신하지 않음. MEDI-DES-001 필드는 계속 BLOCKED_PENDING_SOURCE
+- 다음 승인: 각 기능 브랜치의 풀 리퀘스트와 main 병합
+
 ### 2026-10-22 22:13 KST — Phase 006 임상 API와 eCRF 기초
 
 - 작업 ID: EYECARE-CLINICAL-SUPPORT-006

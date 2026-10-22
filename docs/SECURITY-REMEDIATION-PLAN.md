@@ -6,6 +6,18 @@
 
 ## 진행 기록
 
+### 2026-10-22 22:42 KST — PC2 정책 브랜치 게시
+
+- 작업 ID: PC2-CLINICAL-GIT-PUBLISH-001
+- 시작: 2026-10-22T22:42:55+09:00
+- 종료: 2026-10-22T22:45:21+09:00
+- PC: SVG-SKLEE / PC2
+- 저장소: shared-libraries `feat/medi-iot-clinical-policy`, 이전 HEAD `bd7d353f90328b8fecb31df897a8e74ecd5e0c43`, 커밋 `81a222baaa3ee256fe13fb33494ab2b6fd73ec76`
+- push: origin 기능 브랜치만. main과 PC1 체크아웃은 유지
+- 테스트: `tests/test_policy.py` 6 passed. doctor의 임상 작성과 staff의 임상 읽기, staff 작성 거절을 포함
+- 남은 문제: 이 정책은 main에 병합되지 않음. 레거시 무인증 환자·IoT 경로는 그대로
+- 다음 승인: shared-libraries 기능 브랜치 병합
+
 ### 2026-10-22 22:13 KST — Phase 006 임상 API 인증
 
 - 작업 ID: EYECARE-CLINICAL-SUPPORT-006

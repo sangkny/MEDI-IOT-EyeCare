@@ -6,6 +6,18 @@
 
 ## 진행 기록
 
+### 2026-10-22 22:42 KST — PC2 기능 브랜치 게시
+
+- 작업 ID: PC2-CLINICAL-GIT-PUBLISH-001
+- 시작: 2026-10-22T22:42:55+09:00
+- 종료: 2026-10-22T22:45:21+09:00
+- PC: SVG-SKLEE / PC2
+- 저장소: MEDI-IOT-EyeCare `feat/clinical-support-002`, 커밋 `3d8e5702e439db7cfd658e42b6977520845260a2`
+- push: origin 기능 브랜치
+- 테스트: 품질 규칙이 관찰 값을 유지하는 합성 테스트가 19 passed에 포함
+- 남은 문제: 예측 학습은 없음
+- 다음 승인: 브랜치 검토
+
 ### 2026-10-22 22:13 KST — Phase 006 규칙 실행 기초
 
 - 작업 ID: EYECARE-CLINICAL-SUPPORT-006

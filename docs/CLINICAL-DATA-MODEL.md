@@ -6,6 +6,18 @@
 
 ## 진행 기록
 
+### 2026-10-22 22:42 KST — PC2 기능 브랜치 게시
+
+- 작업 ID: PC2-CLINICAL-GIT-PUBLISH-001
+- 시작: 2026-10-22T22:42:55+09:00
+- 종료: 2026-10-22T22:45:21+09:00
+- PC: SVG-SKLEE / PC2
+- 저장소: MEDI-IOT-EyeCare `feat/clinical-support-002`, 이전 HEAD `a5e2f71f98011ad52684bef62ded28432a5f8df0`, 커밋 `3d8e5702e439db7cfd658e42b6977520845260a2`
+- push: origin 기능 브랜치. 운영 마이그레이션은 실행하지 않음
+- 테스트: 합성 19 passed, 1 skipped
+- 남은 문제: medi006·medi007은 브랜치에 있는 초안이며 운영 데이터베이스에는 없음
+- 다음 승인: 브랜치 검토
+
 ### 2026-10-22 22:13 KST — Phase 006 eCRF 기초 열
 
 - 작업 ID: EYECARE-CLINICAL-SUPPORT-006

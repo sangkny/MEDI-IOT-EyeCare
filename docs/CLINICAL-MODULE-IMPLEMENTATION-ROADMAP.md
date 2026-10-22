@@ -7,6 +7,18 @@
 
 ## 진행 기록
 
+### 2026-10-22 22:42 KST — PC2 기능 브랜치 게시
+
+- 작업 ID: PC2-CLINICAL-GIT-PUBLISH-001
+- 시작: 2026-10-22T22:42:55+09:00
+- 종료: 2026-10-22T22:45:21+09:00
+- PC: SVG-SKLEE / PC2
+- 저장소: MEDI-IOT-EyeCare `feat/clinical-support-002` `3d8e5702e439db7cfd658e42b6977520845260a2`. shared-libraries `feat/medi-iot-clinical-policy` `81a222baaa3ee256fe13fb33494ab2b6fd73ec76`
+- push: 각 origin 기능 브랜치만. main 병합 없음
+- 테스트: 합성 19 passed, 정책 6 passed
+- 남은 문제: main 미반영. Phase 007 미착수
+- 다음 승인: 풀 리퀘스트
+
 ### 2026-10-22 22:13 KST — Phase 006 수행
 
 - 작업 ID: EYECARE-CLINICAL-SUPPORT-006
