@@ -100,6 +100,14 @@ class ClinicalStudy(Base):
         index=True,
         comment="StudyStatusEnum value (draft|loading|ready|archived) — app-level enum",
     )
+    study_kind: Mapped[str] = mapped_column(
+        String(32), nullable=False, default="dataset", server_default="dataset",
+        comment="dataset=기존 코호트, prospective=전향 임상연구",
+    )
+    protocol_version: Mapped[str | None] = mapped_column(
+        String(64), nullable=True,
+        comment="프로토콜 문서 버전. 규칙은 이 열이 아니라 DataQualityRule에 둔다.",
+    )
 
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False,

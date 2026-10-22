@@ -3,6 +3,7 @@ from fastapi import APIRouter
 from .auth import router as auth_router
 from .billing import router as billing_router
 from .clinical import router as clinical_router
+from .clinical_support import router as clinical_support_router
 from .dashboard import router as dashboard_router
 from .diagnosis import router as diagnosis_router
 from .health import router as health_router
@@ -24,6 +25,7 @@ api_router.include_router(images_router, prefix="/images", tags=["images"])
 api_router.include_router(dashboard_router, prefix="/dashboard", tags=["dashboard"])
 api_router.include_router(ontology_router, prefix="/ontology", tags=["ontology"])
 api_router.include_router(clinical_router, prefix="/clinical", tags=["clinical"])
+api_router.include_router(clinical_support_router, prefix="/clinical-support", tags=["clinical-support"])
 api_router.include_router(billing_router, prefix="/billing", tags=["billing"])
 api_router.include_router(stripe_router, prefix="/billing/stripe", tags=["stripe"])
 api_router.include_router(lab_router, prefix="/lab", tags=["lab"])
