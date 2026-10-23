@@ -8,6 +8,60 @@
 
 ## 진행 기록
 
+### 2026-10-23T11:59:13+09:00 — PC1-EYECARE-PHASE007-INTEGRATION-004
+
+```
+TASK_ID: PC1-EYECARE-PHASE007-INTEGRATION-004
+EXECUTION_HOST: MEDIIOT-SKLEE
+PC_ROLE: PC1
+REPOSITORY: MEDI-IOT-EyeCare
+BRANCH: integration/eyecare-clinical-query-007
+HEAD_BEFORE: 8d59f10477fc0002f6f5254d4e6b7e3b4012c3c7
+HEAD_AFTER: 8d59f10477fc0002f6f5254d4e6b7e3b4012c3c7
+MERGE_HEAD: 87aea032d7af8ec1723036a9ca7c1183dcdbd7a3
+PARENT_ARCHITECTURE_SHA: 633c7303edf8ac35a513c5a59b63185e8f336d76
+START_TIME_KST: 2026-10-23T11:50:42+09:00
+END_TIME_KST: 2026-10-23T11:59:13+09:00
+ELAPSED: PT8M31S
+GIT_ACTIONS: 격리 워크트리 `_integration_eyecare_007`에서 `--no-commit --no-ff`. 커밋, 푸시, PR 없음
+CONFLICTS: docs/CLINICAL-SUPPORT-INTEGRATION-PLAN.md, docs/PARENT-PLATFORM-ARCHITECTURE.md. 양쪽 기록을 시각 내림차순으로 유지
+TEST_RESULTS: 정책 7 passed. SQLite 임상·보안 43 passed, PostgreSQL 전용 2 skipped. 질의 파일 재실행 7 passed. PostgreSQL 2 passed. 동시 정정은 원본 개정 1 값 5 유지, 후속 개정 2 값 6, 다른 트랜잭션 IntegrityError. torch와 cv2는 ModuleNotFoundError
+MIGRATION: 컨테이너 eyecare-phase007-pg-004, 이미지 pgvector/pgvector:pg15, tmpfs, 바인드 없음, 호스트 127.0.0.1:55434. head medi008_clinical_query. 체인 medi004_billing -> medi006_clinical_support -> medi007_ecrf_foundation -> medi008_clinical_query. 확인 후 컨테이너 삭제. 55434는 배정이 아님
+OPEN_ISSUES: 커밋 승인 전. 부모 shared-libraries main에는 007 권한이 없으므로 시험은 SHARED_LIBRARIES_PATH가 `_integration_shared_007`를 가리켜야 함. Phase 008 시작하지 않음
+```
+
+### 2026-10-23 09:15 KST — Phase 007 검증
+
+- TASK_ID: PC2-CLINICAL-PHASE007-CHECKPOINT-001
+- EXECUTION_HOST: SVG-SKLEE
+- PC_ROLE: PC2
+- REPOSITORY: MEDI-IOT-EyeCare
+- LOCAL_PATH: C:\Office_Automation\MEDI-IOT-EyeCare
+- BRANCH: feat/clinical-query-quality-007
+- HEAD_BEFORE: a8661d5ab665f686b2e81ef9c0be1e8f633c8e93
+- HEAD_AFTER: 이 검증 기록은 기능 커밋에 포함. 부모 아키텍처 문서는 별도 커밋
+- START_TIME_KST: 2026-10-23T09:14:23+09:00
+- END_TIME_KST: 2026-10-23T09:15:49+09:00
+- FILES_CHANGED: 질의·품질 코드, `medi008_clinical_query`, 임상 문서. `docs/PARENT-PLATFORM-ARCHITECTURE.md` 제외
+- TEST_RESULTS: SQLite 26 passed, 2 skipped. PostgreSQL 15에서 `medi008_clinical_query`까지 upgrade 후 2 passed. skipped는 passed로 세지 않음
+- REMAINING_ISSUES: main 병합, 부모 서브모듈, PC1 Draft PR은 변경하지 않음
+
+### 2026-10-23 00:35 KST — Phase 007 PC2 임상 질의
+
+- TASK_ID: EYECARE-CLINICAL-SUPPORT-007
+- EXECUTION_HOST: SVG-SKLEE
+- PC_ROLE: PC2
+- REPOSITORY: MEDI-IOT-EyeCare
+- LOCAL_PATH: C:\Office_Automation\MEDI-IOT-EyeCare
+- BRANCH: feat/clinical-query-quality-007
+- HEAD_BEFORE: a8661d5ab665f686b2e81ef9c0be1e8f633c8e93
+- HEAD_AFTER: a8661d5ab665f686b2e81ef9c0be1e8f633c8e93
+- START_TIME_KST: 2026-10-23T00:35:41+09:00
+- END_TIME_KST: 2026-10-23T00:49:50+09:00
+- FILES_CHANGED: EYECARE 임상 질의·품질 파일과 shared-libraries 정책 브랜치. PC1 작업 디렉터리는 수정하지 않음
+- TEST_RESULTS: 합성 테스트 PASS. 일회용 PostgreSQL 15 PASS 후 삭제
+- REMAINING_ISSUES: main 병합, 부모 서브모듈, push는 별도 승인. DeeVo는 접근하지 않음
+
 ### 2026-10-23 00:30 KST — 보안 강화와 임상 지원 통합 커밋
 
 - 작업 ID: PC1-EYECARE-INTEGRATION-004
@@ -394,3 +448,20 @@ MEDI-DES-001 템플릿 API는 `BLOCKED_PENDING_SOURCE`를 반환한다. 목표 �
 - shared-libraries: `feat: medi-iot 정책에 임상 지원 액션을 추가한다` (`auth/policy.py`)
 
 Phase 007 제안: 두 커밋을 승인한 뒤 임상 질의와 잠금의 최소 상태 모델을 구현한다. 프로토콜 원문이 오기 전에는 MEDI-DES-001 필드를 확정하지 않는다. 가져오기와 예측 학습은 그 단계에 넣지 않는다.
+
+## 17. Phase 007 결과
+
+PC1 통합을 기다리지 않고 `feat/clinical-support-002`의 `a8661d5`에서 `feat/clinical-query-quality-007`을 만들었다. PC1 작업 디렉터리와 DeeVo는 건드리지 않았다.
+
+임상 질의는 `open → answered → resolved`와 `resolved → reopened → answered`만 허용한다. 품질 소견에서 질의를 만들 수 있고, 정정은 기존 개정 서비스만 사용한다. 해결은 관찰을 수정하지 않는다. 상세는 `docs/CLINICAL-QUERY-SPEC.md`에 있다.
+
+품질 실행은 연구, 대상자, Visit, 폼 범위와 입력 직후 검증을 지원한다. 새 정책 액션은 shared-libraries 로컬 브랜치 `feat/clinical-query-quality-007`에 있다. 기준은 `81a222baaa3ee256fe13fb33494ab2b6fd73ec76`이며 아직 커밋하지 않았다.
+
+일회용 PostgreSQL 15에서 `medi008_clinical_query`까지 upgrade 한 뒤 컨테이너를 삭제했다. 운영 데이터베이스에는 적용하지 않았다.
+
+제안 커밋은 두 저장소로 나눈다. push와 main 병합, 부모 서브모듈 변경은 이 단계에 포함하지 않는다.
+
+- MEDI-IOT-EyeCare `feat/clinical-query-quality-007`, 기준 `feat/clinical-support-002`: `feat: add clinical queries and repeatable quality checks`
+- shared-libraries `feat/clinical-query-quality-007`, 기준 `feat/medi-iot-clinical-policy`: `feat: add clinical query and quality actions`
+
+008에서는 데이터 잠금, 승인된 프로토콜 규칙, 두 브랜치의 검토와 부모 통합을 다룬다. 예측 학습과 스폰서 내보내기 가져오기는 각각 별도 승인이 있어야 한다.

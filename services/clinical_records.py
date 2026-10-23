@@ -418,6 +418,9 @@ def record_quality_finding(
     actor_user_id: str,
     subject_id: str | None = None,
     visit_id: str | None = None,
+    source_revision: int | None = None,
+    evaluation_scope: str = "study",
+    evaluation_scope_id: str | None = None,
 ) -> DataQualityFinding:
     rule = session.get(DataQualityRule, rule_id)
     if rule is None or rule.study_id != study_id:
@@ -433,6 +436,10 @@ def record_quality_finding(
         fingerprint=fingerprint,
         message_code=message_code,
         status="open",
+        source_revision=source_revision,
+        evaluation_scope=evaluation_scope,
+        evaluation_scope_id=evaluation_scope_id,
+        evaluated_at=datetime.now(timezone.utc),
     )
     session.add(finding)
     session.flush()

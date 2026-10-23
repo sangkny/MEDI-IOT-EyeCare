@@ -6,6 +6,38 @@
 
 ## 진행 기록
 
+### 2026-10-23 09:15 KST — Phase 007 스키마 검증
+
+- TASK_ID: PC2-CLINICAL-PHASE007-CHECKPOINT-001
+- EXECUTION_HOST: SVG-SKLEE
+- PC_ROLE: PC2
+- REPOSITORY: MEDI-IOT-EyeCare
+- LOCAL_PATH: C:\Office_Automation\MEDI-IOT-EyeCare
+- BRANCH: feat/clinical-query-quality-007
+- HEAD_BEFORE: a8661d5ab665f686b2e81ef9c0be1e8f633c8e93
+- HEAD_AFTER: 기능 커밋에 포함
+- START_TIME_KST: 2026-10-23T09:14:23+09:00
+- END_TIME_KST: 2026-10-23T09:15:49+09:00
+- FILES_CHANGED: `models/clinical_support.py`, `alembic/versions/medi008_clinical_query.py`
+- TEST_RESULTS: 일회용 PostgreSQL 15 upgrade가 `medi008_clinical_query`에 도달. 운영 DB에는 적용하지 않음. 컨테이너 삭제
+- REMAINING_ISSUES: 치료군과 잠금 테이블은 없음
+
+### 2026-10-23 00:35 KST — Phase 007 질의 테이블
+
+- TASK_ID: EYECARE-CLINICAL-SUPPORT-007
+- EXECUTION_HOST: SVG-SKLEE
+- PC_ROLE: PC2
+- REPOSITORY: MEDI-IOT-EyeCare
+- LOCAL_PATH: C:\Office_Automation\MEDI-IOT-EyeCare
+- BRANCH: feat/clinical-query-quality-007
+- HEAD_BEFORE: a8661d5ab665f686b2e81ef9c0be1e8f633c8e93
+- HEAD_AFTER: a8661d5ab665f686b2e81ef9c0be1e8f633c8e93
+- START_TIME_KST: 2026-10-23T00:35:41+09:00
+- END_TIME_KST: 2026-10-23T00:49:50+09:00
+- FILES_CHANGED: `models/clinical_support.py`, `alembic/versions/medi008_clinical_query.py`
+- TEST_RESULTS: 일회용 PostgreSQL 15에서 `medi008_clinical_query`까지 upgrade PASS. 운영 데이터베이스에는 적용하지 않음
+- REMAINING_ISSUES: 치료군, 가져오기, 잠금 업무 테이블은 추가하지 않음
+
 ### 2026-10-22 22:42 KST — PC2 기능 브랜치 게시
 
 - 작업 ID: PC2-CLINICAL-GIT-PUBLISH-001
@@ -428,3 +460,14 @@ EYECARE_IMPLEMENTED. 환자·진단 열은 바꾸지 않았다.
 - `visit_form_assignments`: 연구, Visit 코드, 설문 정의. 문항 본문은 버전 `items_json`에 있다.
 - 문항 객체는 `code`, `type`, `required`, 숫자 범위 `min`/`max`를 담을 수 있다. MEDI-DES-001의 확정 문항은 아니다.
 - 치료군과 배정 열은 계속 없다.
+
+## 13. Phase 007 질의와 품질 실행
+
+`medi008_clinical_query`는 `medi007_ecrf_foundation` 다음의 추가 개정이다. `medi006`과 `medi007`은 고치지 않았다.
+
+- `clinical_queries`: 연구, 사이트, 대상자, Visit, 폼 정의, 관찰, 품질 소견, 분류, 중증도, 설명, 상태, 배정
+- `clinical_query_events`: 전이와 배정의 행위자, 시각, 사유. 해결 때 삭제하지 않는다
+- `clinical_query_responses`: 응답 본문
+- `quality_evaluation_runs`: 범위, 트리거, 실행 시각, 새 finding 수
+- `data_quality_findings`에 `source_revision`, `evaluation_scope`, `evaluation_scope_id`, `evaluated_at`
+- 치료군 열은 없다

@@ -16,10 +16,14 @@ from .clinical import (
 from .clinical_support import (
     ClinicalAuditEvent,
     ClinicalObservation,
+    ClinicalQuery,
+    ClinicalQueryEvent,
+    ClinicalQueryResponse,
     DataExportRecord,
     DataLockRecord,
     DataQualityFinding,
     DataQualityRule,
+    QualityEvaluationRun,
     QuestionnaireDefinition,
     QuestionnaireResponse,
     QuestionnaireResponseItem,
@@ -28,6 +32,7 @@ from .clinical_support import (
     StudySiteMember,
     StudySubject,
     StudyVisit,
+    VisitFormAssignment,
     VisitWindow,
 )
 from .knowledge import MedicalDocument, DocumentEmbedding, DiagnosisEmbedding
@@ -41,7 +46,9 @@ __all__ = [
     "StudySite", "StudySiteMember", "StudySubject", "StudyVisit", "VisitWindow",
     "QuestionnaireDefinition", "QuestionnaireVersion", "QuestionnaireResponse",
     "QuestionnaireResponseItem", "ClinicalObservation",
-    "DataQualityRule", "DataQualityFinding", "ClinicalAuditEvent",
+    "DataQualityRule", "DataQualityFinding", "QualityEvaluationRun",
+    "ClinicalQuery", "ClinicalQueryEvent", "ClinicalQueryResponse",
+    "ClinicalAuditEvent", "VisitFormAssignment",
     "DataLockRecord", "DataExportRecord",
     "BillingPlan", "BillingSubscription", "BillingUsageRecord",
     "BillingMonthlyUserUsage", "StripePlanMapping", "StripeSubscription",
