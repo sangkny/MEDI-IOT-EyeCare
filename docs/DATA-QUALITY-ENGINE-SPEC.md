@@ -6,6 +6,38 @@
 
 ## 진행 기록
 
+### 2026-10-23 09:15 KST — Phase 007 품질 검증
+
+- TASK_ID: PC2-CLINICAL-PHASE007-CHECKPOINT-001
+- EXECUTION_HOST: SVG-SKLEE
+- PC_ROLE: PC2
+- REPOSITORY: MEDI-IOT-EyeCare
+- LOCAL_PATH: C:\Office_Automation\MEDI-IOT-EyeCare
+- BRANCH: feat/clinical-query-quality-007
+- HEAD_BEFORE: a8661d5ab665f686b2e81ef9c0be1e8f633c8e93
+- HEAD_AFTER: 기능 커밋에 포함
+- START_TIME_KST: 2026-10-23T09:14:23+09:00
+- END_TIME_KST: 2026-10-23T09:15:49+09:00
+- FILES_CHANGED: `services/clinical_quality.py`, `services/clinical_monitoring.py`
+- TEST_RESULTS: 결측, 중복, 개정, 재실행, 관찰 해시 유지 PASS. 예측값은 null
+- REMAINING_ISSUES: MEDI-DES-001 임계값은 BLOCKED_PENDING_SOURCE. 상주 워커 없음
+
+### 2026-10-23 00:35 KST — Phase 007 품질 실행
+
+- TASK_ID: EYECARE-CLINICAL-SUPPORT-007
+- EXECUTION_HOST: SVG-SKLEE
+- PC_ROLE: PC2
+- REPOSITORY: MEDI-IOT-EyeCare
+- LOCAL_PATH: C:\Office_Automation\MEDI-IOT-EyeCare
+- BRANCH: feat/clinical-query-quality-007
+- HEAD_BEFORE: a8661d5ab665f686b2e81ef9c0be1e8f633c8e93
+- HEAD_AFTER: a8661d5ab665f686b2e81ef9c0be1e8f633c8e93
+- START_TIME_KST: 2026-10-23T00:35:41+09:00
+- END_TIME_KST: 2026-10-23T00:49:50+09:00
+- FILES_CHANGED: `services/clinical_quality.py`, `services/clinical_monitoring.py`
+- TEST_RESULTS: 결측, 범위, 중복, 개정 불일치, Visit 날짜 역전, 교차 항목, 재실행, 관찰 해시 유지 PASS
+- REMAINING_ISSUES: MEDI-DES-001 임계값과 Visit 창은 BLOCKED_PENDING_SOURCE. 예측 모델은 DEFERRED. 상주 워커는 없음
+
 ### 2026-10-22 22:42 KST — PC2 기능 브랜치 게시
 
 - 작업 ID: PC2-CLINICAL-GIT-PUBLISH-001
@@ -196,3 +228,13 @@ EYECARE_IMPLEMENTED 는 `DataQualityRule`, `DataQualityFinding` 저장과 `recor
 ## 13. Phase 006 규칙 실행
 
 `run_quality_rules`가 활성 규칙의 `logic_json.kind`를 읽는다. 지원하는 kind는 `numeric_range`, `required_effective`, `max_finals`, `questionnaire_complete`, `revision_chain`, `provenance`다. 임계값은 규칙 JSON에만 있다. 같은 fingerprint의 open 또는 reviewed finding이 있으면 재실행은 새로 만들지 않는다. `review_finding`은 상태를 `reviewed`로 바꾸고 관찰 값을 유지한다. 예측 인터페이스는 이 함수가 관찰을 수정하지 않는다는 경계다.
+
+## 14. Phase 007 실행 모델
+
+같은 함수가 연구, 대상자, Visit, 폼 범위를 받는다. 입력 직후 검증은 `validate_after_entry`이며 Visit 범위와 `trigger=entry`를 쓴다. 상주 워커는 시작하지 않는다. 실행마다 `quality_evaluation_runs` 한 행을 남긴다.
+
+추가 kind는 `missing_value`, `duplicate_observation`, `visit_date_order`, `questionnaire_incomplete`, `cross_field`다. `blocked_source`는 finding을 만들지 않는다. fingerprint에는 규칙 버전, 대상, 원본 revision, 평가 범위가 들어간다. 같은 범위의 open 또는 reviewed finding은 다시 만들지 않고, 기존 행은 덮어쓰지 않는다.
+
+MEDI-DES-001 카탈로그의 존재 확인 규칙은 합성 시연이다. Visit 시점, 순응, 추적 누락, 프로토콜 이탈은 `BLOCKED_PENDING_SOURCE`이며 수치 임계값을 넣지 않았다. 치료군은 읽지 않는다.
+
+완전성 점수와 신뢰 지표는 관찰 테이블 밖에 계산한다. 결측 위험, 방문 미준수, 측정 이상, 완료 예측은 `DEFERRED`이고 `predicted_value`는 null이다. 예측값이 측정값을 대체하지 않는다.

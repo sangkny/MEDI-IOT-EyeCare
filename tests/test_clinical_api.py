@@ -43,6 +43,7 @@ from models.clinical_support import (
     DataLockRecord,
     DataQualityFinding,
     DataQualityRule,
+    QualityEvaluationRun,
     QuestionnaireDefinition,
     QuestionnaireResponse,
     QuestionnaireResponseItem,
@@ -74,6 +75,7 @@ _TABLES = [
     QuestionnaireVersion.__table__, QuestionnaireResponse.__table__,
     QuestionnaireResponseItem.__table__, VisitFormAssignment.__table__,
     ClinicalObservation.__table__, DataQualityRule.__table__, DataQualityFinding.__table__,
+    QualityEvaluationRun.__table__,
     ClinicalAuditEvent.__table__, DataLockRecord.__table__, DataExportRecord.__table__,
 ]
 

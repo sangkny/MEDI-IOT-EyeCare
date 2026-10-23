@@ -8,6 +8,38 @@
 
 ## 진행 기록
 
+### 2026-10-23 09:15 KST — Phase 007 검증
+
+- TASK_ID: PC2-CLINICAL-PHASE007-CHECKPOINT-001
+- EXECUTION_HOST: SVG-SKLEE
+- PC_ROLE: PC2
+- REPOSITORY: MEDI-IOT-EyeCare
+- LOCAL_PATH: C:\Office_Automation\MEDI-IOT-EyeCare
+- BRANCH: feat/clinical-query-quality-007
+- HEAD_BEFORE: a8661d5ab665f686b2e81ef9c0be1e8f633c8e93
+- HEAD_AFTER: 이 검증 기록은 기능 커밋에 포함. 부모 아키텍처 문서는 별도 커밋
+- START_TIME_KST: 2026-10-23T09:14:23+09:00
+- END_TIME_KST: 2026-10-23T09:15:49+09:00
+- FILES_CHANGED: 질의·품질 코드, `medi008_clinical_query`, 임상 문서. `docs/PARENT-PLATFORM-ARCHITECTURE.md` 제외
+- TEST_RESULTS: SQLite 26 passed, 2 skipped. PostgreSQL 15에서 `medi008_clinical_query`까지 upgrade 후 2 passed. skipped는 passed로 세지 않음
+- REMAINING_ISSUES: main 병합, 부모 서브모듈, PC1 Draft PR은 변경하지 않음
+
+### 2026-10-23 00:35 KST — Phase 007 PC2 임상 질의
+
+- TASK_ID: EYECARE-CLINICAL-SUPPORT-007
+- EXECUTION_HOST: SVG-SKLEE
+- PC_ROLE: PC2
+- REPOSITORY: MEDI-IOT-EyeCare
+- LOCAL_PATH: C:\Office_Automation\MEDI-IOT-EyeCare
+- BRANCH: feat/clinical-query-quality-007
+- HEAD_BEFORE: a8661d5ab665f686b2e81ef9c0be1e8f633c8e93
+- HEAD_AFTER: a8661d5ab665f686b2e81ef9c0be1e8f633c8e93
+- START_TIME_KST: 2026-10-23T00:35:41+09:00
+- END_TIME_KST: 2026-10-23T00:49:50+09:00
+- FILES_CHANGED: EYECARE 임상 질의·품질 파일과 shared-libraries 정책 브랜치. PC1 작업 디렉터리는 수정하지 않음
+- TEST_RESULTS: 합성 테스트 PASS. 일회용 PostgreSQL 15 PASS 후 삭제
+- REMAINING_ISSUES: main 병합, 부모 서브모듈, push는 별도 승인. DeeVo는 접근하지 않음
+
 ### 2026-10-22 22:42 KST — PC2 기능 브랜치 게시
 
 - 작업 ID: PC2-CLINICAL-GIT-PUBLISH-001
@@ -364,3 +396,20 @@ MEDI-DES-001 템플릿 API는 `BLOCKED_PENDING_SOURCE`를 반환한다. 목표 �
 - shared-libraries: `feat: medi-iot 정책에 임상 지원 액션을 추가한다` (`auth/policy.py`)
 
 Phase 007 제안: 두 커밋을 승인한 뒤 임상 질의와 잠금의 최소 상태 모델을 구현한다. 프로토콜 원문이 오기 전에는 MEDI-DES-001 필드를 확정하지 않는다. 가져오기와 예측 학습은 그 단계에 넣지 않는다.
+
+## 17. Phase 007 결과
+
+PC1 통합을 기다리지 않고 `feat/clinical-support-002`의 `a8661d5`에서 `feat/clinical-query-quality-007`을 만들었다. PC1 작업 디렉터리와 DeeVo는 건드리지 않았다.
+
+임상 질의는 `open → answered → resolved`와 `resolved → reopened → answered`만 허용한다. 품질 소견에서 질의를 만들 수 있고, 정정은 기존 개정 서비스만 사용한다. 해결은 관찰을 수정하지 않는다. 상세는 `docs/CLINICAL-QUERY-SPEC.md`에 있다.
+
+품질 실행은 연구, 대상자, Visit, 폼 범위와 입력 직후 검증을 지원한다. 새 정책 액션은 shared-libraries 로컬 브랜치 `feat/clinical-query-quality-007`에 있다. 기준은 `81a222baaa3ee256fe13fb33494ab2b6fd73ec76`이며 아직 커밋하지 않았다.
+
+일회용 PostgreSQL 15에서 `medi008_clinical_query`까지 upgrade 한 뒤 컨테이너를 삭제했다. 운영 데이터베이스에는 적용하지 않았다.
+
+제안 커밋은 두 저장소로 나눈다. push와 main 병합, 부모 서브모듈 변경은 이 단계에 포함하지 않는다.
+
+- MEDI-IOT-EyeCare `feat/clinical-query-quality-007`, 기준 `feat/clinical-support-002`: `feat: add clinical queries and repeatable quality checks`
+- shared-libraries `feat/clinical-query-quality-007`, 기준 `feat/medi-iot-clinical-policy`: `feat: add clinical query and quality actions`
+
+008에서는 데이터 잠금, 승인된 프로토콜 규칙, 두 브랜치의 검토와 부모 통합을 다룬다. 예측 학습과 스폰서 내보내기 가져오기는 각각 별도 승인이 있어야 한다.

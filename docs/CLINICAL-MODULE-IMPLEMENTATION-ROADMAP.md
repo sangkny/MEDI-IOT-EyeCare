@@ -7,6 +7,38 @@
 
 ## 진행 기록
 
+### 2026-10-23 09:15 KST — Phase 007 체크포인트
+
+- TASK_ID: PC2-CLINICAL-PHASE007-CHECKPOINT-001
+- EXECUTION_HOST: SVG-SKLEE
+- PC_ROLE: PC2
+- REPOSITORY: MEDI-IOT-EyeCare
+- LOCAL_PATH: C:\Office_Automation\MEDI-IOT-EyeCare
+- BRANCH: feat/clinical-query-quality-007
+- HEAD_BEFORE: a8661d5ab665f686b2e81ef9c0be1e8f633c8e93
+- HEAD_AFTER: 기능 커밋에 포함
+- START_TIME_KST: 2026-10-23T09:14:23+09:00
+- END_TIME_KST: 2026-10-23T09:15:49+09:00
+- FILES_CHANGED: Phase 007 구현과 임상 문서. 부모 아키텍처 문서는 제외
+- TEST_RESULTS: SQLite 26 passed, 2 skipped. PostgreSQL 2 passed
+- REMAINING_ISSUES: Phase 008은 시작하지 않음
+
+### 2026-10-23 00:35 KST — Phase 007 수행
+
+- TASK_ID: EYECARE-CLINICAL-SUPPORT-007
+- EXECUTION_HOST: SVG-SKLEE
+- PC_ROLE: PC2
+- REPOSITORY: MEDI-IOT-EyeCare
+- LOCAL_PATH: C:\Office_Automation\MEDI-IOT-EyeCare
+- BRANCH: feat/clinical-query-quality-007
+- HEAD_BEFORE: a8661d5ab665f686b2e81ef9c0be1e8f633c8e93
+- HEAD_AFTER: a8661d5ab665f686b2e81ef9c0be1e8f633c8e93
+- START_TIME_KST: 2026-10-23T00:35:41+09:00
+- END_TIME_KST: 2026-10-23T00:49:50+09:00
+- FILES_CHANGED: 질의 서비스, 품질 엔진, medi008, 합성 테스트, 이 로드맵
+- TEST_RESULTS: 합성 SQLite 26 passed, PostgreSQL 전용 2 skipped. 일회용 PostgreSQL 15 질의 테스트는 그 전에 1 passed
+- REMAINING_ISSUES: 008에서 잠금, 승인된 프로토콜 규칙, 부모 통합을 다룬다. 이 브랜치는 커밋하지 않음
+
 ### 2026-10-22 22:42 KST — PC2 기능 브랜치 게시
 
 - 작업 ID: PC2-CLINICAL-GIT-PUBLISH-001
@@ -230,3 +262,9 @@ DeeVo로 되돌리는 동기화는 SOURCE_SYSTEM_PROHIBITED 이다. eCRF 편집,
 ## 10. Phase 006 상태
 
 인증된 `/api/v1/clinical-support`와 eCRF 기초, 규칙 실행이 로컬에 있다. 일회용 PostgreSQL 15에서 `medi007_ecrf_foundation`까지 적용한 뒤 데이터베이스를 삭제했다. 질의, 잠금, 가져오기, 예측 학습은 보류다. 커밋은 하지 않았다.
+
+## 11. Phase 007 상태
+
+질의 수명주기와 반복 가능한 품질 실행을 `feat/clinical-query-quality-007`에 두었다. 잠금, 공식 가져오기, 예측 학습, 상주 워커는 아직 없다. MEDI-DES-001의 수치 임계값과 Visit 창은 승인 원문이 없어 BLOCKED_PENDING_SOURCE 다.
+
+008 후보는 데이터 잠금, 승인된 프로토콜 규칙 등록, 부모 저장소 통합 검토, 별도 승인이 있는 스폰서 내보내기 가져오기다. 예측 모델 학습은 그 뒤다.
