@@ -8,6 +8,30 @@
 
 ## 진행 기록
 
+### 2026-10-23T19:59:59+09:00 — PC1-EYECARE-PHASE007-PUBLICATION-005
+
+```
+TASK_ID: PC1-EYECARE-PHASE007-PUBLICATION-005
+EXECUTION_HOST: MEDIIOT-SKLEE
+PC_ROLE: PC1
+REPOSITORY: MEDI-IOT-EyeCare
+LOCAL_WORKTREE: E:/Office_Automation/idea-collection/projects/_integration_eyecare_007
+BRANCH: integration/eyecare-clinical-query-007
+HEAD_BEFORE: 8d59f10477fc0002f6f5254d4e6b7e3b4012c3c7
+SOURCE_SHA: 87aea032d7af8ec1723036a9ca7c1183dcdbd7a3
+MERGE_COMMIT: 7e1a1949444dac57c660a09b8f5dab37d5822d55
+START_TIME_KST: 2026-10-23T19:56:30+09:00
+END_TIME_KST: 2026-10-23T19:59:59+09:00
+ELAPSED: PT3M29S
+PARENT_ARCHITECTURE_SHA: 633c7303edf8ac35a513c5a59b63185e8f336d76
+PUSH_RESULT: https-origin fast-forward new branch. Remote matches 7e1a194. No force push
+PR_URL: https://github.com/sangkny/MEDI-IOT-EyeCare/pull/2
+PR_NUMBER: 2
+PR_BASE: integration/eyecare-clinical-support
+TEST_RESULTS: SHARED_LIBRARIES_PATH는 007 정책 작업 트리. SQLite 43 passed, 2 skipped. PostgreSQL 재실행 2 passed. medi008_clinical_query. torch와 cv2는 없음. 매니페스트 기준 실패는 재실행하지 않음. 새 회귀 없음
+REMAINING: shared-libraries PR https://github.com/sangkny/shared-libraries/pull/2 가 먼저 필요하다. Draft PR 1과 이 PR은 머지하지 않음
+```
+
 ### 2026-10-23T11:59:13+09:00 — PC1-EYECARE-PHASE007-INTEGRATION-004
 
 ```
