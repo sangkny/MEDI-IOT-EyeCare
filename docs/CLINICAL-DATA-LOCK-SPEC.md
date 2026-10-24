@@ -2,7 +2,60 @@
 
 잠금 상태는 관찰의 `record_status`와 별도다. 공통 서비스는 특정 임상시험의 Visit 창, 문항, 임계값을 포함하지 않는다. 승인된 연구별 프로토콜이 없으면 준비도는 `BLOCKED_PENDING_PROTOCOL`이며 임상 검증 결과가 아니다.
 
+스키마 개정 식별자는 `medi009_clinical_data_lock`이다. `medi008_clinical_query` 다음 Alembic 순서이며, 개발 단계 Phase 009가 아니다. Phase 008은 이 개정으로 스키마 작업을 마친다.
+
 ## 진행 기록
+
+### 2026-10-24T17:28:14+09:00 — Phase 008 명세 게시
+
+- TASK_ID: PC2-EYECARE-PHASE008-PUBLICATION-001
+- EXECUTION_HOST: SVG-SKLEE
+- PC_ROLE: PC2
+- REPOSITORY: MEDI-IOT-EyeCare
+- BRANCH: feat/clinical-data-lock-008
+- BASELINE_HEAD: 87aea032d7af8ec1723036a9ca7c1183dcdbd7a3
+- HEAD_BEFORE: a8e32651c592cb30de27706c1d4c5c95c44c82c9
+- HEAD_AFTER: 이 문서 커밋
+- START_TIME_KST: 2026-10-24T17:27:38+09:00
+- END_TIME_KST: 2026-10-24T17:28:14+09:00
+- ELAPSED: PT36S
+- FILES_CHANGED: 문서 4건. 잠금 코드와 마이그레이션은 유지
+- TEST_RESULTS: 이번 SQLite 재실행 42 passed, 3 skipped, exit 0. PostgreSQL 1 passed는 17:11 기록이며 이번 게시에 다시 실행하지 않음
+- COMMIT: `docs: finalize Phase 008 clinical data lock specifications`
+- PUSH: origin `feat/clinical-data-lock-008`만
+- REMAINING_ISSUES: UX-001, AI-QC-001, IMPORT-001은 구현하지 않음
+
+### 2026-10-24T17:14:14+09:00 — Alembic 식별자와 Phase 008 완료 구분
+
+- TASK_ID: PC2-EYECARE-CLINICAL-SUPPORT-008
+- EXECUTION_HOST: SVG-SKLEE
+- PC_ROLE: PC2
+- BRANCH: feat/clinical-data-lock-008
+- HEAD_BEFORE: a8e32651c592cb30de27706c1d4c5c95c44c82c9
+- HEAD_AFTER: a8e32651c592cb30de27706c1d4c5c95c44c82c9
+- START_TIME_KST: 2026-10-24T17:12:00+09:00
+- END_TIME_KST: 2026-10-24T17:14:14+09:00
+- ELAPSED: PT2M14S
+- MIGRATION: `medi009_clinical_data_lock`은 Phase 008의 Alembic 개정이다. 개발 단계 Phase 009가 아니다
+- TEST_RESULTS: 코드 변경 없음. SQLite 재실행 42 passed, 3 skipped, exit 0
+- REMAINING_ISSUES: 이후 기능은 문서로만 유지. 검토 전 커밋 없음
+- NEXT_APPROVAL: Phase 008 결과 검토
+
+### 2026-10-24T17:11:37+09:00 — 이후 기능 경계 확인
+
+- TASK_ID: PC2-EYECARE-CLINICAL-SUPPORT-008
+- EXECUTION_HOST: SVG-SKLEE
+- PC_ROLE: PC2
+- REPOSITORY: MEDI-IOT-EyeCare
+- BRANCH: feat/clinical-data-lock-008
+- HEAD_BEFORE: a8e32651c592cb30de27706c1d4c5c95c44c82c9
+- HEAD_AFTER: a8e32651c592cb30de27706c1d4c5c95c44c82c9
+- START_TIME_KST: 2026-10-24T17:08:00+09:00
+- END_TIME_KST: 2026-10-24T17:11:37+09:00
+- ELAPSED: PT3M37S
+- FILES_CHANGED: 명세 경계만 추가. 잠금 코드는 유지
+- TEST_RESULTS: SQLite 42 passed, 3 skipped, exit 0. 일회용 PostgreSQL 15에서 잠금 테스트 1 passed, exit 0 후 컨테이너 삭제
+- REMAINING_ISSUES: UX-001, AI-QC-001, IMPORT-001은 구현하지 않음. 커밋하지 않음
 
 ### 2026-10-24T16:45:06+09:00 — Phase 008 게시
 
@@ -113,3 +166,13 @@ AI_MONITORING -> RISK_ASSESSMENT -> HUMAN_REVIEW -> CLINICAL_ACTION
 ```
 
 `automatic_clinical_mutation`은 거짓이다. 알림이 임상 데이터를 자동으로 바꾸지 않는다. 프로토콜에 기준이 없으면 해당 신호는 `NOT_CONFIGURED` 또는 `BLOCKED_PENDING_PROTOCOL`이다. Visit 창과 종단 차이 한계는 연구 정의가 있을 때만 계산한다.
+
+## 이후 기능과의 경계
+
+다음 기능은 잠금 모델과 공존해야 하지만 Phase 008에서 구현하지 않는다.
+
+- `EYECARE-CLINICAL-UX-001`은 잠금 상태와 준비도를 읽기 전용으로 보여 준다. 탐색 조회가 잠금을 우회하지 않는다.
+- `EYECARE-CLINICAL-AI-QC-001`은 권고만 만든다. 정정은 기존 관찰 정정과 감사를 통과하고, 잠긴 대상에는 적용되지 않는다.
+- `EYECARE-CLINICAL-IMPORT-001`은 가져온 기록을 초안과 확정 수명주기에 둔다. 가져오기가 잠금을 걸거나 기존 잠금 이력을 지우지 않는다. 상세는 `EXTERNAL-CLINICAL-DATA-IMPORT-SPEC.md`에 있다.
+
+후보 순서는 승인된 단계 번호가 아니다.
