@@ -547,21 +547,43 @@ class ClinicalAuditEvent(Base):
     )
     request_id: Mapped[str] = mapped_column(String(64), nullable=False)
     payload_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    previous_state: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    new_state: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    target_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    payload_json: Mapped[str | None] = mapped_column(Text, nullable=True)
 
 
 class DataLockRecord(Base):
+    """잠금 이행의 추가 전용 이력. 현재 상태는 data_lock_states 에 둔다."""
+
     __tablename__ = "data_lock_records"
+    __table_args__ = (
+        UniqueConstraint(
+            "lock_state_id", "state_version", name="uq_data_lock_records_version",
+        ),
+    )
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
     study_id: Mapped[str] = mapped_column(
         String(36), ForeignKey("clinical_studies.id", ondelete="RESTRICT"),
         nullable=False, index=True,
     )
+    site_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("study_sites.id", ondelete="RESTRICT"), nullable=True,
+    )
+    lock_state_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     target_type: Mapped[str] = mapped_column(String(32), nullable=False)
     target_id: Mapped[str] = mapped_column(String(36), nullable=False)
     action: Mapped[str] = mapped_column(String(16), nullable=False)
+    from_state: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    to_state: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    state_version: Mapped[int | None] = mapped_column(Integer, nullable=True)
     reason: Mapped[str] = mapped_column(Text, nullable=False)
     actor_user_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    request_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    target_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    unlock_request_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
     occurred_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False,
     )
@@ -588,4 +610,140 @@ class DataExportRecord(Base):
     )
     completed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True,
+    )
+
+
+class DataLockState(Base):
+    """범위별 현재 잠금 상태. 관찰 record_status 와 별도다."""
+
+    __tablename__ = "data_lock_states"
+    __table_args__ = (
+        UniqueConstraint(
+            "study_id", "target_type", "target_id", name="uq_data_lock_states_target",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    study_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("clinical_studies.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    site_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("study_sites.id", ondelete="RESTRICT"), nullable=True,
+    )
+    scope: Mapped[str] = mapped_column(String(16), nullable=False)
+    target_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    target_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    state: Mapped[str] = mapped_column(String(32), nullable=False, default="DRAFT")
+    version: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    target_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+
+
+class DataUnlockRequest(Base):
+    __tablename__ = "data_unlock_requests"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    lock_state_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("data_lock_states.id", ondelete="RESTRICT"),
+        nullable=False, index=True,
+    )
+    study_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("clinical_studies.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    site_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("study_sites.id", ondelete="RESTRICT"), nullable=True,
+    )
+    target_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    target_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    lock_state_at_request: Mapped[str] = mapped_column(String(32), nullable=False)
+    requesting_user_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    request_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="pending")
+    decided_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    decision_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    requested_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+    decided_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class StudyProtocolDefinition(Base):
+    """연구별 준비도 정의. 특정 임상시험 규칙을 공통 서비스에 넣지 않는다."""
+
+    __tablename__ = "study_protocol_definitions"
+    __table_args__ = (
+        UniqueConstraint(
+            "study_id", "version_number", name="uq_study_protocol_definitions_version",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    study_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("clinical_studies.id", ondelete="RESTRICT"),
+        nullable=False, index=True,
+    )
+    version_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
+    requirements_json: Mapped[str] = mapped_column(Text, nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_by: Mapped[str] = mapped_column(String(64), nullable=False)
+    approved_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+
+
+class MonitoringIndicatorRun(Base):
+    __tablename__ = "monitoring_indicator_runs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    study_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("clinical_studies.id", ondelete="RESTRICT"),
+        nullable=False, index=True,
+    )
+    protocol_definition_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("study_protocol_definitions.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    actor_user_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    computed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+
+
+class MonitoringIndicator(Base):
+    """원본 관찰과 분리된 결정적 지표. 예측값과 효능 주장을 담지 않는다."""
+
+    __tablename__ = "monitoring_indicators"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    run_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("monitoring_indicator_runs.id", ondelete="RESTRICT"),
+        nullable=False, index=True,
+    )
+    study_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("clinical_studies.id", ondelete="RESTRICT"),
+        nullable=False, index=True,
+    )
+    site_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("study_sites.id", ondelete="RESTRICT"), nullable=True,
+    )
+    subject_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("study_subjects.id", ondelete="RESTRICT"), nullable=True,
+    )
+    visit_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("study_visits.id", ondelete="RESTRICT"), nullable=True,
+    )
+    indicator_code: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    evidence_json: Mapped[str] = mapped_column(Text, nullable=False)
+    content_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    computed_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
     )

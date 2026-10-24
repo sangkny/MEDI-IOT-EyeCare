@@ -6,6 +6,37 @@
 
 ## 진행 기록
 
+### 2026-10-24T16:45:06+09:00 — Phase 008 게시
+
+- TASK_ID: PC2-EYECARE-PHASE008-PUBLISH-001
+- EXECUTION_HOST: SVG-SKLEE
+- BRANCH: feat/clinical-data-lock-008
+- HEAD_BEFORE: 87aea032d7af8ec1723036a9ca7c1183dcdbd7a3
+- HEAD_AFTER: 이 게시 커밋
+- START_TIME_KST: 2026-10-24T16:44:02+09:00
+- END_TIME_KST: 2026-10-24T16:45:06+09:00
+- TEST_RESULTS: SQLite 42 passed, 3 skipped. 준비도·지표는 합성 데이터
+- PUSH: origin `feat/clinical-data-lock-008`만
+
+### 2026-10-23T20:28:50+09:00 — Phase 008 준비도
+
+- TASK_ID: EYECARE-CLINICAL-SUPPORT-008
+- EXECUTION_HOST: SVG-SKLEE
+- PC_ROLE: PC2
+- REPOSITORY: MEDI-IOT-EyeCare
+- LOCAL_PATH: C:\Office_Automation\MEDI-IOT-EyeCare
+- BRANCH: feat/clinical-data-lock-008
+- HEAD_BEFORE: 87aea032d7af8ec1723036a9ca7c1183dcdbd7a3
+- HEAD_AFTER: 87aea032d7af8ec1723036a9ca7c1183dcdbd7a3
+- START_TIME_KST: 2026-10-23T20:04:00+09:00
+- END_TIME_KST: 2026-10-23T20:28:50+09:00
+- ELAPSED: PT24M50S
+- FILES_CHANGED: `services/clinical_readiness.py`, `services/clinical_monitoring.py`
+- TEST_RESULTS: 승인 프로토콜이 없으면 `BLOCKED_PENDING_PROTOCOL`. 열린 소견은 잠금을 막고 관찰 해시는 유지. SQLite 20 passed
+- MIGRATION: 없음. 품질 테이블은 007을 유지
+- REMAINING_ISSUES: MEDI-DES-001 임계값은 계속 BLOCKED_PENDING_SOURCE. 예측은 DEFERRED
+- NEXT_APPROVAL: 승인된 프로토콜 원문이 생긴 뒤의 규칙 등록
+
 ### 2026-10-23 09:15 KST — Phase 007 품질 검증
 
 - TASK_ID: PC2-CLINICAL-PHASE007-CHECKPOINT-001

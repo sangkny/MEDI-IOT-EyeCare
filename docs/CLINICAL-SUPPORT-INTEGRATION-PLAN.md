@@ -8,6 +8,43 @@
 
 ## 진행 기록
 
+### 2026-10-24T16:45:06+09:00 — Phase 008 게시
+
+- TASK_ID: PC2-EYECARE-PHASE008-PUBLISH-001
+- EXECUTION_HOST: SVG-SKLEE
+- PC_ROLE: PC2
+- REPOSITORY: MEDI-IOT-EyeCare
+- LOCAL_PATH: C:\Office_Automation\MEDI-IOT-EyeCare
+- BRANCH: feat/clinical-data-lock-008
+- HEAD_BEFORE: 87aea032d7af8ec1723036a9ca7c1183dcdbd7a3
+- HEAD_AFTER: 이 게시 커밋
+- START_TIME_KST: 2026-10-24T16:44:02+09:00
+- END_TIME_KST: 2026-10-24T16:45:06+09:00
+- ELAPSED: PT1M4S
+- TEST_RESULTS: SQLite 42 passed, 3 skipped. 일회용 PostgreSQL 15 1 passed 후 삭제
+- COMMIT: `feat: add clinical data locking audit and readiness`. shared-libraries는 `feat: add clinical locking authorization policies`
+- PUSH: 두 저장소의 `feat/clinical-data-lock-008`만. PC1 통합 브랜치와 Draft PR은 변경하지 않음
+- REMAINING_ISSUES: 필수 이후 기능 세 건은 구현하지 않음. Phase 009 미착수
+
+### 2026-10-23T20:28:50+09:00 — Phase 008 PC2 잠금
+
+- TASK_ID: EYECARE-CLINICAL-SUPPORT-008
+- EXECUTION_HOST: SVG-SKLEE
+- PC_ROLE: PC2
+- REPOSITORY: MEDI-IOT-EyeCare
+- LOCAL_PATH: C:\Office_Automation\MEDI-IOT-EyeCare
+- BRANCH: feat/clinical-data-lock-008
+- HEAD_BEFORE: 87aea032d7af8ec1723036a9ca7c1183dcdbd7a3
+- HEAD_AFTER: 87aea032d7af8ec1723036a9ca7c1183dcdbd7a3
+- START_TIME_KST: 2026-10-23T20:04:00+09:00
+- END_TIME_KST: 2026-10-23T20:28:50+09:00
+- ELAPSED: PT24M50S
+- FILES_CHANGED: EYECARE 잠금·준비도 파일과 shared-libraries 정책 브랜치. 부모 서브모듈과 PC1 작업 트리는 수정하지 않음
+- TEST_RESULTS: SQLite 20 passed, 1 skipped. 일회용 PostgreSQL 15 `pgvector/pgvector:pg15` `127.0.0.1:55434`에서 `medi009_clinical_data_lock`까지 upgrade 후 1 passed. 컨테이너와 데이터 디렉터리는 삭제
+- MIGRATION: 운영 데이터베이스와 이름 있는 운영 볼륨은 사용하지 않음
+- REMAINING_ISSUES: main 병합, 배포, DeeVo, 예측 학습은 하지 않음. 부모 기준 커밋 `633c7303edf8ac35a513c5a59b63185e8f336d76`의 포트와 인증 소유는 복제하지 않음
+- NEXT_APPROVAL: 저장소별 커밋. Phase 009 착수 금지
+
 ### 2026-10-23 09:15 KST — Phase 007 검증
 
 - TASK_ID: PC2-CLINICAL-PHASE007-CHECKPOINT-001

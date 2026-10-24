@@ -7,6 +7,45 @@
 
 ## 진행 기록
 
+### 2026-10-24T16:45:06+09:00 — Phase 008 게시
+
+- TASK_ID: PC2-EYECARE-PHASE008-PUBLISH-001
+- EXECUTION_HOST: SVG-SKLEE
+- PC_ROLE: PC2
+- REPOSITORY: MEDI-IOT-EyeCare
+- LOCAL_PATH: C:\Office_Automation\MEDI-IOT-EyeCare
+- BRANCH: feat/clinical-data-lock-008
+- HEAD_BEFORE: 87aea032d7af8ec1723036a9ca7c1183dcdbd7a3
+- HEAD_AFTER: 이 게시 커밋
+- START_TIME_KST: 2026-10-24T16:44:02+09:00
+- END_TIME_KST: 2026-10-24T16:45:06+09:00
+- ELAPSED: PT1M4S
+- FILES_CHANGED: Phase 008 잠금·감사·준비도 구현과 이 로드맵. 무관한 파일은 제외
+- TEST_RESULTS: SQLite 42 passed, 3 skipped. 일회용 PostgreSQL 15에서 `medi009_clinical_data_lock` upgrade와 잠금 테스트 1 passed 후 컨테이너 삭제. shared-libraries 정책 8 passed
+- COMMIT: `feat: add clinical data locking audit and readiness`
+- PUSH: origin `feat/clinical-data-lock-008`만. main 병합과 force push 없음
+- REMAINING_ISSUES: UX, AI 재확인, 외부 가져오기는 아래 필수 기능으로 남김. Phase 009는 시작하지 않음
+- NEXT_APPROVAL: 기능 브랜치 검토
+
+### 2026-10-23T20:28:50+09:00 — Phase 008 데이터 잠금
+
+- TASK_ID: EYECARE-CLINICAL-SUPPORT-008
+- EXECUTION_HOST: SVG-SKLEE
+- PC_ROLE: PC2
+- REPOSITORY: MEDI-IOT-EyeCare
+- LOCAL_PATH: C:\Office_Automation\MEDI-IOT-EyeCare
+- BRANCH: feat/clinical-data-lock-008
+- HEAD_BEFORE: 87aea032d7af8ec1723036a9ca7c1183dcdbd7a3
+- HEAD_AFTER: 87aea032d7af8ec1723036a9ca7c1183dcdbd7a3
+- START_TIME_KST: 2026-10-23T20:04:00+09:00
+- END_TIME_KST: 2026-10-23T20:28:50+09:00
+- ELAPSED: PT24M50S
+- FILES_CHANGED: 잠금 수명주기, 준비도, 감사 확장, `medi009_clinical_data_lock`, 합성 테스트, 임상 문서
+- TEST_RESULTS: SQLite 20 passed. 일회용 PostgreSQL 15에서 upgrade head `medi009_clinical_data_lock`과 잠금 테스트 1 passed. 컨테이너 삭제
+- MIGRATION: `medi009_clinical_data_lock`. 이전 개정은 유지
+- REMAINING_ISSUES: 커밋 전. Phase 009 미착수. 예측 학습 없음
+- NEXT_APPROVAL: EYECARE와 shared-libraries를 각각 커밋
+
 ### 2026-10-23 09:15 KST — Phase 007 체크포인트
 
 - TASK_ID: PC2-CLINICAL-PHASE007-CHECKPOINT-001
@@ -268,3 +307,19 @@ DeeVo로 되돌리는 동기화는 SOURCE_SYSTEM_PROHIBITED 이다. eCRF 편집,
 질의 수명주기와 반복 가능한 품질 실행을 `feat/clinical-query-quality-007`에 두었다. 잠금, 공식 가져오기, 예측 학습, 상주 워커는 아직 없다. MEDI-DES-001의 수치 임계값과 Visit 창은 승인 원문이 없어 BLOCKED_PENDING_SOURCE 다.
 
 008 후보는 데이터 잠금, 승인된 프로토콜 규칙 등록, 부모 저장소 통합 검토, 별도 승인이 있는 스폰서 내보내기 가져오기다. 예측 모델 학습은 그 뒤다.
+
+## 12. Phase 008 상태
+
+로컬 브랜치 `feat/clinical-data-lock-008`에 잠금, 통제된 해제, 추가 전용 감사, 연구별 준비도, 결정적 모니터링 지표가 있다. 상세 전이는 `CLINICAL-DATA-LOCK-SPEC.md`에 있다. MEDI-DES-001 수치와 Visit 창은 여전히 승인 원문이 없어 공통 규칙으로 넣지 않았다. 가져오기, 예측 학습, 배포, main 병합은 하지 않았다.
+
+## 13. 이후 필수 기능
+
+아래 세 기능은 제품에 필요하며, 이번 게시에서 구현하지 않는다.
+
+| ID | 필수 능력 |
+|----|-----------|
+| EYECARE-CLINICAL-UX-001 | 대상자와 Visit 중심의 임상 데이터 탐색 |
+| EYECARE-CLINICAL-AI-QC-001 | AI 보조 이상 수치 검출과 사람 재확인 |
+| EYECARE-CLINICAL-IMPORT-001 | 외부 임상 데이터 가져오기와 MEDI-DES-001 사례 검증 |
+
+Phase 009는 이 게시에서 시작하지 않는다. 009 후보는 별도 승인의 기술통계와 베이스라인 예측이며, 위 세 기능의 구현 승인을 대체하지 않는다.

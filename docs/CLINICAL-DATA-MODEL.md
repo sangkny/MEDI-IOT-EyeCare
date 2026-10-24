@@ -6,6 +6,37 @@
 
 ## 진행 기록
 
+### 2026-10-24T16:45:06+09:00 — Phase 008 게시
+
+- TASK_ID: PC2-EYECARE-PHASE008-PUBLISH-001
+- EXECUTION_HOST: SVG-SKLEE
+- BRANCH: feat/clinical-data-lock-008
+- HEAD_BEFORE: 87aea032d7af8ec1723036a9ca7c1183dcdbd7a3
+- HEAD_AFTER: 이 게시 커밋
+- START_TIME_KST: 2026-10-24T16:44:02+09:00
+- END_TIME_KST: 2026-10-24T16:45:06+09:00
+- TEST_RESULTS: 일회용 PostgreSQL 15 upgrade head `medi009_clinical_data_lock`
+- PUSH: origin `feat/clinical-data-lock-008`만
+
+### 2026-10-23T20:28:50+09:00 — Phase 008 잠금 스키마
+
+- TASK_ID: EYECARE-CLINICAL-SUPPORT-008
+- EXECUTION_HOST: SVG-SKLEE
+- PC_ROLE: PC2
+- REPOSITORY: MEDI-IOT-EyeCare
+- LOCAL_PATH: C:\Office_Automation\MEDI-IOT-EyeCare
+- BRANCH: feat/clinical-data-lock-008
+- HEAD_BEFORE: 87aea032d7af8ec1723036a9ca7c1183dcdbd7a3
+- HEAD_AFTER: 87aea032d7af8ec1723036a9ca7c1183dcdbd7a3
+- START_TIME_KST: 2026-10-23T20:04:00+09:00
+- END_TIME_KST: 2026-10-23T20:28:50+09:00
+- ELAPSED: PT24M50S
+- FILES_CHANGED: `models/clinical_support.py`, `alembic/versions/medi009_clinical_data_lock.py`
+- TEST_RESULTS: 일회용 PostgreSQL 15 upgrade가 `medi009_clinical_data_lock`에 도달. 운영 DB에는 적용하지 않음. 컨테이너 삭제
+- MIGRATION: 현재 상태 `data_lock_states`, 해제 요청 `data_unlock_requests`, 연구 프로토콜, 모니터링 지표. 기존 `data_lock_records`와 `clinical_audit_events`는 열만 추가
+- REMAINING_ISSUES: 커밋 전. 기존 이력 행은 수정하지 않음
+- NEXT_APPROVAL: 마이그레이션 커밋
+
 ### 2026-10-23 09:15 KST — Phase 007 스키마 검증
 
 - TASK_ID: PC2-CLINICAL-PHASE007-CHECKPOINT-001

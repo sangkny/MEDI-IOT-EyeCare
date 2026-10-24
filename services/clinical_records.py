@@ -9,13 +9,14 @@ import hashlib
 import json
 from datetime import date, datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import inspect, select
 from sqlalchemy.orm import Session
 
 from models.clinical import ClinicalStudy, StudyStatusEnum
 from models.clinical_support import (
     ClinicalAuditEvent,
     ClinicalObservation,
+    DataLockState,
     DataQualityFinding,
     DataQualityRule,
     QuestionnaireDefinition,
@@ -47,9 +48,28 @@ class ClinicalRecordError(ValueError):
     """호출 계약 위반. 원본 행은 바꾸지 않는다."""
 
 
+def _canonical(payload: dict) -> str:
+    return json.dumps(payload, sort_keys=True, default=str, ensure_ascii=False)
+
+
 def _hash(payload: dict) -> str:
-    raw = json.dumps(payload, sort_keys=True, default=str, ensure_ascii=False)
-    return hashlib.sha256(raw.encode("utf-8")).hexdigest()
+    return hashlib.sha256(_canonical(payload).encode("utf-8")).hexdigest()
+
+
+def verify_audit_integrity(event: ClinicalAuditEvent) -> dict:
+    """저장된 직렬화와 해시를 비교한다. 해시만으로 규제 준수를 의미하지 않는다."""
+    if not event.payload_json:
+        return {
+            "status": "LEGACY_HASH_ONLY",
+            "matches": None,
+            "regulatory_compliance": False,
+        }
+    digest = hashlib.sha256(event.payload_json.encode("utf-8")).hexdigest()
+    return {
+        "status": "MATCH" if digest == event.payload_hash else "MISMATCH",
+        "matches": digest == event.payload_hash,
+        "regulatory_compliance": False,
+    }
 
 
 def _audit(
@@ -63,7 +83,12 @@ def _audit(
     payload: dict,
     site_id: str | None = None,
     request_id: str = "phase004",
+    previous_state: str | None = None,
+    new_state: str | None = None,
+    reason: str | None = None,
+    target_revision: int | None = None,
 ) -> ClinicalAuditEvent:
+    raw = _canonical(payload)
     event = ClinicalAuditEvent(
         study_id=study_id,
         site_id=site_id,
@@ -73,10 +98,45 @@ def _audit(
         target_id=target_id,
         occurred_at=datetime.now(timezone.utc),
         request_id=request_id,
-        payload_hash=_hash(payload),
+        payload_hash=hashlib.sha256(raw.encode("utf-8")).hexdigest(),
+        payload_json=raw,
+        previous_state=previous_state,
+        new_state=new_state,
+        reason=reason,
+        target_revision=target_revision,
     )
     session.add(event)
     return event
+
+
+def _assert_not_locked(
+    session: Session,
+    *,
+    study_id: str,
+    subject_id: str | None = None,
+    visit_id: str | None = None,
+    record_type: str | None = None,
+    record_id: str | None = None,
+) -> None:
+    connection = session.connection()
+    if not inspect(connection).has_table(DataLockState.__tablename__):
+        return
+    keys = [("study", study_id)]
+    if subject_id:
+        keys.append(("subject", subject_id))
+    if visit_id:
+        keys.append(("visit", visit_id))
+    if record_type and record_id:
+        keys.append((record_type, record_id))
+    rows = session.scalars(
+        select(DataLockState).where(
+            DataLockState.study_id == study_id,
+            DataLockState.state.in_(("LOCKED", "UNLOCK_REQUESTED")),
+        )
+    ).all()
+    blocked = {(row.target_type, row.target_id) for row in rows}
+    if any(key in blocked for key in keys):
+        raise ClinicalRecordError("잠긴 임상 데이터는 수정할 수 없습니다.")
 
 
 def create_study(
@@ -227,6 +287,7 @@ def open_visit(
     if subject is None:
         raise ClinicalRecordError("대상자가 없습니다.")
     _require_site_member(session, subject.site_id, actor_user_id)
+    _assert_not_locked(session, study_id=subject.study_id, subject_id=subject.id)
     if window_id is not None:
         window = session.get(VisitWindow, window_id)
         if window is None or window.study_id != subject.study_id:
@@ -317,6 +378,12 @@ def start_response(
     if version.definition.study_id != visit.subject.study_id:
         raise ClinicalRecordError("설문과 Visit 의 연구가 다릅니다.")
     _require_site_member(session, visit.subject.site_id, actor_user_id or recorded_by)
+    _assert_not_locked(
+        session,
+        study_id=visit.subject.study_id,
+        subject_id=visit.subject_id,
+        visit_id=visit.id,
+    )
     response = QuestionnaireResponse(
         version_id=version_id,
         visit_id=visit_id,
@@ -553,6 +620,12 @@ def create_draft_observation(
     if visit is None:
         raise ClinicalRecordError("Visit 가 없습니다.")
     _require_site_member(session, visit.subject.site_id, actor_user_id)
+    _assert_not_locked(
+        session,
+        study_id=visit.subject.study_id,
+        subject_id=visit.subject_id,
+        visit_id=visit.id,
+    )
     existing = _series(
         session,
         visit_id=visit_id,
@@ -617,6 +690,14 @@ def update_draft_observation(
     if visit is None:
         raise ClinicalRecordError("Visit 가 없습니다.")
     _require_site_member(session, visit.subject.site_id, actor_user_id)
+    _assert_not_locked(
+        session,
+        study_id=visit.subject.study_id,
+        subject_id=visit.subject_id,
+        visit_id=visit.id,
+        record_type="observation",
+        record_id=row.id,
+    )
     if value_number is not _UNSET:
         row.value_number = value_number
     if value_text is not _UNSET:
@@ -653,6 +734,14 @@ def finalize_observation(
     if visit is None:
         raise ClinicalRecordError("Visit 가 없습니다.")
     _require_site_member(session, visit.subject.site_id, actor_user_id)
+    _assert_not_locked(
+        session,
+        study_id=visit.subject.study_id,
+        subject_id=visit.subject_id,
+        visit_id=visit.id,
+        record_type="observation",
+        record_id=row.id,
+    )
     _require_value(row)
     row.record_status = "final"
     row.finalized_by = actor_user_id
@@ -738,6 +827,14 @@ def correct_observation(
     if visit is None:
         raise ClinicalRecordError("Visit 가 없습니다.")
     _require_site_member(session, visit.subject.site_id, actor_user_id)
+    _assert_not_locked(
+        session,
+        study_id=visit.subject.study_id,
+        subject_id=visit.subject_id,
+        visit_id=visit.id,
+        record_type="observation",
+        record_id=prior.id,
+    )
     series = _series(
         session,
         visit_id=prior.visit_id,
@@ -911,6 +1008,14 @@ def save_response_item(
     if visit is None:
         raise ClinicalRecordError("Visit 가 없습니다.")
     _require_site_member(session, visit.subject.site_id, actor_user_id)
+    _assert_not_locked(
+        session,
+        study_id=visit.subject.study_id,
+        subject_id=visit.subject_id,
+        visit_id=visit.id,
+        record_type="questionnaire_response",
+        record_id=response.id,
+    )
     known = {item.get("code") for item in _item_spec(response.version)}
     if item_code not in known:
         raise ClinicalRecordError("버전에 없는 문항입니다.")
@@ -971,6 +1076,14 @@ def finalize_response(session: Session, response_id: str, *, actor_user_id: str)
     if visit is None:
         raise ClinicalRecordError("Visit 가 없습니다.")
     _require_site_member(session, visit.subject.site_id, actor_user_id)
+    _assert_not_locked(
+        session,
+        study_id=visit.subject.study_id,
+        subject_id=visit.subject_id,
+        visit_id=visit.id,
+        record_type="questionnaire_response",
+        record_id=response.id,
+    )
     errors = response_errors(session, response)
     if errors:
         raise ClinicalRecordError("설문 검증 실패: " + ",".join(errors))
@@ -1000,6 +1113,14 @@ def correct_response(
     if visit is None:
         raise ClinicalRecordError("Visit 가 없습니다.")
     _require_site_member(session, visit.subject.site_id, actor_user_id)
+    _assert_not_locked(
+        session,
+        study_id=visit.subject.study_id,
+        subject_id=visit.subject_id,
+        visit_id=visit.id,
+        record_type="questionnaire_response",
+        record_id=prior.id,
+    )
     successor = QuestionnaireResponse(
         version_id=prior.version_id,
         visit_id=prior.visit_id,
