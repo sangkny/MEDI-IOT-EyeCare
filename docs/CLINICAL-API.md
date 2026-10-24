@@ -4,6 +4,37 @@
 
 ## 진행 기록
 
+### 2026-10-24T16:45:06+09:00 — Phase 008 게시
+
+- TASK_ID: PC2-EYECARE-PHASE008-PUBLISH-001
+- EXECUTION_HOST: SVG-SKLEE
+- BRANCH: feat/clinical-data-lock-008
+- HEAD_BEFORE: 87aea032d7af8ec1723036a9ca7c1183dcdbd7a3
+- HEAD_AFTER: 이 게시 커밋
+- START_TIME_KST: 2026-10-24T16:44:02+09:00
+- END_TIME_KST: 2026-10-24T16:45:06+09:00
+- TEST_RESULTS: 잠금 API 포함 SQLite 42 passed, 3 skipped
+- PUSH: origin `feat/clinical-data-lock-008`만
+
+### 2026-10-23T20:28:50+09:00 — Phase 008 잠금 API
+
+- TASK_ID: EYECARE-CLINICAL-SUPPORT-008
+- EXECUTION_HOST: SVG-SKLEE
+- PC_ROLE: PC2
+- REPOSITORY: MEDI-IOT-EyeCare
+- LOCAL_PATH: C:\Office_Automation\MEDI-IOT-EyeCare
+- BRANCH: feat/clinical-data-lock-008
+- HEAD_BEFORE: 87aea032d7af8ec1723036a9ca7c1183dcdbd7a3
+- HEAD_AFTER: 87aea032d7af8ec1723036a9ca7c1183dcdbd7a3
+- START_TIME_KST: 2026-10-23T20:04:00+09:00
+- END_TIME_KST: 2026-10-23T20:28:50+09:00
+- ELAPSED: PT24M50S
+- FILES_CHANGED: `api/clinical_support.py`. 환자·IoT 라우트는 변경하지 않음
+- TEST_RESULTS: 토큰 없음 401, staff 잠금 403, 비구성원 403, data_manager 잠금 200. SQLite 20 passed
+- MIGRATION: API만. 스키마는 `medi009_clinical_data_lock`
+- REMAINING_ISSUES: 정책 액션은 shared-libraries `feat/clinical-data-lock-008`에만 있음
+- NEXT_APPROVAL: 두 저장소 커밋을 함께 검토
+
 ### 2026-10-23 09:15 KST — Phase 007 API 검증
 
 - TASK_ID: PC2-CLINICAL-PHASE007-CHECKPOINT-001
@@ -86,6 +117,17 @@
 | POST | `/queries/{id}/responses` | `clinical_query_respond` |
 | POST | `/queries/{id}/assignments`, `/resolutions`, `/reopens` | `clinical_query_review` |
 | POST | `/queries/{id}/corrections` | `clinical_observation_correct` |
+| GET | `/readiness` | `clinical_readiness_read` |
+| POST | `/locks/readiness` | `clinical_readiness_read` |
+| POST | `/locks/requests` | `clinical_lock_request` |
+| POST | `/locks/applications` | `clinical_lock_apply` |
+| POST | `/locks/unlock-requests` | `clinical_unlock_request` |
+| POST | `/locks/unlock-requests/{id}/approvals`, `/rejections` | `clinical_unlock_approve` |
+| GET | `/locks/history` | `clinical_lock_read` |
+| GET | `/audits` | `clinical_audit_read` |
+| POST | `/studies/{id}/protocol-definitions`, `/protocol-definitions/{id}/approvals` | `clinical_protocol_manage` |
+| POST | `/studies/{id}/monitoring-indicators` | `clinical_monitor_execute` |
+| GET | `/studies/{id}/monitoring-indicators` | `clinical_monitor_read` |
 
 토큰이 없으면 401이다. 정책이 거절하거나 사이트 구성원이 아니면 403이다. 대상이 없으면 404다. 빈 정정 사유, 값 없는 확정, 확정 행 수정은 400이다.
 

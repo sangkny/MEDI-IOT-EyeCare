@@ -7,6 +7,109 @@
 
 ## 진행 기록
 
+### 2026-10-24T17:28:14+09:00 — Phase 008 명세 게시
+
+- TASK_ID: PC2-EYECARE-PHASE008-PUBLICATION-001
+- EXECUTION_HOST: SVG-SKLEE
+- PC_ROLE: PC2
+- REPOSITORY: MEDI-IOT-EyeCare
+- LOCAL_PATH: C:\Office_Automation\MEDI-IOT-EyeCare
+- BRANCH: feat/clinical-data-lock-008
+- BASELINE_HEAD: 87aea032d7af8ec1723036a9ca7c1183dcdbd7a3
+- HEAD_BEFORE: a8e32651c592cb30de27706c1d4c5c95c44c82c9
+- HEAD_AFTER: 이 문서 커밋
+- START_TIME_KST: 2026-10-24T17:27:38+09:00
+- END_TIME_KST: 2026-10-24T17:28:14+09:00
+- ELAPSED: PT36S
+- FILES_CHANGED: `docs/CLINICAL-MODULE-IMPLEMENTATION-ROADMAP.md`, `docs/CLINICAL-SUPPORT-INTEGRATION-PLAN.md`, `docs/CLINICAL-DATA-LOCK-SPEC.md`, `docs/EXTERNAL-CLINICAL-DATA-IMPORT-SPEC.md`. 임상 코드와 `medi009_clinical_data_lock`은 변경하지 않음
+- TEST_RESULTS: 이번 SQLite 재실행 42 passed, 3 skipped, exit 0. shared-libraries 정책 8 passed와 일회용 PostgreSQL 15 잠금 1 passed, exit 0은 2026-10-24T17:11:37+09:00 기록이며 이번 게시에 다시 실행하지 않음
+- COMMIT: `docs: finalize Phase 008 clinical data lock specifications`
+- PUSH: origin `feat/clinical-data-lock-008`만. force push와 main 병합 없음
+- REMAINING_ISSUES: EYECARE-CLINICAL-UX-001, EYECARE-CLINICAL-AI-QC-001, EYECARE-CLINICAL-IMPORT-001은 이후 요구로 유지. 구현하지 않음
+- NEXT_APPROVAL: Phase 009 착수 금지
+
+### 2026-10-24T17:14:14+09:00 — Phase 008 마이그레이션 식별자 확인
+
+- TASK_ID: PC2-EYECARE-CLINICAL-SUPPORT-008
+- EXECUTION_HOST: SVG-SKLEE
+- PC_ROLE: PC2
+- REPOSITORY: MEDI-IOT-EyeCare
+- LOCAL_PATH: C:\Office_Automation\MEDI-IOT-EyeCare
+- BRANCH: feat/clinical-data-lock-008
+- BASELINE_HEAD: 87aea032d7af8ec1723036a9ca7c1183dcdbd7a3
+- HEAD_BEFORE: a8e32651c592cb30de27706c1d4c5c95c44c82c9
+- HEAD_AFTER: a8e32651c592cb30de27706c1d4c5c95c44c82c9
+- START_TIME_KST: 2026-10-24T17:12:00+09:00
+- END_TIME_KST: 2026-10-24T17:14:14+09:00
+- ELAPSED: PT2M14S
+- FILES_CHANGED: 로드맵, 통합 계획, 잠금 명세, 가져오기 명세의 식별자 설명. 잠금 코드와 Alembic 개정 파일은 유지
+- MIGRATION: `medi009_clinical_data_lock`은 `medi008_clinical_query` 다음 Alembic 개정이다. 개발 단계 Phase 009가 아니다. Phase 008을 끝내는 데 이후 단계 승인은 필요 없다
+- TEST_RESULTS: 코드 변경 없음. 이번 SQLite 재실행 42 passed, 3 skipped, exit 0. 정책 8 passed와 일회용 PostgreSQL 15 잠금 1 passed는 17:11 검증, exit 0
+- REMAINING_ISSUES: UX-001, AI-QC-001, IMPORT-001은 이후 요구 문서로만 남긴다. 구현하지 않음. 검토 전 커밋과 push 없음
+- NEXT_APPROVAL: Phase 008 결과 검토 후 커밋
+
+### 2026-10-24T17:11:37+09:00 — Phase 008 재검증과 이후 요구 명세
+
+- TASK_ID: PC2-EYECARE-CLINICAL-SUPPORT-008
+- EXECUTION_HOST: SVG-SKLEE
+- PC_ROLE: PC2
+- REPOSITORY: MEDI-IOT-EyeCare
+- LOCAL_PATH: C:\Office_Automation\MEDI-IOT-EyeCare
+- BRANCH: feat/clinical-data-lock-008
+- BASELINE_HEAD: 87aea032d7af8ec1723036a9ca7c1183dcdbd7a3
+- HEAD_BEFORE: a8e32651c592cb30de27706c1d4c5c95c44c82c9
+- HEAD_AFTER: a8e32651c592cb30de27706c1d4c5c95c44c82c9
+- START_TIME_KST: 2026-10-24T17:08:00+09:00
+- END_TIME_KST: 2026-10-24T17:11:37+09:00
+- ELAPSED: PT3M37S
+- FILES_CHANGED: 이 로드맵, 통합 계획, 잠금 명세, `docs/EXTERNAL-CLINICAL-DATA-IMPORT-SPEC.md`. 잠금 코드와 마이그레이션은 바꾸지 않음
+- WORKING_TREE: 문서 4건만 미커밋. 환자 데이터와 자격 증명 없음
+- TEST_RESULTS: SQLite 42 passed, 3 skipped, exit 0. shared-libraries 정책 8 passed, exit 0. 일회용 PostgreSQL 15 `127.0.0.1:55436`에서 `medi009_clinical_data_lock`까지 upgrade 후 잠금 테스트 1 passed, exit 0. 컨테이너 삭제
+- MIGRATION: 추가 개정 없음. 기존 head `medi009_clinical_data_lock`
+- VERIFIED: 잠금, 해제, 준비도, 감사, 인증 API, 합성 SQLite, 정책
+- SKIPPED_OR_UNCHANGED: UX-001, AI-QC-001, IMPORT-001 구현. DeeVo, 운영 가져오기, 모델 학습, main 병합, push
+- REMAINING_ISSUES: 세 필수 기능은 명세만 있다. 이 문서 변경은 커밋하지 않음
+- NEXT_APPROVAL: Phase 008 결과 검토 후 커밋. 이후 기능 구현은 이 승인과 별도다
+
+### 2026-10-24T16:45:06+09:00 — Phase 008 게시
+
+- TASK_ID: PC2-EYECARE-PHASE008-PUBLISH-001
+- EXECUTION_HOST: SVG-SKLEE
+- PC_ROLE: PC2
+- REPOSITORY: MEDI-IOT-EyeCare
+- LOCAL_PATH: C:\Office_Automation\MEDI-IOT-EyeCare
+- BRANCH: feat/clinical-data-lock-008
+- HEAD_BEFORE: 87aea032d7af8ec1723036a9ca7c1183dcdbd7a3
+- HEAD_AFTER: 이 게시 커밋
+- START_TIME_KST: 2026-10-24T16:44:02+09:00
+- END_TIME_KST: 2026-10-24T16:45:06+09:00
+- ELAPSED: PT1M4S
+- FILES_CHANGED: Phase 008 잠금·감사·준비도 구현과 이 로드맵. 무관한 파일은 제외
+- TEST_RESULTS: SQLite 42 passed, 3 skipped. 일회용 PostgreSQL 15에서 `medi009_clinical_data_lock` upgrade와 잠금 테스트 1 passed 후 컨테이너 삭제. shared-libraries 정책 8 passed
+- COMMIT: `feat: add clinical data locking audit and readiness`
+- PUSH: origin `feat/clinical-data-lock-008`만. main 병합과 force push 없음
+- REMAINING_ISSUES: UX, AI 재확인, 외부 가져오기는 아래 필수 기능으로 남김. Phase 009는 시작하지 않음
+- NEXT_APPROVAL: 기능 브랜치 검토
+
+### 2026-10-23T20:28:50+09:00 — Phase 008 데이터 잠금
+
+- TASK_ID: EYECARE-CLINICAL-SUPPORT-008
+- EXECUTION_HOST: SVG-SKLEE
+- PC_ROLE: PC2
+- REPOSITORY: MEDI-IOT-EyeCare
+- LOCAL_PATH: C:\Office_Automation\MEDI-IOT-EyeCare
+- BRANCH: feat/clinical-data-lock-008
+- HEAD_BEFORE: 87aea032d7af8ec1723036a9ca7c1183dcdbd7a3
+- HEAD_AFTER: 87aea032d7af8ec1723036a9ca7c1183dcdbd7a3
+- START_TIME_KST: 2026-10-23T20:04:00+09:00
+- END_TIME_KST: 2026-10-23T20:28:50+09:00
+- ELAPSED: PT24M50S
+- FILES_CHANGED: 잠금 수명주기, 준비도, 감사 확장, `medi009_clinical_data_lock`, 합성 테스트, 임상 문서
+- TEST_RESULTS: SQLite 20 passed. 일회용 PostgreSQL 15에서 upgrade head `medi009_clinical_data_lock`과 잠금 테스트 1 passed. 컨테이너 삭제
+- MIGRATION: `medi009_clinical_data_lock`. 이전 개정은 유지
+- REMAINING_ISSUES: 커밋 전. Phase 009 미착수. 예측 학습 없음
+- NEXT_APPROVAL: EYECARE와 shared-libraries를 각각 커밋
+
 ### 2026-10-23 09:15 KST — Phase 007 체크포인트
 
 - TASK_ID: PC2-CLINICAL-PHASE007-CHECKPOINT-001
@@ -268,3 +371,49 @@ DeeVo로 되돌리는 동기화는 SOURCE_SYSTEM_PROHIBITED 이다. eCRF 편집,
 질의 수명주기와 반복 가능한 품질 실행을 `feat/clinical-query-quality-007`에 두었다. 잠금, 공식 가져오기, 예측 학습, 상주 워커는 아직 없다. MEDI-DES-001의 수치 임계값과 Visit 창은 승인 원문이 없어 BLOCKED_PENDING_SOURCE 다.
 
 008 후보는 데이터 잠금, 승인된 프로토콜 규칙 등록, 부모 저장소 통합 검토, 별도 승인이 있는 스폰서 내보내기 가져오기다. 예측 모델 학습은 그 뒤다.
+
+## 12. Phase 008 상태
+
+`feat/clinical-data-lock-008`의 `a8e32651c592cb30de27706c1d4c5c95c44c82c9`에 잠금, 통제된 해제, 추가 전용 감사, 연구별 준비도, 결정적 모니터링 지표가 있다. 상세 전이는 `CLINICAL-DATA-LOCK-SPEC.md`에 있다. Alembic 개정 `medi009_clinical_data_lock`은 `medi008_clinical_query` 다음 데이터베이스 순서이며 Phase 008 스키마다. 개발 단계 Phase 009가 아니고, Phase 008 완료는 이후 단계 승인을 기다리지 않는다. MEDI-DES-001 수치와 Visit 창은 승인 원문이 없어 공통 규칙으로 넣지 않았다. 가져오기, 탐색 화면, AI 재확인은 이후 요구로만 적혀 있다. 배포와 main 병합은 하지 않았다.
+
+## 13. 이후 필수 기능
+
+아래 세 기능은 필수 제품 능력이다. Phase 008은 정규 임상 모델, 잠금, 질의, 품질 실행과 맞물리도록 경계만 유지한다. 구현은 각각 별도 범위 승인이 나기 전에는 시작하지 않는다. 아래 후보 순서는 승인된 단계 번호가 아니다.
+
+### EYECARE-CLINICAL-UX-001
+
+대상자와 Visit 중심의 임상 데이터 탐색.
+
+범위는 대상자 종단 조회, Visit 날짜 검색과 필터, 연구·사이트·대상자·Visit 이동, TBUT·OSDI·Schirmer 추세, 결측 Visit와 질의 상태, 연구 진행과 완전성 표시다. 조회는 정규 임상 모델 위의 인가된 읽기이며 임상 기록을 복제하지 않는다.
+
+의존성은 인증된 임상 조회, 사이트 구성원, Phase 007 질의 상태, Phase 008 준비도와 잠금 상태다. 표시용 집계는 원본 관찰의 개정과 해시를 바꾸지 않는다.
+
+수용 기준은 권한 없는 사이트가 거부되고, 같은 대상자의 확정 관찰과 설문만 종단으로 보이며, 잠긴 기록은 수정 없이 표시되고, 결측과 미해결 질의가 준비도 결과와 모순되지 않는 것이다.
+
+후보 순서는 잠금 브랜치가 검토된 뒤의 읽기 전용 탐색이다. 단계 번호는 확정하지 않는다.
+
+### EYECARE-CLINICAL-AI-QC-001
+
+AI 보조 임상 수치 검증.
+
+범위는 이상 수치, 소수점과 단위 입력 의심, 반복 측정 비교, 종단 비교, 중증도와 측정 조건의 고려, 사람 검토 권고, 검증과 정정 결정의 기록이다. 원본 관찰을 덮어쓰지 않는다. 정정 전에는 사람 검토가 필수다. 생물학적 변동을 입력 오류로 단정하지 않는다.
+
+의존성은 관찰 개정, 추가 전용 감사, Phase 007 품질 소견, Phase 008의 결정적 모니터링 지표다. 지표에서 위험 평가, 사람 검토, 기존 정정 서비스로 이어진다. 모델 학습과 효능 주장은 이 범위에 없다.
+
+수용 기준은 권고가 원본과 분리된 행에 남고, 사람이 거절할 수 있으며, 승인된 정정만 기존 정정 경로와 감사를 통과하고, 프로토콜 기준이 없으면 임상 오류로 단정하지 않는 것이다.
+
+후보 순서는 결정적 지표 이후의 권고 계층이다. 학습과 운영 배치는 그 승인에 포함되지 않는다.
+
+### EYECARE-CLINICAL-IMPORT-001
+
+외부 임상 데이터 가져오기와 MEDI-DES-001 사례 검증. 상세는 `EXTERNAL-CLINICAL-DATA-IMPORT-SPEC.md`에 있다.
+
+범위는 인가된 외부 EDC의 Excel/CSV, 원본 파일과 SHA-256·출처 보존, 정규 엔티티 매핑, 최종 반영 전 스테이징과 검증, 중복 검출과 멱등 재가져오기, 내보내기 스냅샷 비교, 개정과 감사, 가져온 기록의 품질 검사다. 첫 실제 사례 후보는 스폰서가 인가한 DeeVo Excel의 MEDI-DES-001이다. DeeVo는 읽기 전용으로 남는다. 개발 테스트에 실제 환자 정보를 쓰지 않는다.
+
+의존성은 정규 임상 수명주기, Phase 007 품질 실행, Phase 008 잠금이다. 탐색은 UX-001, 이상 탐지는 AI-QC-001이며 가져오기 구현이 둘을 대신하지 않는다.
+
+수용 기준은 같은 원본 해시의 재처리가 대상자와 관찰을 복제하지 않고, 매핑되지 않은 필드는 최종 반영되지 않으며, 가져온 관찰이 기존 개정 규칙을 따르고, 잠금이 가져오기 함수 안에서 자동으로 걸리지 않는 것이다.
+
+후보 순서는 합성 파일 계약, 그다음 스폰서 승인 후의 MEDI-DES-001 사례다. Phase 008에서 운영 파일을 가져오지 않는다.
+
+이 세 기능은 이후 Phase 009 요구로만 기록한다. Phase 008 구현과 검증은 이들을 포함하지 않으며, 이들의 착수 승인을 기다리지 않는다. `medi009_clinical_data_lock`이라는 Alembic 식별자는 그 이후 단계와 무관하다.

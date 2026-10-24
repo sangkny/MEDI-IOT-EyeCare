@@ -4,6 +4,37 @@
 
 ## 진행 기록
 
+### 2026-10-24T16:45:06+09:00 — Phase 008 게시
+
+- TASK_ID: PC2-EYECARE-PHASE008-PUBLISH-001
+- EXECUTION_HOST: SVG-SKLEE
+- BRANCH: feat/clinical-data-lock-008
+- HEAD_BEFORE: 87aea032d7af8ec1723036a9ca7c1183dcdbd7a3
+- HEAD_AFTER: 이 게시 커밋
+- START_TIME_KST: 2026-10-24T16:44:02+09:00
+- END_TIME_KST: 2026-10-24T16:45:06+09:00
+- TEST_RESULTS: 질의 회귀 포함 SQLite 42 passed, 3 skipped
+- PUSH: origin `feat/clinical-data-lock-008`만
+
+### 2026-10-23T20:28:50+09:00 — Phase 008 잠금과 질의
+
+- TASK_ID: EYECARE-CLINICAL-SUPPORT-008
+- EXECUTION_HOST: SVG-SKLEE
+- PC_ROLE: PC2
+- REPOSITORY: MEDI-IOT-EyeCare
+- LOCAL_PATH: C:\Office_Automation\MEDI-IOT-EyeCare
+- BRANCH: feat/clinical-data-lock-008
+- HEAD_BEFORE: 87aea032d7af8ec1723036a9ca7c1183dcdbd7a3
+- HEAD_AFTER: 87aea032d7af8ec1723036a9ca7c1183dcdbd7a3
+- START_TIME_KST: 2026-10-23T20:04:00+09:00
+- END_TIME_KST: 2026-10-23T20:28:50+09:00
+- ELAPSED: PT24M50S
+- FILES_CHANGED: `services/clinical_lock.py`. 질의 서비스의 상태 기계는 유지
+- TEST_RESULTS: 미해결 error 질의가 있으면 `BLOCKED_BY_QUERY`. 잠금이 질의 상태를 닫지 않음. SQLite 20 passed
+- MIGRATION: 질의 테이블 변경 없음
+- REMAINING_ISSUES: 화면 없음. 잠금 중 정정은 거부
+- NEXT_APPROVAL: 커밋 후 질의 화면은 별도 단계
+
 ### 2026-10-23 09:15 KST — Phase 007 검증
 
 - TASK_ID: PC2-CLINICAL-PHASE007-CHECKPOINT-001
