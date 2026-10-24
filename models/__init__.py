@@ -16,6 +16,8 @@ from .clinical import (
 from .clinical_support import (
     ClinicalAuditEvent,
     ClinicalObservation,
+    DataLockState,
+    DataUnlockRequest,
     ClinicalQuery,
     ClinicalQueryEvent,
     ClinicalQueryResponse,
@@ -28,6 +30,9 @@ from .clinical_support import (
     QuestionnaireResponse,
     QuestionnaireResponseItem,
     QuestionnaireVersion,
+    MonitoringIndicator,
+    MonitoringIndicatorRun,
+    StudyProtocolDefinition,
     StudySite,
     StudySiteMember,
     StudySubject,
@@ -49,7 +54,8 @@ __all__ = [
     "DataQualityRule", "DataQualityFinding", "QualityEvaluationRun",
     "ClinicalQuery", "ClinicalQueryEvent", "ClinicalQueryResponse",
     "ClinicalAuditEvent", "VisitFormAssignment",
-    "DataLockRecord", "DataExportRecord",
+    "DataLockRecord", "DataLockState", "DataUnlockRequest", "DataExportRecord",
+    "StudyProtocolDefinition", "MonitoringIndicatorRun", "MonitoringIndicator",
     "BillingPlan", "BillingSubscription", "BillingUsageRecord",
     "BillingMonthlyUserUsage", "StripePlanMapping", "StripeSubscription",
 ]

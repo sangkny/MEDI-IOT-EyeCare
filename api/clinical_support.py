@@ -15,6 +15,21 @@ from schemas.clinical_support import (
     SubjectRecord,
     VisitRecord,
 )
+from services.clinical_lock import (
+    apply_lock,
+    approve_unlock,
+    evaluate_lock_readiness,
+    list_clinical_audit,
+    list_lock_history,
+    reject_unlock,
+    request_lock,
+    request_unlock,
+)
+from services.clinical_monitoring import (
+    ai_monitoring_handoff,
+    compute_monitoring_indicators,
+    list_monitoring_indicators,
+)
 from services.clinical_quality import list_quality_findings, run_quality_rules, validate_after_entry
 from services.clinical_queries import (
     assign_query,
@@ -28,6 +43,7 @@ from services.clinical_queries import (
     resolve_query,
     respond_to_query,
 )
+from services.clinical_readiness import approve_protocol_definition, register_protocol_definition
 from services.clinical_records import (
     ClinicalRecordError,
     add_site,
@@ -176,6 +192,27 @@ class QueryResponseBody(BaseModel):
     body: str = Field(min_length=1)
 
 
+class ReadinessBody(BaseModel):
+    study_id: str
+    target_type: str = Field(min_length=1, max_length=32)
+    target_id: str
+
+
+class LockTargetBody(BaseModel):
+    study_id: str
+    target_type: str = Field(min_length=1, max_length=32)
+    target_id: str
+    reason: str = Field(min_length=1)
+
+
+class UnlockDecisionBody(BaseModel):
+    reason: str = Field(min_length=1)
+
+
+class ProtocolBody(BaseModel):
+    requirements: dict
+
+
 def _query_payload(row) -> dict:
     return {
         "id": row.id,
@@ -197,7 +234,7 @@ def _query_payload(row) -> dict:
 
 def _fail(exc: ClinicalRecordError) -> HTTPException:
     text = str(exc)
-    if "구성원" in text:
+    if "구성원" in text or "권한" in text:
         code = status.HTTP_403_FORBIDDEN
     elif any(token in text for token in ("가 없습니다", "이 없습니다", "은 없습니다", "에 없습니다")):
         code = status.HTTP_404_NOT_FOUND
@@ -777,3 +814,238 @@ async def post_query_correction(
         reason=body.reason, value_number=body.value_number, value_text=body.value_text, unit=body.unit,
     )
     return {"id": row.id, "revision": row.revision, "record_status": row.record_status}
+
+
+def _lock_body(row) -> dict:
+    return {
+        "id": row.id,
+        "study_id": row.study_id,
+        "site_id": row.site_id,
+        "scope": row.scope,
+        "target_type": row.target_type,
+        "target_id": row.target_id,
+        "state": row.state,
+        "version": row.version,
+        "target_revision": row.target_revision,
+    }
+
+
+@router.get("/readiness")
+async def get_readiness(
+    study_id: str,
+    target_type: str,
+    target_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(policy_require("medi-iot", "clinical_readiness_read")),
+) -> dict:
+    return await _call(
+        db, evaluate_lock_readiness, study_id=study_id, target_type=target_type,
+        target_id=target_id, actor_user_id=_uid(user),
+    )
+
+
+@router.post("/locks/readiness")
+async def post_lock_readiness(
+    body: ReadinessBody,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(policy_require("medi-iot", "clinical_readiness_read")),
+) -> dict:
+    return await _call(
+        db, evaluate_lock_readiness, study_id=body.study_id, target_type=body.target_type,
+        target_id=body.target_id, actor_user_id=_uid(user),
+    )
+
+
+@router.post("/locks/requests")
+async def post_lock_request(
+    body: LockTargetBody,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(policy_require("medi-iot", "clinical_lock_request")),
+) -> dict:
+    row = await _call(
+        db, request_lock, study_id=body.study_id, target_type=body.target_type,
+        target_id=body.target_id, actor_user_id=_uid(user), reason=body.reason,
+    )
+    return _lock_body(row)
+
+
+@router.post("/locks/applications")
+async def post_lock_application(
+    body: LockTargetBody,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(policy_require("medi-iot", "clinical_lock_apply")),
+) -> dict:
+    row = await _call(
+        db, apply_lock, study_id=body.study_id, target_type=body.target_type,
+        target_id=body.target_id, actor_user_id=_uid(user), reason=body.reason,
+    )
+    return _lock_body(row)
+
+
+@router.post("/locks/unlock-requests", status_code=status.HTTP_201_CREATED)
+async def post_unlock_request(
+    body: LockTargetBody,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(policy_require("medi-iot", "clinical_unlock_request")),
+) -> dict:
+    row = await _call(
+        db, request_unlock, study_id=body.study_id, target_type=body.target_type,
+        target_id=body.target_id, actor_user_id=_uid(user), reason=body.reason,
+    )
+    return {
+        "id": row.id,
+        "status": row.status,
+        "requesting_user_id": row.requesting_user_id,
+        "lock_state_at_request": row.lock_state_at_request,
+        "target_type": row.target_type,
+        "target_id": row.target_id,
+    }
+
+
+@router.post("/locks/unlock-requests/{request_id}/approvals")
+async def post_unlock_approval(
+    request_id: str,
+    body: UnlockDecisionBody,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(policy_require("medi-iot", "clinical_unlock_approve")),
+) -> dict:
+    row = await _call(
+        db, approve_unlock, request_row_id=request_id, actor_user_id=_uid(user), reason=body.reason,
+    )
+    return _lock_body(row)
+
+
+@router.post("/locks/unlock-requests/{request_id}/rejections")
+async def post_unlock_rejection(
+    request_id: str,
+    body: UnlockDecisionBody,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(policy_require("medi-iot", "clinical_unlock_approve")),
+) -> dict:
+    row = await _call(
+        db, reject_unlock, request_row_id=request_id, actor_user_id=_uid(user), reason=body.reason,
+    )
+    return _lock_body(row)
+
+
+@router.get("/locks/history")
+async def get_lock_history(
+    study_id: str,
+    target_type: str | None = None,
+    target_id: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(policy_require("medi-iot", "clinical_lock_read")),
+) -> list[dict]:
+    rows = await _call(
+        db, list_lock_history, study_id=study_id, actor_user_id=_uid(user),
+        target_type=target_type, target_id=target_id,
+    )
+    return [
+        {
+            "id": row.id,
+            "action": row.action,
+            "from_state": row.from_state,
+            "to_state": row.to_state,
+            "actor_user_id": row.actor_user_id,
+            "reason": row.reason,
+            "request_id": row.request_id,
+            "target_revision": row.target_revision,
+            "occurred_at": row.occurred_at.isoformat() if row.occurred_at else None,
+        }
+        for row in rows
+    ]
+
+
+@router.get("/audits")
+async def get_audits(
+    study_id: str,
+    target_type: str | None = None,
+    target_id: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(policy_require("medi-iot", "clinical_audit_read")),
+) -> list[dict]:
+    rows = await _call(
+        db, list_clinical_audit, study_id=study_id, actor_user_id=_uid(user),
+        target_type=target_type, target_id=target_id,
+    )
+    return [
+        {
+            "id": row.id,
+            "actor_user_id": row.actor_user_id,
+            "action": row.action,
+            "target_type": row.target_type,
+            "target_id": row.target_id,
+            "site_id": row.site_id,
+            "previous_state": row.previous_state,
+            "new_state": row.new_state,
+            "reason": row.reason,
+            "request_id": row.request_id,
+            "target_revision": row.target_revision,
+            "payload_hash": row.payload_hash,
+            "occurred_at": row.occurred_at.isoformat() if row.occurred_at else None,
+        }
+        for row in rows
+    ]
+
+
+@router.post("/studies/{study_id}/protocol-definitions", status_code=status.HTTP_201_CREATED)
+async def post_protocol(
+    study_id: str,
+    body: ProtocolBody,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(policy_require("medi-iot", "clinical_protocol_manage")),
+) -> dict:
+    row = await _call(
+        db, register_protocol_definition, study_id=study_id, actor_user_id=_uid(user),
+        requirements=body.requirements,
+    )
+    return {"id": row.id, "status": row.status, "version_number": row.version_number}
+
+
+@router.post("/protocol-definitions/{definition_id}/approvals")
+async def post_protocol_approval(
+    definition_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(policy_require("medi-iot", "clinical_protocol_manage")),
+) -> dict:
+    row = await _call(
+        db, approve_protocol_definition, definition_id=definition_id, actor_user_id=_uid(user),
+    )
+    return {"id": row.id, "status": row.status, "version_number": row.version_number}
+
+
+@router.post("/studies/{study_id}/monitoring-indicators")
+async def post_monitoring(
+    study_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(policy_require("medi-iot", "clinical_monitor_execute")),
+) -> dict:
+    rows = await _call(
+        db, compute_monitoring_indicators, study_id=study_id, actor_user_id=_uid(user),
+    )
+    return {
+        "indicators": [
+            {
+                "id": row.id,
+                "indicator_code": row.indicator_code,
+                "status": row.status,
+                "handoff": ai_monitoring_handoff(row),
+            }
+            for row in rows
+        ]
+    }
+
+
+@router.get("/studies/{study_id}/monitoring-indicators")
+async def get_monitoring(
+    study_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(policy_require("medi-iot", "clinical_monitor_read")),
+) -> list[dict]:
+    rows = await _call(
+        db, list_monitoring_indicators, study_id=study_id, actor_user_id=_uid(user),
+    )
+    return [
+        {"id": row.id, "indicator_code": row.indicator_code, "status": row.status}
+        for row in rows
+    ]
