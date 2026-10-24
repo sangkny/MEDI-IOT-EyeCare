@@ -8,6 +8,36 @@
 
 ## 진행 기록
 
+### 2026-10-25T00:29:22+09:00 — PC1-EYECARE-PHASE008-PUBLICATION-002
+
+```
+TASK_ID: PC1-EYECARE-PHASE008-PUBLICATION-002
+EXECUTION_HOST: MEDIIOT-SKLEE
+PC_ROLE: PC1
+REPOSITORY: MEDI-IOT-EyeCare
+LOCAL_WORKTREE: E:/Office_Automation/idea-collection/projects/_integration_eyecare_008
+BRANCH: integration/eyecare-clinical-data-lock-008
+REMOTE: https-origin https://github.com/sangkny/MEDI-IOT-EyeCare.git
+HEAD_BEFORE: 0d8aecd1527bb3f4bb32a648239b73f89f6f9463
+SOURCE_SHA: 79848a924515ee72e8ed3f95af444a6aab60f750
+MERGE_COMMIT: 0b6b30b1ccc315b4992eb85d43040fe8708561de
+PARENTS: 0d8aecd1527bb3f4bb32a648239b73f89f6f9463 79848a924515ee72e8ed3f95af444a6aab60f750
+START_TIME_KST: 2026-10-25T00:27:39+09:00
+END_TIME_KST: 2026-10-25T00:29:22+09:00
+ELAPSED: PT1M43S
+PARENT_ARCHITECTURE_SHA: 633c7303edf8ac35a513c5a59b63185e8f336d76
+SHARED_PR: https://github.com/sangkny/shared-libraries/pull/3
+TEST_COMMAND: SHARED_LIBRARIES_PATH=_integration_shared_008. pytest policy and nine clinical files -q --tb=line
+TEST_RESULTS: policy 8 passed, exit 0. SQLite 63 passed, 3 skipped, exit 0, aiosqlite workers 0
+POSTGRESQL: not rerun. Evidence 2026-10-24T17:47:45+09:00 disposable pgvector/pgvector:pg15, medi009 head, 3 passed, exit 0, container removed
+PUSH: https-origin new branch. Remote matches 0b6b30b before this documentation commit. No force
+PR_URL: https://github.com/sangkny/MEDI-IOT-EyeCare/pull/3
+PR_BASE: integration/eyecare-clinical-query-007
+PR_STATE: Draft. Not merged. Draft PR 1 and 2 unchanged
+FUTURE: EYECARE-CLINICAL-UX-001, EYECARE-CLINICAL-AI-QC-001, EYECARE-CLINICAL-IMPORT-001 remain unimplemented
+RISK: test_lock_api_authorization 실패 경로는 비동기 엔진을 finally에서 닫지 않는다. 이번 통과 실행은 dispose 후 workers 0. 별도 테스트 유지 작업으로 남긴다
+```
+
 ### 2026-10-24T17:47:45+09:00 — PC1-EYECARE-PHASE008-INTEGRATION-001
 
 ```
