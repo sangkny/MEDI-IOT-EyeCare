@@ -42,6 +42,7 @@ if "models" not in sys.modules:
     _models.__path__ = [str(_ROOT / "models")]  # type: ignore[attr-defined]
     sys.modules["models"] = _models
 
+import asyncio
 import importlib.util
 
 import pytest
@@ -115,10 +116,11 @@ def _auth(user_id: str, role: str) -> dict[str, str]:
 def _app():
     engine = create_async_engine("sqlite+aiosqlite://", poolclass=StaticPool)
     event.listen(engine.sync_engine, "connect", lambda dbapi, _rec: dbapi.execute("PRAGMA foreign_keys=ON"))
-    import asyncio
+
     async def _create() -> None:
         async with engine.begin() as conn:
             await conn.run_sync(lambda sync: Base.metadata.create_all(sync, tables=_TABLES))
+
     asyncio.run(_create())
     factory = async_sessionmaker(engine, expire_on_commit=False)
 
@@ -132,6 +134,7 @@ def _app():
                 raise
 
     app = FastAPI()
+    app.state.async_engine = engine
     app.include_router(router, prefix="/api/v1/clinical-support")
     app.dependency_overrides[get_db] = _db
     return app
@@ -140,8 +143,11 @@ def _app():
 @pytest.fixture
 def client():
     app = _app()
-    with TestClient(app) as http:
-        yield http
+    try:
+        with TestClient(app) as http:
+            yield http
+    finally:
+        asyncio.run(app.state.async_engine.dispose())
 
 
 def test_missing_token_is_401(client: TestClient) -> None:
@@ -310,6 +316,14 @@ def test_quality_rule_does_not_change_observation() -> None:
     event.listen(engine, "connect", lambda dbapi, _rec: dbapi.execute("PRAGMA foreign_keys=ON"))
     Base.metadata.create_all(engine, tables=_TABLES)
     db = Session(engine)
+    try:
+        _assert_quality_rule_leaves_observation(db)
+    finally:
+        db.close()
+        engine.dispose()
+
+
+def _assert_quality_rule_leaves_observation(db: Session) -> None:
     study = create_study(db, code="Q", name="Q", study_kind="prospective")
     site = add_site(db, study_id=study.id, site_code="S", name="S", actor_user_id="doc-a")
     add_site_member(db, site_id=site.id, user_id="doc-a", role="investigator", actor_user_id="doc-a")
@@ -335,4 +349,3 @@ def test_quality_rule_does_not_change_observation() -> None:
     again = run_quality_rules(db, study_id=study.id, actor_user_id="doc-a")
     assert again == []
     assert db.scalar(select(DataQualityFinding).where(DataQualityFinding.id == found[0].id)).status == "reviewed"
-    db.close()

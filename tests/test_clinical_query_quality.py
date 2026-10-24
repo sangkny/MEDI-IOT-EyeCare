@@ -5,6 +5,7 @@ import os
 import sys
 import threading
 import types
+from collections.abc import Iterator
 from datetime import date
 from pathlib import Path
 
@@ -38,6 +39,7 @@ if "models" not in sys.modules:
     _models.__path__ = [str(_ROOT / "models")]  # type: ignore[attr-defined]
     sys.modules["models"] = _models
 
+import asyncio
 import importlib.util
 
 import pytest
@@ -130,11 +132,17 @@ _TABLES = [
 ]
 
 
-def _session() -> Session:
+@pytest.fixture
+def db() -> Iterator[Session]:
     engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     event.listen(engine, "connect", lambda dbapi, _rec: dbapi.execute("PRAGMA foreign_keys=ON"))
     Base.metadata.create_all(engine, tables=_TABLES)
-    return Session(engine)
+    session = Session(engine)
+    try:
+        yield session
+    finally:
+        session.close()
+        engine.dispose()
 
 
 def _ready(db: Session, user_id: str = "doc-a", site_code: str = "A"):
@@ -158,8 +166,7 @@ def _final(db: Session, visit, value: float, user_id: str = "doc-a", code: str =
     return finalize_observation(db, draft.id, actor_user_id=user_id)
 
 
-def test_query_lifecycle_history_and_illegal_transition() -> None:
-    db = _session()
+def test_query_lifecycle_history_and_illegal_transition(db: Session) -> None:
     study, _site, subject, visit = _ready(db)
     final = _final(db, visit, 4)
     before = (float(final.value_number), final.row_hash, final.revision)
@@ -191,11 +198,9 @@ def test_query_lifecycle_history_and_illegal_transition() -> None:
         "open", "open", "answered", "resolved", "reopened", "answered",
     ]
     assert db.scalar(select(ClinicalQueryResponse).where(ClinicalQueryResponse.query_id == query.id))
-    db.close()
 
 
-def test_unauthorized_and_cross_site_queries() -> None:
-    db = _session()
+def test_unauthorized_and_cross_site_queries(db: Session) -> None:
     study, site_a, _subject_a, _visit_a = _ready(db, "doc-a", "A")
     site_b = add_site(db, study_id=study.id, site_code="B", name="B", actor_user_id="doc-a")
     add_site_member(db, site_id=site_b.id, user_id="doc-b", role="investigator", actor_user_id="doc-a")
@@ -218,11 +223,9 @@ def test_unauthorized_and_cross_site_queries() -> None:
     own = list_queries(db, study_id=study.id, actor_user_id="doc-b", site_id=site_b.id, status="open")
     assert [row.id for row in own] == [query.id]
     assert site_a.id != site_b.id
-    db.close()
 
 
-def test_finding_link_correction_preserves_original() -> None:
-    db = _session()
+def test_finding_link_correction_preserves_original(db: Session) -> None:
     study, _site, _subject, visit = _ready(db)
     final = _final(db, visit, 9)
     add_quality_rule(
@@ -243,11 +246,9 @@ def test_finding_link_correction_preserves_original() -> None:
     assert query.status == "open"
     again = run_quality_rules(db, study_id=study.id, actor_user_id="doc-a")
     assert again == []
-    db.close()
 
 
-def test_quality_rules_are_repeatable_and_do_not_overwrite() -> None:
-    db = _session()
+def test_quality_rules_are_repeatable_and_do_not_overwrite(db: Session) -> None:
     study, _site, subject, first = _ready(db)
     later = open_visit(
         db, subject_id=subject.id, visit_code="V2", occurred_on=date(2026, 2, 1), actor_user_id="doc-a",
@@ -295,11 +296,9 @@ def test_quality_rules_are_repeatable_and_do_not_overwrite() -> None:
         db, study_id=study.id, actor_user_id="doc-a", scope="visit", scope_id=later.id,
     )
     assert all(row.visit_id == later.id for row in visit_only)
-    db.close()
 
 
-def test_incomplete_questionnaire_on_form_scope() -> None:
-    db = _session()
+def test_incomplete_questionnaire_on_form_scope(db: Session) -> None:
     study, _site, _subject, visit = _ready(db)
     definition = define_questionnaire(
         db, study_id=study.id, code="OSDI", title="OSDI", actor_user_id="doc-a",
@@ -323,15 +322,13 @@ def test_incomplete_questionnaire_on_form_scope() -> None:
     assert run_quality_rules(
         db, study_id=study.id, actor_user_id="doc-a", scope="form", scope_id=definition.id,
     ) == []
-    db.close()
 
 
-def test_blocked_catalog_has_no_threshold_and_prediction_is_separate() -> None:
+def test_blocked_catalog_has_no_threshold_and_prediction_is_separate(db: Session) -> None:
     catalog = medi_des_001_rule_catalog()
     assert any(item["source_status"] == "BLOCKED_PENDING_SOURCE" for item in catalog)
     assert all("min" not in item["logic"] and "max" not in item["logic"] for item in catalog)
     assert all(item["logic"].get("topic") != "allocation" for item in catalog)
-    db = _session()
     study, _site, _subject, visit = _ready(db)
     final = _final(db, visit, 12)
     registered = register_demonstration_rules(db, study_id=study.id)
@@ -352,14 +349,12 @@ def test_blocked_catalog_has_no_threshold_and_prediction_is_separate() -> None:
     assert prediction == {"kind": "measurement_anomaly", "status": "DEFERRED", "model": None, "predicted_value": None}
     db.refresh(final)
     assert float(final.value_number) == 12
-    db.close()
 
 
 def test_query_api_requires_auth_and_filters() -> None:
-    engine = create_engine("sqlite+pysqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+    sync_engine = create_engine("sqlite+pysqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     # 동기 엔진은 HTTP 테스트의 async 엔진과 분리한다.
-    del engine
-    import asyncio
+    sync_engine.dispose()
     from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
     async_engine = create_async_engine("sqlite+aiosqlite://", poolclass=StaticPool)
     event.listen(async_engine.sync_engine, "connect", lambda dbapi, _rec: dbapi.execute("PRAGMA foreign_keys=ON"))
@@ -385,54 +380,57 @@ def test_query_api_requires_auth_and_filters() -> None:
     app.dependency_overrides[get_db] = _db
     doctor = {"Authorization": f"Bearer {create_access_token(subject='doc-a', role='doctor')}"}
     staff = {"Authorization": f"Bearer {create_access_token(subject='doc-a', role='staff')}"}
-    with TestClient(app) as client:
-        assert client.get("/api/v1/clinical-support/queries", params={"study_id": "x"}).status_code == 401
-        study = client.post(
-            "/api/v1/clinical-support/studies", headers=doctor,
-            json={"code": "QAPI", "name": "Q", "study_kind": "prospective"},
-        )
-        study_id = study.json()["id"]
-        site = client.post(
-            f"/api/v1/clinical-support/studies/{study_id}/sites", headers=doctor,
-            json={"site_code": "S", "name": "S"},
-        )
-        site_id = site.json()["id"]
-        client.post(
-            f"/api/v1/clinical-support/sites/{site_id}/members", headers=doctor,
-            json={"user_id": "doc-a", "role": "investigator"},
-        )
-        subject = client.post(
-            "/api/v1/clinical-support/subjects", headers=doctor,
-            json={"study_id": study_id, "site_id": site_id, "subject_code": "S1"},
-        )
-        denied = client.post(
-            "/api/v1/clinical-support/queries", headers=staff,
-            json={
-                "study_id": study_id, "category": "manual", "severity": "error",
-                "description": "staff", "subject_id": subject.json()["id"],
-            },
-        )
-        assert denied.status_code == 403
-        created = client.post(
-            "/api/v1/clinical-support/queries", headers=doctor,
-            json={
-                "study_id": study_id, "category": "manual", "severity": "error",
-                "description": "확인", "subject_id": subject.json()["id"],
-            },
-        )
-        assert created.status_code == 201
-        query_id = created.json()["id"]
-        listed = client.get(
-            "/api/v1/clinical-support/queries", headers=doctor,
-            params={"study_id": study_id, "status": "open", "severity": "error"},
-        )
-        assert listed.status_code == 200
-        assert listed.json()[0]["id"] == query_id
-        outsider = client.get(
-            f"/api/v1/clinical-support/queries/{query_id}",
-            headers={"Authorization": f"Bearer {create_access_token(subject='doc-b', role='doctor')}"},
-        )
-        assert outsider.status_code == 403
+    try:
+        with TestClient(app) as client:
+            assert client.get("/api/v1/clinical-support/queries", params={"study_id": "x"}).status_code == 401
+            study = client.post(
+                "/api/v1/clinical-support/studies", headers=doctor,
+                json={"code": "QAPI", "name": "Q", "study_kind": "prospective"},
+            )
+            study_id = study.json()["id"]
+            site = client.post(
+                f"/api/v1/clinical-support/studies/{study_id}/sites", headers=doctor,
+                json={"site_code": "S", "name": "S"},
+            )
+            site_id = site.json()["id"]
+            client.post(
+                f"/api/v1/clinical-support/sites/{site_id}/members", headers=doctor,
+                json={"user_id": "doc-a", "role": "investigator"},
+            )
+            subject = client.post(
+                "/api/v1/clinical-support/subjects", headers=doctor,
+                json={"study_id": study_id, "site_id": site_id, "subject_code": "S1"},
+            )
+            denied = client.post(
+                "/api/v1/clinical-support/queries", headers=staff,
+                json={
+                    "study_id": study_id, "category": "manual", "severity": "error",
+                    "description": "staff", "subject_id": subject.json()["id"],
+                },
+            )
+            assert denied.status_code == 403
+            created = client.post(
+                "/api/v1/clinical-support/queries", headers=doctor,
+                json={
+                    "study_id": study_id, "category": "manual", "severity": "error",
+                    "description": "확인", "subject_id": subject.json()["id"],
+                },
+            )
+            assert created.status_code == 201
+            query_id = created.json()["id"]
+            listed = client.get(
+                "/api/v1/clinical-support/queries", headers=doctor,
+                params={"study_id": study_id, "status": "open", "severity": "error"},
+            )
+            assert listed.status_code == 200
+            assert listed.json()[0]["id"] == query_id
+            outsider = client.get(
+                f"/api/v1/clinical-support/queries/{query_id}",
+                headers={"Authorization": f"Bearer {create_access_token(subject='doc-b', role='doctor')}"},
+            )
+            assert outsider.status_code == 403
+    finally:
+        asyncio.run(async_engine.dispose())
 
 
 @pytest.mark.integration
