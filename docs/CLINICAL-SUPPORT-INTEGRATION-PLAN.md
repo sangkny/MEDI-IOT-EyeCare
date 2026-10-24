@@ -8,6 +8,78 @@
 
 ## 진행 기록
 
+### 2026-10-24T17:06:06+09:00 — PC1-EYECARE-PHASE007-PUBLICATION-007
+
+```
+TASK_ID: PC1-EYECARE-PHASE007-PUBLICATION-007
+EXECUTION_HOST: MEDIIOT-SKLEE
+PC_ROLE: PC1
+REPOSITORY: MEDI-IOT-EyeCare
+LOCAL_WORKTREE: E:/Office_Automation/idea-collection/projects/_integration_eyecare_007
+BRANCH: integration/eyecare-clinical-query-007
+REMOTE: https-origin https://github.com/sangkny/MEDI-IOT-EyeCare.git
+HEAD_BEFORE: f637177647f7a1a8c941627e483f781e24d6dd83
+TEST_CLEANUP_COMMIT: d906b6961256c41423d7144f0cfd04441dd5fb93
+FILES: tests/test_clinical_api.py, tests/test_clinical_query_quality.py
+ANCESTRY: 8d59f10477fc0002f6f5254d4e6b7e3b4012c3c7 and 87aea032d7af8ec1723036a9ca7c1183dcdbd7a3 remain parents of 7e1a194
+START_TIME_KST: 2026-10-24T17:04:56+09:00
+END_TIME_KST: 2026-10-24T17:06:06+09:00
+ELAPSED: PT1M10S
+PARENT_ARCHITECTURE_SHA: 633c7303edf8ac35a513c5a59b63185e8f336d76
+TEST_COMMAND: SHARED_LIBRARIES_PATH=_integration_shared_007. pytest the eight clinical files -q --tb=line
+TEST_RESULTS: 43 passed, 2 skipped, 1 warning. PYTEST_CODE 0. aiosqlite workers 0
+POSTGRESQL: not rerun. Prior evidence 2026-10-23 disposable pgvector/pgvector:pg15, medi008 head, 2 passed, container removed
+PUSH: remote matched f637177 and base remained 8d59f10. Normal fast-forward follows this documentation commit. No force
+PR_URL: https://github.com/sangkny/MEDI-IOT-EyeCare/pull/2
+PR_STATE: existing Draft. Not merged. Draft PR 1 unchanged
+BLOCKERS: torch and cv2 collection failures and legacy manifest failures remain deferred
+```
+
+### 2026-10-24T16:31:16+09:00 — PC1-EYECARE-TEST-CLEANUP-001
+
+```
+TASK_ID: PC1-EYECARE-TEST-CLEANUP-001
+EXECUTION_HOST: MEDIIOT-SKLEE
+PC_ROLE: PC1
+REPOSITORY: MEDI-IOT-EyeCare
+BRANCH: integration/eyecare-clinical-query-007
+HEAD_BEFORE: f637177647f7a1a8c941627e483f781e24d6dd83
+HEAD_AFTER: f637177647f7a1a8c941627e483f781e24d6dd83
+START_TIME_KST: 2026-10-24T16:27:49+09:00
+END_TIME_KST: 2026-10-24T16:31:16+09:00
+ELAPSED: PT3M27S
+FILES: tests/test_clinical_api.py, tests/test_clinical_query_quality.py
+ROOT_CAUSE: sqlite+aiosqlite StaticPool 엔진을 dispose하지 않아 aiosqlite 0.22.1 비데몬 워커가 프로세스 종료를 막음
+FIX: TestClient와 세션을 닫은 뒤 asyncio.run(engine.dispose())와 동기 engine.dispose()를 fixture 또는 try/finally에서 호출
+TEST_A: tests/test_clinical_api.py 독립 프로세스. 4 passed. EXIT 0. aiosqlite 워커 0
+TEST_B: tests/test_clinical_query_quality.py 독립 프로세스. 7 passed, 1 skipped. EXIT 0. aiosqlite 워커 0
+TEST_C: 기존 8개 파일 독립 프로세스. 43 passed, 2 skipped. EXIT 0. aiosqlite 워커 0
+PREVIOUS_COUNT: 43 passed, 2 skipped. 개수 변화 없음
+CLASSIFICATION: TEST_ASSERTIONS_PASSED, PROCESS_EXIT_VERIFIED, RESOURCE_LEAK_RESOLVED
+REMAINING: torch와 cv2 수집 실패, 매니페스트 기준 실패는 이번 범위 밖. 커밋하지 않음
+```
+
+### 2026-10-23T20:19:08+09:00 — PC1-PHASE007-PYTEST-EXIT-DIAGNOSIS
+
+```
+TASK_ID: PC1-PHASE007-PYTEST-EXIT-DIAGNOSIS
+EXECUTION_HOST: MEDIIOT-SKLEE
+PC_ROLE: PC1
+REPOSITORY: MEDI-IOT-EyeCare
+BRANCH: integration/eyecare-clinical-query-007
+HEAD: f637177647f7a1a8c941627e483f781e24d6dd83
+START_TIME_KST: 2026-10-23T20:13:20+09:00
+END_TIME_KST: 2026-10-23T20:19:08+09:00
+ELAPSED: PT5M48S
+CLASSIFICATION: TEST_ASSERTIONS_PASSED, PROCESS_EXIT_BLOCKED, ROOT_CAUSE_IDENTIFIED
+TEST_COMMAND: SHARED_LIBRARIES_PATH=_integration_shared_007. pytest tests/test_clinical_api.py tests/test_clinical_query_quality.py tests/test_observation_lifecycle.py tests/test_clinical_support_models.py tests/test_mvp04c_patient_crypto.py tests/test_mvp03a_qc_governance.py tests/test_dicom_foundation.py tests/test_mvp_result_contract.py -q --tb=line
+ASSERTIONS: 43 passed, 2 skipped. pytest.main 반환 코드 0
+PROCESS_EXIT: 정상 종료 아님. 22초 감시 후 종료 코드 1. 이전 강제 종료 코드 4294967295는 이 대기 중 프로세스를 끊은 값
+ROOT_CAUSE: tests/test_clinical_api.py의 _app과 tests/test_clinical_query_quality.py의 test_query_api_requires_auth_and_filters가 sqlite+aiosqlite StaticPool 엔진을 dispose하지 않음. aiosqlite 0.22.1의 _connection_worker_thread는 daemon=False이며 tx.get에서 대기. CPython threading._shutdown이 비데몬 스레드를 기다림
+CONTROLS: 동기 SQLite 6개 파일은 32 passed, 1 skipped 후 종료 코드 0. 빈 pytest는 플러그인 유무와 관계없이 종료 코드 0. clinical_api는 asyncio와 anyio 플러그인을 끄고도 4 passed 후 종료되지 않음. 앱 없는 최소 재현은 dispose 없으면 종료되지 않고 dispose 있으면 종료 코드 0
+NOT_THE_CAUSE: 남은 asyncio 태스크 없음. 로깅 핸들러 없음. multiprocessing 자식 없음. FastAPI TestClient 포털 스레드는 세션 종료 뒤 남아 있지 않음. SQLAlchemy 동기 세션은 해당 파일에서 close됨
+```
+
 ### 2026-10-23T19:59:59+09:00 — PC1-EYECARE-PHASE007-PUBLICATION-005
 
 ```
