@@ -8,6 +8,156 @@
 
 ## 진행 기록
 
+### 2026-10-24T17:06:06+09:00 — PC1-EYECARE-PHASE007-PUBLICATION-007
+
+```
+TASK_ID: PC1-EYECARE-PHASE007-PUBLICATION-007
+EXECUTION_HOST: MEDIIOT-SKLEE
+PC_ROLE: PC1
+REPOSITORY: MEDI-IOT-EyeCare
+LOCAL_WORKTREE: E:/Office_Automation/idea-collection/projects/_integration_eyecare_007
+BRANCH: integration/eyecare-clinical-query-007
+REMOTE: https-origin https://github.com/sangkny/MEDI-IOT-EyeCare.git
+HEAD_BEFORE: f637177647f7a1a8c941627e483f781e24d6dd83
+TEST_CLEANUP_COMMIT: d906b6961256c41423d7144f0cfd04441dd5fb93
+FILES: tests/test_clinical_api.py, tests/test_clinical_query_quality.py
+ANCESTRY: 8d59f10477fc0002f6f5254d4e6b7e3b4012c3c7 and 87aea032d7af8ec1723036a9ca7c1183dcdbd7a3 remain parents of 7e1a194
+START_TIME_KST: 2026-10-24T17:04:56+09:00
+END_TIME_KST: 2026-10-24T17:06:06+09:00
+ELAPSED: PT1M10S
+PARENT_ARCHITECTURE_SHA: 633c7303edf8ac35a513c5a59b63185e8f336d76
+TEST_COMMAND: SHARED_LIBRARIES_PATH=_integration_shared_007. pytest the eight clinical files -q --tb=line
+TEST_RESULTS: 43 passed, 2 skipped, 1 warning. PYTEST_CODE 0. aiosqlite workers 0
+POSTGRESQL: not rerun. Prior evidence 2026-10-23 disposable pgvector/pgvector:pg15, medi008 head, 2 passed, container removed
+PUSH: remote matched f637177 and base remained 8d59f10. Normal fast-forward follows this documentation commit. No force
+PR_URL: https://github.com/sangkny/MEDI-IOT-EyeCare/pull/2
+PR_STATE: existing Draft. Not merged. Draft PR 1 unchanged
+BLOCKERS: torch and cv2 collection failures and legacy manifest failures remain deferred
+```
+
+### 2026-10-24T16:31:16+09:00 — PC1-EYECARE-TEST-CLEANUP-001
+
+```
+TASK_ID: PC1-EYECARE-TEST-CLEANUP-001
+EXECUTION_HOST: MEDIIOT-SKLEE
+PC_ROLE: PC1
+REPOSITORY: MEDI-IOT-EyeCare
+BRANCH: integration/eyecare-clinical-query-007
+HEAD_BEFORE: f637177647f7a1a8c941627e483f781e24d6dd83
+HEAD_AFTER: f637177647f7a1a8c941627e483f781e24d6dd83
+START_TIME_KST: 2026-10-24T16:27:49+09:00
+END_TIME_KST: 2026-10-24T16:31:16+09:00
+ELAPSED: PT3M27S
+FILES: tests/test_clinical_api.py, tests/test_clinical_query_quality.py
+ROOT_CAUSE: sqlite+aiosqlite StaticPool 엔진을 dispose하지 않아 aiosqlite 0.22.1 비데몬 워커가 프로세스 종료를 막음
+FIX: TestClient와 세션을 닫은 뒤 asyncio.run(engine.dispose())와 동기 engine.dispose()를 fixture 또는 try/finally에서 호출
+TEST_A: tests/test_clinical_api.py 독립 프로세스. 4 passed. EXIT 0. aiosqlite 워커 0
+TEST_B: tests/test_clinical_query_quality.py 독립 프로세스. 7 passed, 1 skipped. EXIT 0. aiosqlite 워커 0
+TEST_C: 기존 8개 파일 독립 프로세스. 43 passed, 2 skipped. EXIT 0. aiosqlite 워커 0
+PREVIOUS_COUNT: 43 passed, 2 skipped. 개수 변화 없음
+CLASSIFICATION: TEST_ASSERTIONS_PASSED, PROCESS_EXIT_VERIFIED, RESOURCE_LEAK_RESOLVED
+REMAINING: torch와 cv2 수집 실패, 매니페스트 기준 실패는 이번 범위 밖. 커밋하지 않음
+```
+
+### 2026-10-23T20:19:08+09:00 — PC1-PHASE007-PYTEST-EXIT-DIAGNOSIS
+
+```
+TASK_ID: PC1-PHASE007-PYTEST-EXIT-DIAGNOSIS
+EXECUTION_HOST: MEDIIOT-SKLEE
+PC_ROLE: PC1
+REPOSITORY: MEDI-IOT-EyeCare
+BRANCH: integration/eyecare-clinical-query-007
+HEAD: f637177647f7a1a8c941627e483f781e24d6dd83
+START_TIME_KST: 2026-10-23T20:13:20+09:00
+END_TIME_KST: 2026-10-23T20:19:08+09:00
+ELAPSED: PT5M48S
+CLASSIFICATION: TEST_ASSERTIONS_PASSED, PROCESS_EXIT_BLOCKED, ROOT_CAUSE_IDENTIFIED
+TEST_COMMAND: SHARED_LIBRARIES_PATH=_integration_shared_007. pytest tests/test_clinical_api.py tests/test_clinical_query_quality.py tests/test_observation_lifecycle.py tests/test_clinical_support_models.py tests/test_mvp04c_patient_crypto.py tests/test_mvp03a_qc_governance.py tests/test_dicom_foundation.py tests/test_mvp_result_contract.py -q --tb=line
+ASSERTIONS: 43 passed, 2 skipped. pytest.main 반환 코드 0
+PROCESS_EXIT: 정상 종료 아님. 22초 감시 후 종료 코드 1. 이전 강제 종료 코드 4294967295는 이 대기 중 프로세스를 끊은 값
+ROOT_CAUSE: tests/test_clinical_api.py의 _app과 tests/test_clinical_query_quality.py의 test_query_api_requires_auth_and_filters가 sqlite+aiosqlite StaticPool 엔진을 dispose하지 않음. aiosqlite 0.22.1의 _connection_worker_thread는 daemon=False이며 tx.get에서 대기. CPython threading._shutdown이 비데몬 스레드를 기다림
+CONTROLS: 동기 SQLite 6개 파일은 32 passed, 1 skipped 후 종료 코드 0. 빈 pytest는 플러그인 유무와 관계없이 종료 코드 0. clinical_api는 asyncio와 anyio 플러그인을 끄고도 4 passed 후 종료되지 않음. 앱 없는 최소 재현은 dispose 없으면 종료되지 않고 dispose 있으면 종료 코드 0
+NOT_THE_CAUSE: 남은 asyncio 태스크 없음. 로깅 핸들러 없음. multiprocessing 자식 없음. FastAPI TestClient 포털 스레드는 세션 종료 뒤 남아 있지 않음. SQLAlchemy 동기 세션은 해당 파일에서 close됨
+```
+
+### 2026-10-23T19:59:59+09:00 — PC1-EYECARE-PHASE007-PUBLICATION-005
+
+```
+TASK_ID: PC1-EYECARE-PHASE007-PUBLICATION-005
+EXECUTION_HOST: MEDIIOT-SKLEE
+PC_ROLE: PC1
+REPOSITORY: MEDI-IOT-EyeCare
+LOCAL_WORKTREE: E:/Office_Automation/idea-collection/projects/_integration_eyecare_007
+BRANCH: integration/eyecare-clinical-query-007
+HEAD_BEFORE: 8d59f10477fc0002f6f5254d4e6b7e3b4012c3c7
+SOURCE_SHA: 87aea032d7af8ec1723036a9ca7c1183dcdbd7a3
+MERGE_COMMIT: 7e1a1949444dac57c660a09b8f5dab37d5822d55
+START_TIME_KST: 2026-10-23T19:56:30+09:00
+END_TIME_KST: 2026-10-23T19:59:59+09:00
+ELAPSED: PT3M29S
+PARENT_ARCHITECTURE_SHA: 633c7303edf8ac35a513c5a59b63185e8f336d76
+PUSH_RESULT: https-origin fast-forward new branch. Remote matches 7e1a194. No force push
+PR_URL: https://github.com/sangkny/MEDI-IOT-EyeCare/pull/2
+PR_NUMBER: 2
+PR_BASE: integration/eyecare-clinical-support
+TEST_RESULTS: SHARED_LIBRARIES_PATH는 007 정책 작업 트리. SQLite 43 passed, 2 skipped. PostgreSQL 재실행 2 passed. medi008_clinical_query. torch와 cv2는 없음. 매니페스트 기준 실패는 재실행하지 않음. 새 회귀 없음
+REMAINING: shared-libraries PR https://github.com/sangkny/shared-libraries/pull/2 가 먼저 필요하다. Draft PR 1과 이 PR은 머지하지 않음
+```
+
+### 2026-10-23T11:59:13+09:00 — PC1-EYECARE-PHASE007-INTEGRATION-004
+
+```
+TASK_ID: PC1-EYECARE-PHASE007-INTEGRATION-004
+EXECUTION_HOST: MEDIIOT-SKLEE
+PC_ROLE: PC1
+REPOSITORY: MEDI-IOT-EyeCare
+BRANCH: integration/eyecare-clinical-query-007
+HEAD_BEFORE: 8d59f10477fc0002f6f5254d4e6b7e3b4012c3c7
+HEAD_AFTER: 8d59f10477fc0002f6f5254d4e6b7e3b4012c3c7
+MERGE_HEAD: 87aea032d7af8ec1723036a9ca7c1183dcdbd7a3
+PARENT_ARCHITECTURE_SHA: 633c7303edf8ac35a513c5a59b63185e8f336d76
+START_TIME_KST: 2026-10-23T11:50:42+09:00
+END_TIME_KST: 2026-10-23T11:59:13+09:00
+ELAPSED: PT8M31S
+GIT_ACTIONS: 격리 워크트리 `_integration_eyecare_007`에서 `--no-commit --no-ff`. 커밋, 푸시, PR 없음
+CONFLICTS: docs/CLINICAL-SUPPORT-INTEGRATION-PLAN.md, docs/PARENT-PLATFORM-ARCHITECTURE.md. 양쪽 기록을 시각 내림차순으로 유지
+TEST_RESULTS: 정책 7 passed. SQLite 임상·보안 43 passed, PostgreSQL 전용 2 skipped. 질의 파일 재실행 7 passed. PostgreSQL 2 passed. 동시 정정은 원본 개정 1 값 5 유지, 후속 개정 2 값 6, 다른 트랜잭션 IntegrityError. torch와 cv2는 ModuleNotFoundError
+MIGRATION: 컨테이너 eyecare-phase007-pg-004, 이미지 pgvector/pgvector:pg15, tmpfs, 바인드 없음, 호스트 127.0.0.1:55434. head medi008_clinical_query. 체인 medi004_billing -> medi006_clinical_support -> medi007_ecrf_foundation -> medi008_clinical_query. 확인 후 컨테이너 삭제. 55434는 배정이 아님
+OPEN_ISSUES: 커밋 승인 전. 부모 shared-libraries main에는 007 권한이 없으므로 시험은 SHARED_LIBRARIES_PATH가 `_integration_shared_007`를 가리켜야 함. Phase 008 시작하지 않음
+```
+
+### 2026-10-23 09:15 KST — Phase 007 검증
+
+- TASK_ID: PC2-CLINICAL-PHASE007-CHECKPOINT-001
+- EXECUTION_HOST: SVG-SKLEE
+- PC_ROLE: PC2
+- REPOSITORY: MEDI-IOT-EyeCare
+- LOCAL_PATH: C:\Office_Automation\MEDI-IOT-EyeCare
+- BRANCH: feat/clinical-query-quality-007
+- HEAD_BEFORE: a8661d5ab665f686b2e81ef9c0be1e8f633c8e93
+- HEAD_AFTER: 이 검증 기록은 기능 커밋에 포함. 부모 아키텍처 문서는 별도 커밋
+- START_TIME_KST: 2026-10-23T09:14:23+09:00
+- END_TIME_KST: 2026-10-23T09:15:49+09:00
+- FILES_CHANGED: 질의·품질 코드, `medi008_clinical_query`, 임상 문서. `docs/PARENT-PLATFORM-ARCHITECTURE.md` 제외
+- TEST_RESULTS: SQLite 26 passed, 2 skipped. PostgreSQL 15에서 `medi008_clinical_query`까지 upgrade 후 2 passed. skipped는 passed로 세지 않음
+- REMAINING_ISSUES: main 병합, 부모 서브모듈, PC1 Draft PR은 변경하지 않음
+
+### 2026-10-23 00:35 KST — Phase 007 PC2 임상 질의
+
+- TASK_ID: EYECARE-CLINICAL-SUPPORT-007
+- EXECUTION_HOST: SVG-SKLEE
+- PC_ROLE: PC2
+- REPOSITORY: MEDI-IOT-EyeCare
+- LOCAL_PATH: C:\Office_Automation\MEDI-IOT-EyeCare
+- BRANCH: feat/clinical-query-quality-007
+- HEAD_BEFORE: a8661d5ab665f686b2e81ef9c0be1e8f633c8e93
+- HEAD_AFTER: a8661d5ab665f686b2e81ef9c0be1e8f633c8e93
+- START_TIME_KST: 2026-10-23T00:35:41+09:00
+- END_TIME_KST: 2026-10-23T00:49:50+09:00
+- FILES_CHANGED: EYECARE 임상 질의·품질 파일과 shared-libraries 정책 브랜치. PC1 작업 디렉터리는 수정하지 않음
+- TEST_RESULTS: 합성 테스트 PASS. 일회용 PostgreSQL 15 PASS 후 삭제
+- REMAINING_ISSUES: main 병합, 부모 서브모듈, push는 별도 승인. DeeVo는 접근하지 않음
+
 ### 2026-10-23 00:30 KST — 보안 강화와 임상 지원 통합 커밋
 
 - 작업 ID: PC1-EYECARE-INTEGRATION-004
@@ -394,3 +544,20 @@ MEDI-DES-001 템플릿 API는 `BLOCKED_PENDING_SOURCE`를 반환한다. 목표 �
 - shared-libraries: `feat: medi-iot 정책에 임상 지원 액션을 추가한다` (`auth/policy.py`)
 
 Phase 007 제안: 두 커밋을 승인한 뒤 임상 질의와 잠금의 최소 상태 모델을 구현한다. 프로토콜 원문이 오기 전에는 MEDI-DES-001 필드를 확정하지 않는다. 가져오기와 예측 학습은 그 단계에 넣지 않는다.
+
+## 17. Phase 007 결과
+
+PC1 통합을 기다리지 않고 `feat/clinical-support-002`의 `a8661d5`에서 `feat/clinical-query-quality-007`을 만들었다. PC1 작업 디렉터리와 DeeVo는 건드리지 않았다.
+
+임상 질의는 `open → answered → resolved`와 `resolved → reopened → answered`만 허용한다. 품질 소견에서 질의를 만들 수 있고, 정정은 기존 개정 서비스만 사용한다. 해결은 관찰을 수정하지 않는다. 상세는 `docs/CLINICAL-QUERY-SPEC.md`에 있다.
+
+품질 실행은 연구, 대상자, Visit, 폼 범위와 입력 직후 검증을 지원한다. 새 정책 액션은 shared-libraries 로컬 브랜치 `feat/clinical-query-quality-007`에 있다. 기준은 `81a222baaa3ee256fe13fb33494ab2b6fd73ec76`이며 아직 커밋하지 않았다.
+
+일회용 PostgreSQL 15에서 `medi008_clinical_query`까지 upgrade 한 뒤 컨테이너를 삭제했다. 운영 데이터베이스에는 적용하지 않았다.
+
+제안 커밋은 두 저장소로 나눈다. push와 main 병합, 부모 서브모듈 변경은 이 단계에 포함하지 않는다.
+
+- MEDI-IOT-EyeCare `feat/clinical-query-quality-007`, 기준 `feat/clinical-support-002`: `feat: add clinical queries and repeatable quality checks`
+- shared-libraries `feat/clinical-query-quality-007`, 기준 `feat/medi-iot-clinical-policy`: `feat: add clinical query and quality actions`
+
+008에서는 데이터 잠금, 승인된 프로토콜 규칙, 두 브랜치의 검토와 부모 통합을 다룬다. 예측 학습과 스폰서 내보내기 가져오기는 각각 별도 승인이 있어야 한다.

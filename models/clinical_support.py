@@ -1,7 +1,7 @@
 """EYECARE 임상 연구 지원 모델.
 
-Phase 004는 테이블과 관계만 둔다. eCRF 화면, 질의 워크플로, 치료군,
-DeeVo 동기화는 이후 단계다. 원본 관찰은 갱신하지 않고 개정 행으로 남긴다.
+원본 관찰은 갱신하지 않고 개정 행으로 남긴다. 임상 질의는 별도 이력으로
+남기며, 질의 해결이 관찰 값을 바꾸지는 않는다.
 """
 from __future__ import annotations
 
@@ -397,6 +397,12 @@ class DataQualityFinding(Base):
     fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
     status: Mapped[str] = mapped_column(String(20), nullable=False, default="open")
     message_code: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_revision: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    evaluation_scope: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="study", server_default="study",
+    )
+    evaluation_scope_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    evaluated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     waive_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     closed_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
     closed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -405,6 +411,117 @@ class DataQualityFinding(Base):
     )
 
     rule: Mapped[DataQualityRule] = relationship()
+
+
+class QualityEvaluationRun(Base):
+    """한 번의 품질 검증 실행. 관찰 행은 만들지 않는다."""
+
+    __tablename__ = "quality_evaluation_runs"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    study_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("clinical_studies.id", ondelete="RESTRICT"),
+        nullable=False, index=True,
+    )
+    scope: Mapped[str] = mapped_column(String(16), nullable=False)
+    scope_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    trigger: Mapped[str] = mapped_column(String(16), nullable=False, default="manual")
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="running")
+    actor_user_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    finding_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    started_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class ClinicalQuery(Base):
+    """연구별 임상 질의. 상태 이력은 삭제하지 않는다."""
+
+    __tablename__ = "clinical_queries"
+    __table_args__ = (
+        Index("ix_clinical_queries_study_status", "study_id", "status"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    study_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("clinical_studies.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    site_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("study_sites.id", ondelete="RESTRICT"), nullable=True,
+    )
+    subject_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("study_subjects.id", ondelete="RESTRICT"), nullable=True,
+    )
+    visit_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("study_visits.id", ondelete="RESTRICT"), nullable=True,
+    )
+    definition_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("questionnaire_definitions.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    observation_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("clinical_observations.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    finding_id: Mapped[str | None] = mapped_column(
+        String(36), ForeignKey("data_quality_findings.id", ondelete="RESTRICT"),
+        nullable=True,
+    )
+    category: Mapped[str] = mapped_column(String(64), nullable=False)
+    severity: Mapped[str] = mapped_column(String(16), nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(20), nullable=False, default="open")
+    assigned_user_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    assigned_role: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    opened_by: Mapped[str] = mapped_column(String(64), nullable=False)
+    opened_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+
+    events: Mapped[list["ClinicalQueryEvent"]] = relationship(back_populates="query")
+    responses: Mapped[list["ClinicalQueryResponse"]] = relationship(back_populates="query")
+
+
+class ClinicalQueryEvent(Base):
+    __tablename__ = "clinical_query_events"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    query_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("clinical_queries.id", ondelete="RESTRICT"),
+        nullable=False, index=True,
+    )
+    from_status: Mapped[str | None] = mapped_column(String(20), nullable=True)
+    to_status: Mapped[str] = mapped_column(String(20), nullable=False)
+    actor_user_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    reason: Mapped[str] = mapped_column(Text, nullable=False)
+    detail_json: Mapped[str | None] = mapped_column(Text, nullable=True)
+    occurred_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+
+    query: Mapped[ClinicalQuery] = relationship(back_populates="events")
+
+
+class ClinicalQueryResponse(Base):
+    __tablename__ = "clinical_query_responses"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    query_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("clinical_queries.id", ondelete="RESTRICT"),
+        nullable=False, index=True,
+    )
+    author_user_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+
+    query: Mapped[ClinicalQuery] = relationship(back_populates="responses")
 
 
 class ClinicalAuditEvent(Base):

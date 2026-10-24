@@ -4,6 +4,38 @@
 
 ## 진행 기록
 
+### 2026-10-23 09:15 KST — Phase 007 API 검증
+
+- TASK_ID: PC2-CLINICAL-PHASE007-CHECKPOINT-001
+- EXECUTION_HOST: SVG-SKLEE
+- PC_ROLE: PC2
+- REPOSITORY: MEDI-IOT-EyeCare
+- LOCAL_PATH: C:\Office_Automation\MEDI-IOT-EyeCare
+- BRANCH: feat/clinical-query-quality-007
+- HEAD_BEFORE: a8661d5ab665f686b2e81ef9c0be1e8f633c8e93
+- HEAD_AFTER: 기능 커밋에 포함
+- START_TIME_KST: 2026-10-23T09:14:23+09:00
+- END_TIME_KST: 2026-10-23T09:15:49+09:00
+- FILES_CHANGED: `api/clinical_support.py`
+- TEST_RESULTS: 토큰 없음 401, staff 생성 403, 다른 사이트 403 PASS
+- REMAINING_ISSUES: 정책 액션은 shared-libraries 별도 커밋
+
+### 2026-10-23 00:35 KST — Phase 007 질의와 품질 API
+
+- TASK_ID: EYECARE-CLINICAL-SUPPORT-007
+- EXECUTION_HOST: SVG-SKLEE
+- PC_ROLE: PC2
+- REPOSITORY: MEDI-IOT-EyeCare
+- LOCAL_PATH: C:\Office_Automation\MEDI-IOT-EyeCare
+- BRANCH: feat/clinical-query-quality-007
+- HEAD_BEFORE: a8661d5ab665f686b2e81ef9c0be1e8f633c8e93
+- HEAD_AFTER: a8661d5ab665f686b2e81ef9c0be1e8f633c8e93
+- START_TIME_KST: 2026-10-23T00:35:41+09:00
+- END_TIME_KST: 2026-10-23T00:49:50+09:00
+- FILES_CHANGED: `api/clinical_support.py`, shared-libraries `auth/policy.py`
+- TEST_RESULTS: 토큰 없음 401, staff 생성 403, 다른 사이트 의사 403 PASS
+- REMAINING_ISSUES: 새 정책 액션은 로컬 브랜치 `feat/clinical-query-quality-007`에만 있다. 부모 핀에는 없다
+
 ### 2026-10-22 22:42 KST — PC2 기능 브랜치 게시
 
 - 작업 ID: PC2-CLINICAL-GIT-PUBLISH-001
@@ -47,6 +79,13 @@
 | POST | `/questionnaires`, `/questionnaires/{id}/versions`, `/visit-forms` | `clinical_questionnaire_manage` |
 | POST | `/questionnaire-responses`, 항목, 확정, 정정 | `clinical_questionnaire_manage` |
 | POST | `/studies/{id}/quality-runs` | `clinical_study_manage` |
+| GET | `/studies/{id}/quality-findings` | `clinical_quality_read` |
+| POST | `/studies/{id}/quality-validations`, `/visits/{id}/quality-runs` | `clinical_quality_execute` |
+| GET | `/queries`, `/queries/{id}`, `/queries/{id}/history` | `clinical_query_read` |
+| POST | `/queries`, `/findings/{id}/queries` | `clinical_query_create` |
+| POST | `/queries/{id}/responses` | `clinical_query_respond` |
+| POST | `/queries/{id}/assignments`, `/resolutions`, `/reopens` | `clinical_query_review` |
+| POST | `/queries/{id}/corrections` | `clinical_observation_correct` |
 
 토큰이 없으면 401이다. 정책이 거절하거나 사이트 구성원이 아니면 403이다. 대상이 없으면 404다. 빈 정정 사유, 값 없는 확정, 확정 행 수정은 400이다.
 

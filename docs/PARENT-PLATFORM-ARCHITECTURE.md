@@ -6,6 +6,117 @@
 
 ## 진행 기록
 
+### 2026-10-24T17:06:06+09:00 — PC1-EYECARE-PHASE007-PUBLICATION-007
+
+```
+EXECUTION_HOST: MEDIIOT-SKLEE
+HEAD_BEFORE: f637177647f7a1a8c941627e483f781e24d6dd83
+TEST_CLEANUP_COMMIT: d906b6961256c41423d7144f0cfd04441dd5fb93
+START_TIME_KST: 2026-10-24T17:04:56+09:00
+END_TIME_KST: 2026-10-24T17:06:06+09:00
+ELAPSED: PT1M10S
+PARENT_ARCHITECTURE_SHA: 633c7303edf8ac35a513c5a59b63185e8f336d76
+TEST_RESULTS: 43 passed, 2 skipped. Exit 0. aiosqlite workers 0
+PR_URL: https://github.com/sangkny/MEDI-IOT-EyeCare/pull/2
+PUSH: normal fast-forward after this record. Draft only
+```
+
+### 2026-10-24T16:31:16+09:00 — PC1-EYECARE-TEST-CLEANUP-001
+
+```
+EXECUTION_HOST: MEDIIOT-SKLEE
+HEAD_BEFORE: f637177647f7a1a8c941627e483f781e24d6dd83
+HEAD_AFTER: f637177647f7a1a8c941627e483f781e24d6dd83
+START_TIME_KST: 2026-10-24T16:27:49+09:00
+END_TIME_KST: 2026-10-24T16:31:16+09:00
+ELAPSED: PT3M27S
+CLASSIFICATION: TEST_ASSERTIONS_PASSED, PROCESS_EXIT_VERIFIED, RESOURCE_LEAK_RESOLVED
+FINDING: 8개 파일 43 passed, 2 skipped, 종료 코드 0, aiosqlite 워커 0. 임상 로직과 단언은 유지
+```
+
+### 2026-10-23T20:19:08+09:00 — PC1-PHASE007-PYTEST-EXIT-DIAGNOSIS
+
+```
+EXECUTION_HOST: MEDIIOT-SKLEE
+HEAD: f637177647f7a1a8c941627e483f781e24d6dd83
+START_TIME_KST: 2026-10-23T20:13:20+09:00
+END_TIME_KST: 2026-10-23T20:19:08+09:00
+ELAPSED: PT5M48S
+CLASSIFICATION: TEST_ASSERTIONS_PASSED, PROCESS_EXIT_BLOCKED, ROOT_CAUSE_IDENTIFIED
+FINDING: 43 passed, 2 skipped는 단언 통과. 프로세스는 dispose되지 않은 aiosqlite 비데몬 연결 스레드 때문에 종료되지 않음. 테스트 기대값과 임상 기능은 변경하지 않음
+```
+
+### 2026-10-23T19:59:59+09:00 — PC1-EYECARE-PHASE007-PUBLICATION-005
+
+```
+TASK_ID: PC1-EYECARE-PHASE007-PUBLICATION-005
+EXECUTION_HOST: MEDIIOT-SKLEE
+PC_ROLE: PC1
+PARENT_ARCHITECTURE_SHA: 633c7303edf8ac35a513c5a59b63185e8f336d76
+SHARED_MERGE_COMMIT: 231106713edcbab93d4acd9c06eee8a125e3c805
+SHARED_PR: https://github.com/sangkny/shared-libraries/pull/2
+EYE_MERGE_COMMIT: 7e1a1949444dac57c660a09b8f5dab37d5822d55
+EYE_PR: https://github.com/sangkny/MEDI-IOT-EyeCare/pull/2
+START_TIME_KST: 2026-10-23T19:56:30+09:00
+END_TIME_KST: 2026-10-23T19:59:59+09:00
+ELAPSED: PT3M29S
+TEST_RESULTS: 정책 7 passed. EYECARE SQLite 43 passed, 2 skipped. PostgreSQL 2 passed
+REMAINING: 두 PR 모두 Draft. main과 서브모듈 포인터는 변경하지 않음
+```
+
+### 2026-10-23T11:59:13+09:00 — PC1-EYECARE-PHASE007-INTEGRATION-004
+
+```
+TASK_ID: PC1-EYECARE-PHASE007-INTEGRATION-004
+EXECUTION_HOST: MEDIIOT-SKLEE
+PC_ROLE: PC1
+PARENT_ARCHITECTURE_SHA: 633c7303edf8ac35a513c5a59b63185e8f336d76
+SHARED_BRANCH: integration/clinical-query-quality-007
+SHARED_HEAD: fd7f62e807cfad8537a4bf1873b04b123438b429
+SHARED_MERGE_HEAD: a9d2dbd13df94d4be284c96c801f00dcff4f7956
+EYE_BRANCH: integration/eyecare-clinical-query-007
+EYE_HEAD: 8d59f10477fc0002f6f5254d4e6b7e3b4012c3c7
+EYE_MERGE_HEAD: 87aea032d7af8ec1723036a9ca7c1183dcdbd7a3
+START_TIME_KST: 2026-10-23T11:50:42+09:00
+END_TIME_KST: 2026-10-23T11:59:13+09:00
+ELAPSED: PT8M31S
+FILES_CHANGED: 정책 2개 파일은 충돌 없이 인덱스에만 반영. EYECARE는 007 코드와 문서 2건 충돌 해소, 질의 테스트의 공유 라이브러리 경로를 SHARED_LIBRARIES_PATH로 맞춤
+TEST_RESULTS: 정책 7 passed. 임상 SQLite 43 passed / 2 skipped. PostgreSQL 2 passed. 동시 질의 해소는 blocked+ok. 동시 관찰 정정은 원본 불변
+REMAINING: 커밋하지 않음. 제안 PR base는 각 006 통합 브랜치. 기존 Draft PR은 수정하지 않음
+```
+
+### 2026-10-23 09:15 KST — Phase 007과 문서 커밋 분리
+
+- TASK_ID: PC2-CLINICAL-PHASE007-CHECKPOINT-001
+- EXECUTION_HOST: SVG-SKLEE
+- PC_ROLE: PC2
+- REPOSITORY: MEDI-IOT-EyeCare
+- LOCAL_PATH: C:\Office_Automation\MEDI-IOT-EyeCare
+- BRANCH: feat/clinical-query-quality-007
+- HEAD_BEFORE: a8661d5ab665f686b2e81ef9c0be1e8f633c8e93
+- HEAD_AFTER: 기능 커밋 `1647b83b557abbc85d9778cfbf816d8aab3cf518`. 이 문서는 그 다음 커밋
+- START_TIME_KST: 2026-10-23T09:14:23+09:00
+- END_TIME_KST: 2026-10-23T09:16:56+09:00
+- FILES_CHANGED: 이 문서만
+- TEST_RESULTS: 기능 커밋 전 SQLite 26 passed, 2 skipped. PostgreSQL 15 `medi008_clinical_query` 2 passed. shared-libraries 정책 7 passed, 커밋 `a9d2dbd13df94d4be284c96c801f00dcff4f7956`
+- REMAINING_ISSUES: 부모 2026-10-23 문서는 GitHub `main`에 없음. Phase 008은 시작하지 않음
+
+### 2026-10-23 08:56 KST — PC2 문서 기준 정렬
+
+- TASK_ID: PC2-PLATFORM-DOCUMENTATION-SYNC-001
+- EXECUTION_HOST: SVG-SKLEE
+- PC_ROLE: PC2
+- REPOSITORY: MEDI-IOT-EyeCare
+- LOCAL_PATH: C:\Office_Automation\MEDI-IOT-EyeCare
+- BRANCH: feat/clinical-query-quality-007
+- HEAD_BEFORE: a8661d5ab665f686b2e81ef9c0be1e8f633c8e93
+- HEAD_AFTER: a8661d5ab665f686b2e81ef9c0be1e8f633c8e93
+- START_TIME_KST: 2026-10-23T08:56:40+09:00
+- END_TIME_KST: 2026-10-23T09:00:20+09:00
+- FILES_CHANGED: 이 문서만. Phase 007에서 이미 수정된 임상 문서와 코드는 다시 고치지 않음
+- TEST_RESULTS: 애플리케이션 테스트를 다시 실행하지 않음. 포트는 읽기만 함
+- REMAINING_ISSUES: 부모 `docs/PLATFORM-ARCHITECTURE.md`, `docs/CROSS-PROJECT-INTEGRATION.md`, `PORT-ALLOCATION.md`의 2026-10-23 절은 PC1 작업 트리에만 있다. GitHub `main`에는 없다. `PENDING_PC1_PUBLICATION`
+
 ### 2026-10-23 00:30 KST — PC1 통합 커밋 준비
 
 - 작업 ID: PC1-EYECARE-INTEGRATION-004
@@ -148,3 +259,49 @@ SVG-SKLEE에서 `\\MEDIIOT-SKLEE\idea-collection`를 읽기만 했다. 파일 �
 PC1 작업 트리에는 GitHub 클론의 최상위 목록에 없던 `eyecare-platform`, `medi-audit-engine`, `openclaw`, `paperclip`이 있다. `MEDI-SkinAI-Core`는 `.gitignore`에 있다. 이 디렉터리는 읽지 않고 이름만 확인했다. `docker-compose.dev.yml`의 Postgres 이미지는 `pgvector/pgvector:pg15`이고, `medi-iot-api`의 `PYTHONPATH`와 `alembic upgrade head` 기동은 005에서 본 GitHub 컴포즈와 같다. 컴포즈는 시작하지 않았다.
 
 공유 인증 정책 파일은 PC1 체크아웃과 로컬 `bd7d353`, 핀 `5bc2147` 모두 임상 액션이 없었다. 임상 액션은 로컬 shared-libraries 클론에만 추가했다. 핀 커밋을 런타임 라이브러리로 바꾸어 테스트를 실행하지는 않았다.
+
+## 7. 2026-10-23 PC2에서 확인한 부모 기준
+
+이 절은 PC2 작업 메모다. 부모 문서의 사본이 아니다.
+
+권위 위치는 `https://github.com/sangkny/projects.git` 이다. PC1 읽기 경로:
+
+- `\\MEDIIOT-SKLEE\idea-collection\projects\PORT-ALLOCATION.md`
+- `\\MEDIIOT-SKLEE\idea-collection\projects\docs\PLATFORM-ARCHITECTURE.md`
+- `\\MEDIIOT-SKLEE\idea-collection\projects\docs\CROSS-PROJECT-INTEGRATION.md`
+
+2026-10-23 08:56 KST에 PC1 `projects` HEAD는 `283ffc0e2b714ba9080e1719051816a44e1a9087` (`main`)이었다. 위 세 문서의 2026-10-23 내용은 커밋되지 않았다. GitHub `main`의 `PORT-ALLOCATION.md`는 2026-07-15 카탈로그이고, 아키텍처 두 파일은 GitHub `docs` 목록에 없다. 상태: `PENDING_PC1_PUBLICATION`. PC1 파일은 수정하지 않았다.
+
+부모 아키텍처는 Clinical Query를 UNKNOWN으로 적는다. PC1이 연 트리에서 구현 파일을 찾지 못했기 때문이다. PC2 기능 커밋은 `1647b83b557abbc85d9778cfbf816d8aab3cf518`이다. 정책 커밋은 shared-libraries `a9d2dbd13df94d4be284c96c801f00dcff4f7956`이다. 그 사실을 부모 문서의 CONFIRMED로 바꾸려면 브랜치 게시 후의 별도 확인이 필요하다.
+
+임상 문서가 이미 적는 내용과 부모 경계:
+
+- Phase 006 통합 상태는 게시된 `feat/clinical-support-002` `a8661d5ab665f686b2e81ef9c0be1e8f633c8e93`과 이 문서 6절에 있다. 부모 서브모듈 포인터는 옮기지 않았다.
+- Phase 007 질의와 품질 실행은 `1647b83b557abbc85d9778cfbf816d8aab3cf518`이다. 설명은 `docs/CLINICAL-QUERY-SPEC.md`와 임상 문서 진행 기록에 있다.
+- 인증과 정책은 shared-libraries다. 로컬 클론은 `C:\Tools\downloads\phase005-inspect\shared-libraries`, 브랜치 `feat/clinical-query-quality-007`, 커밋 `a9d2dbd13df94d4be284c96c801f00dcff4f7956`이다. 기준은 `81a222baaa3ee256fe13fb33494ab2b6fd73ec76`이다. EYECARE 안에 정책을 복제하지 않는다.
+- 임상 데이터 소유는 MEDI-IOT-EyeCare다. 연구·사이트 접근은 `StudySiteMember`다. 확정 관찰은 개정으로만 정정하고, 질의 해결은 그 값을 바꾸지 않는다.
+- SVG-Analyzer는 분석 도구다. EYECARE나 LookScan의 런타임 의존성이 아니다.
+
+저장소 책임은 부모 아키텍처와 같다. MEDI-IOT-EyeCare는 안과 영상·AI, 임상 연구, eCRF, Clinical Query, Data Quality Engine, 임상 감사와 보고를 소유한다. MEDI-SkinAI-Core는 피부 추론과 Appearance5, 체크포인트 검증, 종단 분석을 소유한다. LookScan은 소비자 촬영, Face Mesh, 선택적 SkinAI 후보, 스캔 이력, PBM 세션을 소유한다. shared-libraries는 공통 인증·인가와 공유 인터페이스를 소유한다.
+
+### PC2 포트 스냅샷
+
+2026-10-23 검사다. 서비스를 재시작하거나 배정을 바꾸지 않았다. 부모 표에 넣을 제안이며, 그 자체로 배정 문서가 아니다.
+
+| 대상 | 호스트 | 상태 | 근거 |
+|---|---|---|---|
+| Docker 공개 포트 | SVG-SKLEE | 없음 | `docker ps -a` 컨테이너 0 |
+| WSL `Ubuntu-24.04` | SVG-SKLEE | ACTIVE, TCP 53 resolver만 | `ss -lnt`. 프로젝트 서비스 없음 |
+| SVG 18480–18499 | SVG-SKLEE | 리스너 없음. 요구 범위는 `config/port_requirements.json` | Windows Listen 목록. 부모 공유본은 RESERVED로 인용 |
+| `E:\Office_Automation\port_allocation.md` | SVG-SKLEE | 파일 없음 | CLI 기본 경로와 불일치. 파일을 만들지 않음 |
+| EYECARE compose 호스트 포트 | SVG-SKLEE | ACTIVE 없음 | 이 클론의 훈련 compose에 `ports`가 없고, 개발 compose는 부모 저장소에 있다. PC2에서 그 compose를 시작하지 않음 |
+| PostgreSQL 55432, 55433 | 부모 기록 | TEMPORARY, 예약 아님 | 부모 공유본이 이미 삭제된 일회성으로 기록 |
+| PostgreSQL 55434, 55436 | SVG-SKLEE | TEMPORARY, 현재 Listen 없음 | Phase 006·007 일회용 컨테이너. 삭제됨. 부모 표에는 아직 없음 |
+| chrome `127.0.0.1:9222`, Code 루프백 | SVG-SKLEE | ACTIVE | 프로세스 이름만 확인. 프로젝트 배정으로 단정하지 않음. UNKNOWN |
+| PC1에 적힌 8001, 5452, 8210, 8211, 1234 등 | MEDIIOT-SKLEE | PC2에서는 확인하지 않음 | PC2 Listen에 없음. PC1 실행 여부는 UNKNOWN |
+
+부모 문서에 제안할 추가만 적는다. 기존 행은 바꾸지 않는다.
+
+1. SVG-SKLEE 2026-10-23 스냅샷: Docker 공개 포트 없음, 18480–18499 비청취, 로컬 `E:\Office_Automation\port_allocation.md` 없음.
+2. 55434와 55436은 PC2의 삭제된 일회성 PostgreSQL이며 예약이 아니다.
+3. Clinical Query를 CONFIRMED로 바꾸기 전에 PC2 브랜치 게시를 기다린다.

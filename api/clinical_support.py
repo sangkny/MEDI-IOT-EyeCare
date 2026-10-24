@@ -15,7 +15,19 @@ from schemas.clinical_support import (
     SubjectRecord,
     VisitRecord,
 )
-from services.clinical_quality import run_quality_rules
+from services.clinical_quality import list_quality_findings, run_quality_rules, validate_after_entry
+from services.clinical_queries import (
+    assign_query,
+    correct_from_query,
+    create_query,
+    create_query_from_finding,
+    get_query,
+    list_queries,
+    list_query_history,
+    reopen_query,
+    resolve_query,
+    respond_to_query,
+)
 from services.clinical_records import (
     ClinicalRecordError,
     add_site,
@@ -133,6 +145,54 @@ class ItemBody(BaseModel):
 
 class ReasonBody(BaseModel):
     reason: str = Field(min_length=1)
+
+
+class QualityRunBody(BaseModel):
+    scope: str = "study"
+    scope_id: str | None = None
+
+
+class QueryBody(BaseModel):
+    study_id: str
+    category: str = Field(min_length=1, max_length=64)
+    severity: str = Field(min_length=1, max_length=16)
+    description: str = Field(min_length=1)
+    subject_id: str | None = None
+    visit_id: str | None = None
+    definition_id: str | None = None
+    observation_id: str | None = None
+    finding_id: str | None = None
+    assigned_user_id: str | None = None
+    assigned_role: str | None = None
+
+
+class QueryAssignBody(BaseModel):
+    reason: str = Field(min_length=1)
+    assigned_user_id: str | None = None
+    assigned_role: str | None = None
+
+
+class QueryResponseBody(BaseModel):
+    body: str = Field(min_length=1)
+
+
+def _query_payload(row) -> dict:
+    return {
+        "id": row.id,
+        "study_id": row.study_id,
+        "site_id": row.site_id,
+        "subject_id": row.subject_id,
+        "visit_id": row.visit_id,
+        "definition_id": row.definition_id,
+        "observation_id": row.observation_id,
+        "finding_id": row.finding_id,
+        "category": row.category,
+        "severity": row.severity,
+        "description": row.description,
+        "status": row.status,
+        "assigned_user_id": row.assigned_user_id,
+        "assigned_role": row.assigned_role,
+    }
 
 
 def _fail(exc: ClinicalRecordError) -> HTTPException:
@@ -525,3 +585,195 @@ async def post_quality(
         return [row.id for row in rows]
     ids = await _call(db, _run, user_id=_uid(user))
     return {"finding_ids": ids}
+
+
+@router.get("/studies/{study_id}/quality-findings")
+async def get_findings(
+    study_id: str,
+    status_filter: str | None = Query(default=None, alias="status"),
+    severity: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(policy_require("medi-iot", "clinical_quality_read")),
+) -> list[dict]:
+    rows = await _call(
+        db, list_quality_findings, study_id=study_id, actor_user_id=_uid(user),
+        status=status_filter, severity=severity,
+    )
+    return [
+        {
+            "id": row.id,
+            "rule_id": row.rule_id,
+            "rule_version": row.rule_version,
+            "severity": row.rule.severity,
+            "status": row.status,
+            "message_code": row.message_code,
+            "target_type": row.target_type,
+            "target_id": row.target_id,
+            "source_revision": row.source_revision,
+            "evaluation_scope": row.evaluation_scope,
+            "evaluated_at": row.evaluated_at.isoformat() if row.evaluated_at else None,
+        }
+        for row in rows
+    ]
+
+
+@router.post("/studies/{study_id}/quality-validations")
+async def post_quality_validation(
+    study_id: str,
+    body: QualityRunBody,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(policy_require("medi-iot", "clinical_quality_execute")),
+) -> dict:
+    def _run(sync, user_id: str):
+        from services.clinical_records import _require_study_member
+        _require_study_member(sync, study_id, user_id)
+        rows = run_quality_rules(
+            sync, study_id=study_id, actor_user_id=user_id,
+            scope=body.scope, scope_id=body.scope_id, trigger="manual",
+        )
+        return [row.id for row in rows]
+    return {"finding_ids": await _call(db, _run, user_id=_uid(user))}
+
+
+@router.post("/visits/{visit_id}/quality-runs")
+async def post_visit_quality(
+    visit_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(policy_require("medi-iot", "clinical_quality_execute")),
+) -> dict:
+    rows = await _call(db, validate_after_entry, visit_id=visit_id, actor_user_id=_uid(user))
+    return {"finding_ids": [row.id for row in rows]}
+
+
+@router.get("/queries")
+async def get_queries(
+    study_id: str,
+    site_id: str | None = None,
+    status_filter: str | None = Query(default=None, alias="status"),
+    severity: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(policy_require("medi-iot", "clinical_query_read")),
+) -> list[dict]:
+    rows = await _call(
+        db, list_queries, study_id=study_id, actor_user_id=_uid(user),
+        site_id=site_id, status=status_filter, severity=severity,
+    )
+    return [_query_payload(row) for row in rows]
+
+
+@router.get("/queries/{query_id}")
+async def get_one_query(
+    query_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(policy_require("medi-iot", "clinical_query_read")),
+) -> dict:
+    return _query_payload(await _call(db, get_query, query_id=query_id, actor_user_id=_uid(user)))
+
+
+@router.post("/queries", status_code=status.HTTP_201_CREATED)
+async def post_query(
+    body: QueryBody,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(policy_require("medi-iot", "clinical_query_create")),
+) -> dict:
+    row = await _call(db, create_query, actor_user_id=_uid(user), **body.model_dump())
+    return _query_payload(row)
+
+
+@router.post("/findings/{finding_id}/queries", status_code=status.HTTP_201_CREATED)
+async def post_query_from_finding(
+    finding_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(policy_require("medi-iot", "clinical_query_create")),
+) -> dict:
+    row = await _call(
+        db, create_query_from_finding, finding_id=finding_id, actor_user_id=_uid(user),
+    )
+    return _query_payload(row)
+
+
+@router.post("/queries/{query_id}/responses")
+async def post_query_response(
+    query_id: str,
+    body: QueryResponseBody,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(policy_require("medi-iot", "clinical_query_respond")),
+) -> dict:
+    row = await _call(
+        db, respond_to_query, query_id=query_id, actor_user_id=_uid(user), body=body.body,
+    )
+    return _query_payload(row)
+
+
+@router.post("/queries/{query_id}/assignments")
+async def post_query_assignment(
+    query_id: str,
+    body: QueryAssignBody,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(policy_require("medi-iot", "clinical_query_review")),
+) -> dict:
+    row = await _call(
+        db, assign_query, query_id=query_id, actor_user_id=_uid(user),
+        reason=body.reason, assigned_user_id=body.assigned_user_id, assigned_role=body.assigned_role,
+    )
+    return _query_payload(row)
+
+
+@router.post("/queries/{query_id}/resolutions")
+async def post_query_resolution(
+    query_id: str,
+    body: ReasonBody,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(policy_require("medi-iot", "clinical_query_review")),
+) -> dict:
+    row = await _call(
+        db, resolve_query, query_id=query_id, actor_user_id=_uid(user), reason=body.reason,
+    )
+    return _query_payload(row)
+
+
+@router.post("/queries/{query_id}/reopens")
+async def post_query_reopen(
+    query_id: str,
+    body: ReasonBody,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(policy_require("medi-iot", "clinical_query_review")),
+) -> dict:
+    row = await _call(
+        db, reopen_query, query_id=query_id, actor_user_id=_uid(user), reason=body.reason,
+    )
+    return _query_payload(row)
+
+
+@router.get("/queries/{query_id}/history")
+async def get_query_history(
+    query_id: str,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(policy_require("medi-iot", "clinical_query_read")),
+) -> list[dict]:
+    rows = await _call(db, list_query_history, query_id=query_id, actor_user_id=_uid(user))
+    return [
+        {
+            "id": row.id,
+            "from_status": row.from_status,
+            "to_status": row.to_status,
+            "actor_user_id": row.actor_user_id,
+            "reason": row.reason,
+            "occurred_at": row.occurred_at.isoformat() if row.occurred_at else None,
+        }
+        for row in rows
+    ]
+
+
+@router.post("/queries/{query_id}/corrections")
+async def post_query_correction(
+    query_id: str,
+    body: CorrectionBody,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(policy_require("medi-iot", "clinical_observation_correct")),
+) -> dict:
+    row = await _call(
+        db, correct_from_query, query_id=query_id, actor_user_id=_uid(user),
+        reason=body.reason, value_number=body.value_number, value_text=body.value_text, unit=body.unit,
+    )
+    return {"id": row.id, "revision": row.revision, "record_status": row.record_status}
