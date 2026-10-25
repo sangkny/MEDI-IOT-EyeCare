@@ -27,6 +27,7 @@ from models.clinical_support import (
     StudyVisit,
 )
 from services.clinical_import_checks import evaluate_row, parse_number
+from services.clinical_protocol_rules import PACK_ID, advisory_findings
 from services.clinical_import_parse import (
     ADAPTER_NAME,
     MAPPING_VERSION,
@@ -280,6 +281,7 @@ def _apply_row(
     osdi_version_id: str | None,
     enable_r1: bool = False,
     screening_codes: set[str] | None = None,
+    protocol_advisory_id: str | None = None,
 ) -> tuple[str, str | None]:
     if sheet.alignment != "confirmed":
         return "skipped_unmapped", None
@@ -295,17 +297,16 @@ def _apply_row(
     if sheet.form_class is not None:
         if not enable_r1 or subject_code is None:
             return "skipped_unmapped", None
-        for finding in evaluate_row(row.values):
-            session.add(ImportValidationFinding(
-                batch_id=batch_id,
-                study_id=study_id,
-                subject_code=subject_code,
-                visit_code=None,
-                item_id=finding["item_id"],
-                classification=finding["classification"],
-                rule_code=finding["rule_code"],
-                message_code=finding["message_code"],
-            ))
+        _record_findings(
+            session,
+            batch_id=batch_id,
+            study_id=study_id,
+            subject_code=subject_code,
+            visit_code=None,
+            row=row,
+            sheet=sheet,
+            protocol_advisory_id=protocol_advisory_id,
+        )
         return "subject_level_staged", subject_code
     if sheet.visit_code is None or subject_code is None:
         if has_subjid and subject_code is None:
@@ -476,18 +477,45 @@ def _apply_row(
                     target_id=existing.target_id,
                     value=stored,
                 )
-    for finding in evaluate_row(row.values):
+    _record_findings(
+        session,
+        batch_id=batch_id,
+        study_id=study_id,
+        subject_code=subject_code,
+        visit_code=sheet.visit_code,
+        row=row,
+        sheet=sheet,
+        protocol_advisory_id=protocol_advisory_id,
+    )
+    return "staged", subject_code
+
+
+def _record_findings(
+    session: Session,
+    *,
+    batch_id: str,
+    study_id: str,
+    subject_code: str | None,
+    visit_code: str | None,
+    row: ParsedRow,
+    sheet: ParsedSheet,
+    protocol_advisory_id: str | None,
+) -> None:
+    findings = list(evaluate_row(row.values))
+    if protocol_advisory_id == PACK_ID:
+        choices = {item.item_id: item.choices for item in sheet.items if item.choices}
+        findings.extend(advisory_findings(row.values, choices))
+    for finding in findings:
         session.add(ImportValidationFinding(
             batch_id=batch_id,
             study_id=study_id,
             subject_code=subject_code,
-            visit_code=sheet.visit_code,
+            visit_code=visit_code,
             item_id=finding["item_id"],
             classification=finding["classification"],
             rule_code=finding["rule_code"],
             message_code=finding["message_code"],
         ))
-    return "staged", subject_code
 
 
 def confirm_import(
@@ -500,10 +528,15 @@ def confirm_import(
     content: bytes,
     source_system: str = "external-edc",
     enable_r1: bool = False,
+    protocol_advisory_id: str | None = None,
 ) -> dict:
     _require_import_scope(session, study_id, site_id, actor_user_id)
     parsed = parse_workbook(content)
+    if protocol_advisory_id not in (None, PACK_ID):
+        raise ClinicalRecordError("알 수 없는 계획서 규칙 묶음입니다.")
     mapping_version = R1_MAPPING_VERSION if enable_r1 else MAPPING_VERSION
+    if protocol_advisory_id:
+        mapping_version = f"{mapping_version}+advisory-{protocol_advisory_id}"
     screening_codes = screening_subject_codes(parsed) if enable_r1 else set()
     existing = session.scalar(
         select(ImportSource).where(
@@ -572,6 +605,7 @@ def confirm_import(
                         osdi_version_id=osdi_version_id,
                         enable_r1=enable_r1,
                         screening_codes=screening_codes,
+                        protocol_advisory_id=protocol_advisory_id,
                     )
                 except ClinicalRecordError as exc:
                     status = "row_error"

@@ -22,6 +22,38 @@ BLINDED_DOMAINS = {"RN"}
 VISIT_CODE_RE = re.compile(r"V(\d+)\s*\(")
 
 
+@dataclass(frozen=True)
+class ResponseChoice:
+    index: int
+    score: int | None
+    label: str
+
+
+def parse_response_choices(text: str) -> tuple[ResponseChoice, ...]:
+    """명세 Code 열의 `[번호] 점수 - 라벨` 형식을 읽는다.
+
+    `해당`이 들어 있으면 임상 점수가 없는 해당 없음이다.
+    """
+    choices: list[ResponseChoice] = []
+    for part in re.split(r"\s*/\s*", text or ""):
+        match = re.search(r"\[(\d+)\]\s*(.*)", part.strip())
+        if match is None:
+            continue
+        body = match.group(2).strip()
+        score: int | None = None
+        if "해당" not in body:
+            leading = re.match(r"(\d+)\s*-", body)
+            trailing = re.search(r"\((\d+)\)\s*$", body)
+            if leading is not None:
+                score = int(leading.group(1))
+            elif trailing is not None:
+                score = int(trailing.group(1))
+            else:
+                continue
+        choices.append(ResponseChoice(index=int(match.group(1)), score=score, label=body))
+    return tuple(choices)
+
+
 @dataclass
 class ItemSpec:
     domain: str
@@ -30,6 +62,8 @@ class ItemSpec:
     type_name: str
     sensitive: bool
     blinded: bool
+    code_text: str = ""
+    choices: tuple[ResponseChoice, ...] = ()
 
 
 @dataclass
@@ -125,6 +159,7 @@ def _spec_items(rows: list[tuple]) -> list[ItemSpec] | None:
             continue
         label = _text(row[2] if len(row) > 2 else "")
         domain = _text(row[0])
+        code_text = _text(row[3] if len(row) > 3 else "")
         items.append(ItemSpec(
             domain=domain,
             item_id=_text(row[1] if len(row) > 1 else ""),
@@ -132,6 +167,8 @@ def _spec_items(rows: list[tuple]) -> list[ItemSpec] | None:
             type_name=_text(row[5] if len(row) > 5 else ""),
             sensitive=_sensitive_label(label),
             blinded=_blinded(domain, label),
+            code_text=code_text,
+            choices=parse_response_choices(code_text),
         ))
     return items
 

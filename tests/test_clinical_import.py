@@ -61,6 +61,15 @@ from models.clinical_support import (
 from models.medical import Diagnosis, EyeExam, Patient
 from services.clinical_explore import list_study_visits, subject_visit_history
 from services.clinical_import import aggregate_workbook, confirm_import, preview_import, r1_linkage_report
+from services.clinical_protocol_rules import (
+    PACK_ID,
+    advisory_findings,
+    promote_rule,
+    rule_pack,
+    visit_assessments,
+    window_conflict,
+)
+from services.clinical_import_parse import ResponseChoice, parse_response_choices
 from services.clinical_import_parse import LEADING_HEADERS
 from services.clinical_records import ClinicalRecordError, add_site, add_site_member, create_study
 
@@ -679,3 +688,124 @@ def test_aggregate_summary_has_no_row_payload():
     assert "CHART-SYN" not in blob
     assert counts["blinded_cell_count"] == 1
     assert counts["study_code_present_in_file"] is False
+
+
+OSDI_CODE = (
+    "[1] 0 - 그런적 없다 / [2] 1 - 가끔 그렇다 / [3] 2 - 절반정도 / "
+    "[4] 3 - 대부분 그렇다 / [5] 4 - 항상 그렇다"
+)
+OSDI_NA_CODE = "[1] 해당없음 / [2] 0 - 그런적 없다 / [6] 4 - 항상 그렇다"
+
+
+def _osdi_choices():
+    base = parse_response_choices(OSDI_CODE)
+    later = parse_response_choices(OSDI_NA_CODE)
+    choices = {f"OSQ{index}": base for index in range(1, 6)}
+    choices.update({f"OSQ{index}": later for index in range(6, 13)})
+    return choices
+
+
+def test_protocol_pack_is_extracted_and_visit_windows_conflict():
+    rules = {rule.rule_id: rule for rule in rule_pack()}
+    assert rules["OSDI-FORMULA-001"].protocol_version == "1.3"
+    assert rules["OSDI-FORMULA-001"].effective_status == "EXTRACTED"
+    assert rules["OSDI-FORMULA-001"].approval_status == "AWAITING_APPROVAL"
+    assert rules["OSDI-FORMULA-001"].source_reference.startswith("부록 1")
+    with pytest.raises(ValueError):
+        promote_rule(rules["OSDI-FORMULA-001"], "ACTIVE")
+    assert window_conflict()["status"] == "CONFLICTING"
+    assert window_conflict()["validation"] == "NOT_IMPLEMENTED"
+    matrix = visit_assessments()
+    assert matrix["V1"]["OSDI"] is True
+    assert matrix["V5"]["TBUT"] is False
+    assert matrix["V5"]["OSDI"] is False
+    assert matrix["V6"]["SCHIRMER"] is True
+    assert matrix["V3"]["window_check"] is False
+
+
+def test_osdi_decoding_excludes_not_applicable_and_rejects_unknown_codes():
+    choices = _osdi_choices()
+    values = {f"OSQ{index}": "4 - 항상 그렇다" for index in range(1, 6)}
+    values.update({f"OSQ{index}": "해당없음" for index in range(6, 13)})
+    values["OSSCORE"] = "100점"
+    assert advisory_findings(values, choices) == []
+    values["OSQ6"] = "알 수 없는 코드"
+    messages = {item["message_code"] for item in advisory_findings(values, choices)}
+    assert "RESPONSE_CODE_UNRESOLVED" in messages
+    values["OSQ6"] = "해당없음"
+    values["OSSCORE"] = 0
+    mismatch = advisory_findings(values, choices)
+    assert any(item["message_code"] == "SCORING_MISMATCH" for item in mismatch)
+    blank = {f"OSQ{index}": None for index in range(1, 13)}
+    blank["OSSCORE"] = None
+    assert advisory_findings(blank, choices) == []
+
+
+def test_tbut_mean_and_schirmer_precision_are_advisory_only():
+    matched = {
+        "TBODORS1": 2, "TBODORS2": 4, "TBODORS3": 6, "TBODORSAV": 4,
+        "STODORS": "10.0mm",
+    }
+    assert advisory_findings(matched) == []
+    mismatched = dict(matched)
+    mismatched["TBODORSAV"] = 9
+    assert any(item["rule_code"] == "TBUT-MEAN-001" for item in advisory_findings(mismatched))
+    partial = {"TBODORS1": 2, "TBODORS2": 4, "TBODORSAV": 3}
+    assert any(item["message_code"] == "MISSING_ITEM" for item in advisory_findings(partial))
+    fine_unit = advisory_findings({"STOSORS": 10.25})
+    assert any(item["rule_code"] == "SCHIRMER-METHOD-001" for item in fine_unit)
+    assert advisory_findings({"STOSORS": 10}) == []
+
+
+def test_protocol_advisory_is_opt_in_and_does_not_correct_values():
+    choices = _osdi_choices()
+    items = [
+        ("OS", "OSQ1", "1. 눈이 빛에 예민하다", "INTEGER", OSDI_CODE),
+        ("OS", "OSSCORE", "OSDI 점수", "FLOAT", ""),
+        ("SV", "SVDAT", "방문일", "VARCHAR(10)", ""),
+        ("DM", "SUBJID", "스크리닝 번호", "TEXT", ""),
+    ]
+    book = Workbook()
+    spec = book.active
+    spec.title = "1. Specification"
+    spec.append(["Domain", "Item ID", "Item Label", "Code", "Layout", "Type", "Required"])
+    for domain, item_id, label, type_name, code in items:
+        spec.append([domain, item_id, label, code, "", type_name, "FALSE"])
+    data = book.create_sheet("1. V1 (스크리닝)")
+    data.append(["1. 눈이 빛에 예민하다", "OSDI 점수", "방문일", "스크리닝 번호"])
+    data.append(["4 - 항상 그렇다", "0점", "2026-03-02", "SYN-01"])
+    content = _bytes(book)
+    db = _db()
+    try:
+        study, site = _scope(db)
+        plain = confirm_import(
+            db, study_id=study.id, site_id=site.id, actor_user_id="doc",
+            filename="plain.xlsx", content=content,
+        )
+        db.commit()
+        assert plain["mapping_version"] == "spec-paired-1"
+        assert "OSDI-FORMULA-001" not in set(db.scalars(select(ImportValidationFinding.rule_code)).all())
+        advised = confirm_import(
+            db, study_id=study.id, site_id=site.id, actor_user_id="doc",
+            filename="advised.xlsx", content=content, protocol_advisory_id=PACK_ID,
+        )
+        db.commit()
+        assert advised["mapping_version"] == f"spec-paired-1+advisory-{PACK_ID}"
+        assert "SCORING_MISMATCH" in set(db.scalars(select(ImportValidationFinding.message_code)).all())
+        stored = db.scalar(select(QuestionnaireResponseItem))
+        assert stored is not None
+        assert json.loads(stored.value_json) == "4 - 항상 그렇다"
+        replay = confirm_import(
+            db, study_id=study.id, site_id=site.id, actor_user_id="doc",
+            filename="advised.xlsx", content=content, protocol_advisory_id=PACK_ID,
+        )
+        assert replay["idempotent_replay"] is True
+        with pytest.raises(ClinicalRecordError):
+            confirm_import(
+                db, study_id=study.id, site_id=site.id, actor_user_id="doc",
+                filename="bad-pack.xlsx", content=content, protocol_advisory_id="other-study",
+            )
+    finally:
+        db.close()
+        db.get_bind().dispose()
+    assert choices["OSQ1"][0] == ResponseChoice(index=1, score=0, label="0 - 그런적 없다")
