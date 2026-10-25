@@ -4,6 +4,49 @@
 
 ## 진행 기록
 
+### 2026-10-26T00:09:57+09:00 — 권고 가져오기 게시
+
+- TASK_ID: PC2-EYECARE-PROTOCOL009-PUBLICATION-003
+- EXECUTION_HOST: SVG-SKLEE
+- BRANCH: feat/clinical-protocol-validation-009
+- BASE_HEAD: 8fba4bfe59ccd28841653cfc55510852e1256ba3
+- CODE_COMMIT: 85ef271b96e36a1a60508d66ff71ae37264235ca
+- DOCS_COMMIT: 이 문서 커밋
+- START_TIME_KST: 2026-10-26T00:09:57+09:00
+- END_TIME_KST: 2026-10-26T00:10:50+09:00
+- ELAPSED: PT53S
+- API `ImportBody`에는 `protocol_advisory_id`가 없고 `enable_r1` 기본값은 false
+- TEST_RESULTS: 이번 합성 SQLite 15 passed, 1 skipped, exit 0. PostgreSQL은 다시 실행하지 않음
+- NEXT_APPROVAL: 자동 확정과 자동 잠금은 없음. Phase 010은 시작하지 않음
+
+### 2026-10-25T23:35:00+09:00 — 기본 꺼짐 재확인
+
+- TASK_ID: PC2-EYECARE-PROTOCOL-009-FINALIZATION-002
+- EXECUTION_HOST: SVG-SKLEE
+- BRANCH: feat/clinical-protocol-validation-009
+- HEAD: 8fba4bfe59ccd28841653cfc55510852e1256ba3
+- START_TIME_KST: 2026-10-25T23:35:00+09:00
+- END_TIME_KST: 2026-10-25T23:41:49+09:00
+- ELAPSED: PT6M49S
+- API `ImportBody.enable_r1` 기본값은 false이고 `protocol_advisory_id`는 요청 본문에 없다
+- 원본 OSDI 라벨과 숫자 관찰은 권고 계산이 덮어쓰지 않는다. TBUT 평균 권고도 관찰을 만들지 않는다
+- TEST_RESULTS: 합성 SQLite 15 passed, 1 skipped, exit 0. 일회용 PostgreSQL 15 `127.0.0.1:55441`에서 `medi010_external_clinical_import`까지 올린 뒤 합성 1 passed, exit 0. 컨테이너 `eyecare-protocol-009-final-pg`는 삭제함. pytest 종료 후 Python 프로세스는 없음
+- NEXT_APPROVAL: 확인 등록부 작성. 커밋과 푸시 없음. Phase 010은 시작하지 않음
+
+### 2026-10-25T13:03:02+09:00 — 선택적 계획서 권고
+
+- TASK_ID: PC2-EYECARE-PROTOCOL-VALIDATION-009
+- EXECUTION_HOST: SVG-SKLEE
+- BRANCH: feat/clinical-protocol-validation-009
+- BASE_HEAD: 8fba4bfe59ccd28841653cfc55510852e1256ba3
+- START_TIME_KST: 2026-10-25T13:03:02+09:00
+- END_TIME_KST: 2026-10-25T13:13:30+09:00
+- ELAPSED: PT10M28S
+- `protocol_advisory_id` 기본값은 비어 있다. `medi-des-001-v1.3`일 때만 권고 소견을 추가한다
+- `enable_r1` 기본값은 계속 false다
+- 매핑 버전은 권고를 켠 경우에만 `+advisory-medi-des-001-v1.3`가 붙는다
+- NEXT_APPROVAL: 규칙은 ACTIVE가 아니다. Phase 010은 시작하지 않음
+
 ### 2026-10-25T12:07:03+09:00 — Phase 009 게시
 
 - TASK_ID: PC2-EYECARE-PHASE009-PUBLICATION-002

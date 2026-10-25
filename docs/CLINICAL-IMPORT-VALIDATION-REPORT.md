@@ -4,6 +4,56 @@
 
 ## 진행 기록
 
+### 2026-10-26T00:09:57+09:00 — 계획서 검증 게시
+
+- TASK_ID: PC2-EYECARE-PROTOCOL009-PUBLICATION-003
+- EXECUTION_HOST: SVG-SKLEE (PC2)
+- BRANCH: feat/clinical-protocol-validation-009
+- BASE_HEAD: 8fba4bfe59ccd28841653cfc55510852e1256ba3
+- CODE_COMMIT: 85ef271b96e36a1a60508d66ff71ae37264235ca `feat: add advisory protocol validation for clinical imports`
+- DOCS_COMMIT: 이 문서 커밋 `docs: record Sponsor Protocol v1.3 validation evidence`
+- START_TIME_KST: 2026-10-26T00:09:57+09:00
+- END_TIME_KST: 2026-10-26T00:10:50+09:00
+- ELAPSED: PT53S
+- STATUS: PROTOCOL009_PUBLISHED. 규칙은 EXTRACTED이며 기본 가져오기에서 꺼져 있다
+- TEST_RESULTS: 이번 합성 SQLite 15 passed, 1 skipped, exit 0. pytest 종료 후 Python 프로세스는 없음. PostgreSQL은 이번 게시에서 다시 실행하지 않음. 이전 증거는 2026-10-25T23:41 기록의 일회용 PostgreSQL 15, `medi010_external_clinical_import`, 합성 1 passed, exit 0, 컨테이너 삭제
+- PUSH: origin `feat/clinical-protocol-validation-009`만 일반 푸시
+- REMAINING_ISSUES: 서명 승인, ±3일과 ±7일, 방문 6 OSDI 그림, 반올림 자릿수, 단위 문자만 있는 칸의 의미, 연구 귀속, R1 운영 승인, 반복 양식 원본 키
+- NEXT_APPROVAL: 규칙 활성화, 운영 반입, 배포, PR 병합은 하지 않음. Phase 010은 시작하지 않음
+
+### 2026-10-25T23:35:00+09:00 — 계획서 검증 확정
+
+- TASK_ID: PC2-EYECARE-PROTOCOL-009-FINALIZATION-002
+- EXECUTION_HOST: SVG-SKLEE (PC2)
+- BRANCH: feat/clinical-protocol-validation-009
+- BASE_HEAD: 8fba4bfe59ccd28841653cfc55510852e1256ba3
+- HEAD: 8fba4bfe59ccd28841653cfc55510852e1256ba3. 커밋 없음
+- START_TIME_KST: 2026-10-25T23:35:00+09:00
+- END_TIME_KST: 2026-10-25T23:41:49+09:00
+- ELAPSED: PT6M49S
+- STATUS: CLINICAL_APPROVAL_PENDING. 추출 규칙은 권고만 하고 기본값은 꺼짐
+- TEST_RESULTS: 합성 SQLite 15 passed, 1 skipped, exit 0. 일회용 PostgreSQL 15 `127.0.0.1:55441`에서 `medi010_external_clinical_import`까지 올린 뒤 합성 1 passed, exit 0. 컨테이너 `eyecare-protocol-009-final-pg`는 삭제함. pytest 종료 후 Python 프로세스는 없음
+- REPRESENTATION: OSDI 문항 라벨 2,868. 단위 문자만 있는 OSDI 점수·개수 각 60. TBUT 항목마다 초만 있는 칸 61. 쉬르머 표준 `mm` 477, `mm`+`min` 철자 121. 코 자극은 그 철자 598. 오류로 세지 않음
+- REMAINING_ISSUES: 서명 승인, ±3일과 ±7일, 방문 6 OSDI 그림, 반올림 자릿수, 단위 문자만 있는 칸의 의미, 연구 귀속, R1 운영 승인, 반복 양식 원본 키. 상세는 `CLINICAL-CLARIFICATION-REGISTER.md`
+- NEXT_APPROVAL: 커밋과 푸시 없음. 게시된 Phase 009와 main, PC1, Draft PR은 변경하지 않음. Phase 010은 시작하지 않음
+
+### 2026-10-25T13:03:02+09:00 — 계획서 대조
+
+- TASK_ID: PC2-EYECARE-PROTOCOL-VALIDATION-009
+- EXECUTION_HOST: SVG-SKLEE (PC2)
+- BRANCH: feat/clinical-protocol-validation-009
+- BASE_HEAD: 8fba4bfe59ccd28841653cfc55510852e1256ba3
+- START_TIME_KST: 2026-10-25T13:03:02+09:00
+- END_TIME_KST: 2026-10-25T13:13:30+09:00
+- ELAPSED: PT10M28S
+- PROTOCOL_SHA256: 39c51490afb38c8b44aebbaaa4a5bb9186e29d29292fb1726138462272fbff91
+- EXCEL_SHA256: 1e0ece3a285e2e18fdc4a71999b2a4de680b2dce97ffa0fad0f0a8d773f80dab
+- STATUS: PARTIALLY_VERIFIED. 서명 승인과 방문 허용기간은 UNRESOLVED 또는 CONFLICTING. 규칙 묶음은 EXTRACTED이며 기본 가져오기에서 꺼져 있다
+- TEST_RESULTS: 합성 SQLite 15 passed, 1 skipped, exit 0. 일회용 PostgreSQL 15 합성 1 passed, exit 0, 컨테이너 삭제. 원본은 읽기 전용 집계만 했고 DB에 넣지 않음
+- ADVISORY_COUNTS: OSDI 반올림 권고 207, 점수 불일치 0, TBUT 평균 불일치 0
+- REMAINING_ISSUES: 방문 허용 ±3일과 ±7일. OSDI 점수 칸 60행과 TBUT 비숫자 122눈, 쉬르머 비숫자 121칸. 연구 귀속의 외부 증거. CM/DE/AE/CT/DS/EX 정규 모델
+- NEXT_APPROVAL: 커밋과 푸시 없음. Phase 010은 시작하지 않음
+
 ### 2026-10-25T12:07:03+09:00 — Phase 009 게시
 
 - TASK_ID: PC2-EYECARE-PHASE009-PUBLICATION-002

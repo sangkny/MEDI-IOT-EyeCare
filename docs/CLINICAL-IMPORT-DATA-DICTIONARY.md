@@ -4,6 +4,46 @@
 
 ## 진행 기록
 
+### 2026-10-26T00:09:57+09:00 — 단위 표현 게시
+
+- TASK_ID: PC2-EYECARE-PROTOCOL009-PUBLICATION-003
+- EXECUTION_HOST: SVG-SKLEE
+- BRANCH: feat/clinical-protocol-validation-009
+- CODE_COMMIT: 85ef271b96e36a1a60508d66ff71ae37264235ca
+- DOCS_COMMIT: 이 문서 커밋
+- START_TIME_KST: 2026-10-26T00:09:57+09:00
+- END_TIME_KST: 2026-10-26T00:10:50+09:00
+- ELAPSED: PT53S
+- TEST_RESULTS: 이번 합성 SQLite 15 passed, 1 skipped, exit 0. PostgreSQL은 다시 실행하지 않음
+- NEXT_APPROVAL: 식별자와 측정값은 문서에 넣지 않음. Phase 010은 시작하지 않음
+
+### 2026-10-25T23:35:00+09:00 — 단위 표현
+
+- TASK_ID: PC2-EYECARE-PROTOCOL-009-FINALIZATION-002
+- EXECUTION_HOST: SVG-SKLEE
+- BRANCH: feat/clinical-protocol-validation-009
+- HEAD: 8fba4bfe59ccd28841653cfc55510852e1256ba3
+- START_TIME_KST: 2026-10-25T23:35:00+09:00
+- END_TIME_KST: 2026-10-25T23:41:49+09:00
+- ELAPSED: PT6M49S
+- OSDI 점수·개수와 TBUT에는 계획서 단위 문자만 있는 칸이 있다. 쉬르머 일부는 `mm`, 일부는 `mm`과 `min`이 이어진 다섯 글자다. 의미는 UNRESOLVED
+- TEST_RESULTS: 합성 SQLite 15 passed, 1 skipped, exit 0. 일회용 PostgreSQL 15 `127.0.0.1:55441`에서 `medi010_external_clinical_import`까지 올린 뒤 합성 1 passed, exit 0. 컨테이너 `eyecare-protocol-009-final-pg`는 삭제함. pytest 종료 후 Python 프로세스는 없음
+- NEXT_APPROVAL: 커밋과 푸시 없음. Phase 010은 시작하지 않음
+
+### 2026-10-25T13:03:02+09:00 — 계획서 1.3과 명세 코드
+
+- TASK_ID: PC2-EYECARE-PROTOCOL-VALIDATION-009
+- EXECUTION_HOST: SVG-SKLEE
+- BRANCH: feat/clinical-protocol-validation-009
+- BASE_HEAD: 8fba4bfe59ccd28841653cfc55510852e1256ba3
+- START_TIME_KST: 2026-10-25T13:03:02+09:00
+- END_TIME_KST: 2026-10-25T13:13:30+09:00
+- ELAPSED: PT10M28S
+- OSQ1-5 코드는 선택 번호와 임상 점수 0-4를 같이 적는다. OSQ6-12는 해당없음을 포함한다
+- 저장값이 그 라벨과 같을 때만 권고 규칙이 점수로 읽는다. 기본 가져오기는 라벨을 점수로 바꾸지 않는다
+- TBUT 단위는 초, 쉬르머 단위는 mm/5min, 방법은 비마취다. 이 메타데이터는 승인 전 규칙에만 있다
+- REMAINING_ISSUES: 방문 허용기간 충돌. 연구 귀속은 워크북만으로 확정하지 않음
+
 ### 2026-10-25T12:07:03+09:00 — 게시 기록
 
 - TASK_ID: PC2-EYECARE-PHASE009-PUBLICATION-002

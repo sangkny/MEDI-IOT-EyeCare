@@ -7,6 +7,49 @@
 
 ## 진행 기록
 
+### 2026-10-26T00:09:57+09:00 — 계획서 검증 분기 게시
+
+- TASK_ID: PC2-EYECARE-PROTOCOL009-PUBLICATION-003
+- EXECUTION_HOST: SVG-SKLEE
+- BRANCH: feat/clinical-protocol-validation-009
+- BASE_HEAD: 8fba4bfe59ccd28841653cfc55510852e1256ba3
+- CODE_COMMIT: 85ef271b96e36a1a60508d66ff71ae37264235ca
+- DOCS_COMMIT: 이 문서 커밋
+- START_TIME_KST: 2026-10-26T00:09:57+09:00
+- END_TIME_KST: 2026-10-26T00:10:50+09:00
+- ELAPSED: PT53S
+- STATUS: PROTOCOL009_PUBLISHED
+- TEST_RESULTS: 이번 합성 SQLite 15 passed, 1 skipped, exit 0. PostgreSQL은 다시 실행하지 않음
+- 게시된 `feat/external-clinical-import-009`는 8fba4bfe59ccd28841653cfc55510852e1256ba3로 유지
+- NEXT_APPROVAL: 이 분기만 origin에 일반 푸시. PR 병합과 Phase 010은 시작하지 않음
+
+### 2026-10-25T23:35:00+09:00 — 게시 승인 대기
+
+- TASK_ID: PC2-EYECARE-PROTOCOL-009-FINALIZATION-002
+- EXECUTION_HOST: SVG-SKLEE
+- BRANCH: feat/clinical-protocol-validation-009
+- BASE_HEAD: 8fba4bfe59ccd28841653cfc55510852e1256ba3
+- START_TIME_KST: 2026-10-25T23:35:00+09:00
+- END_TIME_KST: 2026-10-25T23:41:49+09:00
+- ELAPSED: PT6M49S
+- STATUS: PUBLICATION_READY는 승인 대기이며 커밋하지 않음
+- TEST_RESULTS: 합성 SQLite 15 passed, 1 skipped, exit 0. 일회용 PostgreSQL 15 합성 1 passed, exit 0. 컨테이너 삭제
+- 게시된 `feat/external-clinical-import-009`는 8fba4bfe59ccd28841653cfc55510852e1256ba3로 유지
+- NEXT_APPROVAL: 이 분기만 별도 승인 후 게시. Phase 010은 시작하지 않음
+
+### 2026-10-25T13:03:02+09:00 — 계획서 검증 분기
+
+- TASK_ID: PC2-EYECARE-PROTOCOL-VALIDATION-009
+- EXECUTION_HOST: SVG-SKLEE
+- BRANCH: feat/clinical-protocol-validation-009
+- BASE_HEAD: 8fba4bfe59ccd28841653cfc55510852e1256ba3
+- START_TIME_KST: 2026-10-25T13:03:02+09:00
+- END_TIME_KST: 2026-10-25T13:13:30+09:00
+- ELAPSED: PT10M28S
+- STATUS: PARTIALLY_VERIFIED
+- 게시된 `feat/external-clinical-import-009`는 수정하지 않음
+- NEXT_APPROVAL: 커밋은 별도 승인. Phase 010은 시작하지 않음
+
 ### 2026-10-25T12:07:03+09:00 — Phase 009 게시
 
 - TASK_ID: PC2-EYECARE-PHASE009-PUBLICATION-002
