@@ -34,8 +34,11 @@ from services.clinical_import_parse import (
     ParsedRow,
     ParsedSheet,
     ParsedWorkbook,
+    normalize_subject_token,
     parse_workbook,
 )
+
+R1_MAPPING_VERSION = "spec-paired-1+r1"
 from services.clinical_records import (
     ClinicalRecordError,
     _audit,
@@ -80,13 +83,38 @@ def _parse_date(value: object) -> date | None:
 
 
 def _subject_code(value: object) -> str | None:
-    if isinstance(value, float) and value.is_integer():
-        return str(int(value))
-    if isinstance(value, int) and not isinstance(value, bool):
-        return str(value)
-    if isinstance(value, str) and value.strip():
-        return value.strip()
-    return None
+    return normalize_subject_token(value)
+
+
+def screening_subject_codes(parsed: ParsedWorkbook) -> set[str]:
+    codes: set[str] = set()
+    for sheet in parsed.sheets:
+        if not any(item.item_id == "SUBJID" for item in sheet.items):
+            continue
+        for row in sheet.rows:
+            code = _subject_code(row.values.get("SUBJID"))
+            if code is not None:
+                codes.add(code)
+    return codes
+
+
+def resolve_r1_token(token: str | None, codes: set[str]) -> tuple[str, str | None]:
+    """앞열 토큰은 정규화한 뒤 스크리닝 SUBJID와 완전히 같을 때만 받는다.
+
+    대소문자만 다른 코드가 둘 이상이면 모호한 것으로 거절한다.
+    대소문자를 맞춰 고치지는 않는다.
+    """
+    if not token:
+        return "unresolved_blank_subject", None
+    folded = token.casefold()
+    hits = [code for code in codes if code.casefold() == folded]
+    if len(hits) > 1:
+        return "ambiguous_subject", None
+    if len(hits) == 1 and hits[0] == token:
+        return "matched", token
+    if hits:
+        return "unknown_subject", None
+    return "unknown_subject", None
 
 
 def _eye(token: str) -> str:
@@ -250,20 +278,45 @@ def _apply_row(
     sheet: ParsedSheet,
     row: ParsedRow,
     osdi_version_id: str | None,
-) -> str:
-    if sheet.alignment != "confirmed" or sheet.visit_code is None:
-        return "skipped_unmapped"
-    if "SUBJID" not in {item.item_id for item in sheet.items}:
-        return "skipped_unmapped"
-    subject_code = _subject_code(row.values.get("SUBJID"))
-    if subject_code is None:
-        return "missing_subject"
+    enable_r1: bool = False,
+    screening_codes: set[str] | None = None,
+) -> tuple[str, str | None]:
+    if sheet.alignment != "confirmed":
+        return "skipped_unmapped", None
+    has_subjid = any(item.item_id == "SUBJID" for item in sheet.items)
+    subject_code = _subject_code(row.values.get("SUBJID")) if has_subjid else None
+    if enable_r1 and has_subjid and subject_code is not None and row.leading_subject_token not in (None, subject_code):
+        return "identity_conflict", None
+    if subject_code is None and enable_r1:
+        decision, matched = resolve_r1_token(row.leading_subject_token, screening_codes or set())
+        if decision != "matched":
+            return decision, None
+        subject_code = matched
+    if sheet.form_class is not None:
+        if not enable_r1 or subject_code is None:
+            return "skipped_unmapped", None
+        for finding in evaluate_row(row.values):
+            session.add(ImportValidationFinding(
+                batch_id=batch_id,
+                study_id=study_id,
+                subject_code=subject_code,
+                visit_code=None,
+                item_id=finding["item_id"],
+                classification=finding["classification"],
+                rule_code=finding["rule_code"],
+                message_code=finding["message_code"],
+            ))
+        return "subject_level_staged", subject_code
+    if sheet.visit_code is None or subject_code is None:
+        if has_subjid and subject_code is None:
+            return "missing_subject", None
+        return "skipped_unmapped", None
     try:
         occurred = _parse_date(row.values.get("SVDAT"))
     except ClinicalRecordError:
-        return "unparsed_visit_date"
+        return "unparsed_visit_date", subject_code
     if occurred is None:
-        return "missing_visit_date"
+        return "missing_visit_date", subject_code
     subject = session.scalar(
         select(StudySubject).where(
             StudySubject.study_id == study_id,
@@ -280,7 +333,7 @@ def _apply_row(
             enrolled_on=occurred,
         )
     elif subject.site_id != site_id:
-        return "cross_site_subject"
+        return "cross_site_subject", subject_code
     visit = session.scalar(
         select(StudyVisit).where(
             StudyVisit.subject_id == subject.id,
@@ -434,7 +487,7 @@ def _apply_row(
             rule_code=finding["rule_code"],
             message_code=finding["message_code"],
         ))
-    return "staged"
+    return "staged", subject_code
 
 
 def confirm_import(
@@ -446,9 +499,12 @@ def confirm_import(
     filename: str,
     content: bytes,
     source_system: str = "external-edc",
+    enable_r1: bool = False,
 ) -> dict:
     _require_import_scope(session, study_id, site_id, actor_user_id)
     parsed = parse_workbook(content)
+    mapping_version = R1_MAPPING_VERSION if enable_r1 else MAPPING_VERSION
+    screening_codes = screening_subject_codes(parsed) if enable_r1 else set()
     existing = session.scalar(
         select(ImportSource).where(
             ImportSource.study_id == study_id,
@@ -458,7 +514,11 @@ def confirm_import(
     if existing is not None:
         batch = session.scalar(
             select(ImportBatch)
-            .where(ImportBatch.source_id == existing.id, ImportBatch.status == "confirmed")
+            .where(
+                ImportBatch.source_id == existing.id,
+                ImportBatch.status == "confirmed",
+                ImportBatch.mapping_version == mapping_version,
+            )
             .order_by(ImportBatch.created_at.desc())
         )
         if batch is not None:
@@ -487,7 +547,7 @@ def confirm_import(
             source_id=source.id,
             study_id=study_id,
             site_id=site_id,
-            mapping_version=MAPPING_VERSION,
+            mapping_version=mapping_version,
             adapter=ADAPTER_NAME,
             mode="confirm",
             status="confirmed",
@@ -501,7 +561,7 @@ def confirm_import(
         for sheet in parsed.sheets:
             for row in sheet.rows:
                 try:
-                    status = _apply_row(
+                    status, subject_code = _apply_row(
                         session,
                         study_id=study_id,
                         site_id=site_id,
@@ -510,6 +570,8 @@ def confirm_import(
                         sheet=sheet,
                         row=row,
                         osdi_version_id=osdi_version_id,
+                        enable_r1=enable_r1,
+                        screening_codes=screening_codes,
                     )
                 except ClinicalRecordError as exc:
                     status = "row_error"
@@ -518,7 +580,7 @@ def confirm_import(
                         sheet_name=row.sheet_name,
                         sheet_index=row.sheet_index,
                         source_row=row.source_row,
-                        subject_code=None,
+                        subject_code=None,  # row error never keeps a guessed subject
                         visit_code=row.visit_code,
                         status=status,
                         payload_json=json.dumps({"error": str(exc)}, ensure_ascii=False),
@@ -532,14 +594,18 @@ def confirm_import(
                     sheet_name=row.sheet_name,
                     sheet_index=row.sheet_index,
                     source_row=row.source_row,
-                    subject_code=row.values.get("SUBJID") if isinstance(row.values.get("SUBJID"), str) else None,
-                    visit_code=row.visit_code,
-                    status=status,
-                    payload_json=json.dumps(
-                        {key: value for key, value in row.values.items() if key != "SUBJID"},
-                        ensure_ascii=False,
-                        default=str,
-                    ),
+                        subject_code=subject_code,
+                        visit_code=row.visit_code,
+                        status=status,
+                        payload_json=json.dumps(
+                            {
+                                "form_class": sheet.form_class,
+                                "form_version": row.form_version,
+                                "values": {key: value for key, value in row.values.items() if key != "SUBJID"},
+                            },
+                            ensure_ascii=False,
+                            default=str,
+                        ),
                     sensitive_hashes_json=json.dumps(row.sensitive_hashes, sort_keys=True),
                     error_code=None if status == "staged" else status.upper(),
                 ))
@@ -547,6 +613,8 @@ def confirm_import(
             if sheet.alignment != "confirmed":
                 counts["unresolved_sheets"] = counts.get("unresolved_sheets", 0) + 1
         summary = _summary_from_workbook(parsed)
+        summary["mapping_version"] = mapping_version
+        summary["r1_enabled"] = enable_r1
         summary.update({
             "persisted": True,
             "idempotent_replay": False,
@@ -575,7 +643,7 @@ def confirm_import(
             action="import_confirm",
             target_type="import_batch",
             target_id=batch.id,
-            payload={"content_sha256": parsed.content_sha256, "mapping_version": MAPPING_VERSION},
+            payload={"content_sha256": parsed.content_sha256, "mapping_version": mapping_version},
         )
         session.flush()
     return summary
@@ -629,6 +697,97 @@ def aggregate_workbook(content: bytes) -> dict:
     })
     summary.pop("mapped_item_ids", None)
     return summary
+
+
+def r1_linkage_report(content: bytes) -> dict:
+    """R1을 켠 읽기 전용 집계다. 식별자와 측정값은 반환하지 않는다."""
+    parsed = parse_workbook(content)
+    codes = screening_subject_codes(parsed)
+    report = {
+        "mapping_version": R1_MAPPING_VERSION,
+        "r1_enabled": True,
+        "total_source_rows": parsed.data_row_count,
+        "screening_rows": 0,
+        "uniquely_resolved_subject_links": 0,
+        "visit_linked_rows": 0,
+        "r1_visit_linked_rows": 0,
+        "subject_level_staged_rows": 0,
+        "ambiguous_rows": 0,
+        "unresolved_rows": 0,
+        "rejected_rows": 0,
+        "unknown_rows": 0,
+        "identity_conflict_rows": 0,
+        "duplicate_rows": 0,
+        "visit_date_contradiction_rows": 0,
+        "subject_level_canonical_promoted": False,
+        "content_sha256": parsed.content_sha256,
+    }
+    seen_dates: dict[tuple[str, str], str] = {}
+    fingerprints: set[tuple] = set()
+    for sheet in parsed.sheets:
+        has_subjid = any(item.item_id == "SUBJID" for item in sheet.items)
+        for row in sheet.rows:
+            if has_subjid:
+                report["screening_rows"] += 1
+                code = _subject_code(row.values.get("SUBJID"))
+                token = row.leading_subject_token
+                if code is not None and token not in (None, code):
+                    report["identity_conflict_rows"] += 1
+                    report["rejected_rows"] += 1
+                    continue
+                if code is None:
+                    report["unresolved_rows"] += 1
+                    continue
+                report["uniquely_resolved_subject_links"] += 1
+                if sheet.visit_code is not None:
+                    report["visit_linked_rows"] += 1
+                continue
+            decision, matched = resolve_r1_token(row.leading_subject_token, codes)
+            if decision == "unresolved_blank_subject":
+                report["unresolved_rows"] += 1
+                continue
+            if decision == "ambiguous_subject":
+                report["ambiguous_rows"] += 1
+                report["rejected_rows"] += 1
+                continue
+            if decision != "matched" or matched is None:
+                report["unknown_rows"] += 1
+                report["rejected_rows"] += 1
+                continue
+            report["uniquely_resolved_subject_links"] += 1
+            if sheet.form_class is not None:
+                report["subject_level_staged_rows"] += 1
+                continue
+            if sheet.visit_code is None:
+                report["rejected_rows"] += 1
+                continue
+            try:
+                occurred = _parse_date(row.values.get("SVDAT"))
+            except ClinicalRecordError:
+                occurred = None
+            if occurred is None:
+                report["rejected_rows"] += 1
+                continue
+            key = (matched, sheet.visit_code)
+            iso = occurred.isoformat()
+            previous = seen_dates.get(key)
+            if previous is not None and previous != iso:
+                report["visit_date_contradiction_rows"] += 1
+            else:
+                seen_dates[key] = iso
+            fingerprint = (
+                matched,
+                sheet.visit_code,
+                sheet.name,
+                row.form_version,
+                tuple(sorted((item_id, str(value)) for item_id, value in row.values.items())),
+            )
+            if fingerprint in fingerprints:
+                report["duplicate_rows"] += 1
+            fingerprints.add(fingerprint)
+            report["visit_linked_rows"] += 1
+            report["r1_visit_linked_rows"] += 1
+    return report
 
 
 def case_study_counts(summary: dict) -> dict:

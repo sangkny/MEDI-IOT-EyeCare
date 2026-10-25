@@ -41,6 +41,12 @@ class ParsedRow:
     values: dict[str, str | float | None]
     sensitive_hashes: dict[str, str]
     blinded_item_ids: list[str] = field(default_factory=list)
+    leading_subject_token: str | None = None
+    form_version: str | None = None
+
+
+SUBJECT_LEVEL_DOMAINS = frozenset({"CM", "DE", "AE", "CT", "DS", "EX"})
+FORM_VERSION_RE = re.compile(r"_V(\d+(?:\.\d+)?)")
 
 
 @dataclass
@@ -52,6 +58,8 @@ class ParsedSheet:
     items: list[ItemSpec]
     rows: list[ParsedRow]
     mismatch_count: int = 0
+    form_class: str | None = None
+    form_version: str | None = None
 
 
 @dataclass
@@ -146,6 +154,37 @@ def _alignment_offset(headers: list[str], items: list[ItemSpec]) -> int | None:
     return best[1]
 
 
+def normalize_subject_token(value: object) -> str | None:
+    """스크리닝 SUBJID와 앞열 토큰에 같이 쓰는 정규화다.
+
+    앞뒤 공백을 제거하고, 정수로 떨어지는 수는 정수 문자열로 만든다.
+    대소문자나 중간 문자는 바꾸지 않는다.
+    """
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    if isinstance(value, int) and not isinstance(value, bool):
+        return str(value)
+    if isinstance(value, str) and value.strip():
+        return value.strip()
+    return None
+
+
+def _form_version(sheet_name: str) -> str | None:
+    match = FORM_VERSION_RE.search(sheet_name)
+    if match is None:
+        return None
+    return f"V{match.group(1)}"
+
+
+def _form_class(items: list[ItemSpec], visit_code: str | None) -> str | None:
+    if visit_code is not None:
+        return None
+    domains = {item.domain for item in items}
+    if len(domains) == 1 and domains <= SUBJECT_LEVEL_DOMAINS:
+        return next(iter(domains))
+    return None
+
+
 def _visit_code(sheet_name: str) -> str | None:
     match = VISIT_CODE_RE.search(sheet_name)
     if match is None:
@@ -176,6 +215,8 @@ def parse_workbook(content: bytes) -> ParsedWorkbook:
             headers = [_text(cell) for cell in data_rows[0]] if data_rows else []
             offset = _alignment_offset(headers, items)
             visit_code = _visit_code(data_name)
+            form_version = _form_version(data_name)
+            form_class = _form_class(items, visit_code)
             parsed_rows: list[ParsedRow] = []
             if offset is not None:
                 for row_number, row in enumerate(data_rows[1:], start=2):
@@ -195,10 +236,14 @@ def parse_workbook(content: bytes) -> ParsedWorkbook:
                             hashes[item.item_id] = _hash_value(cell)
                             continue
                         values[item.item_id] = _public_value(cell)
+                    leading_token = None
                     if offset == len(LEADING_HEADERS) and tuple(headers[:offset]) == LEADING_HEADERS:
                         for lead_index, lead_name in enumerate(LEADING_HEADERS):
+                            cell = row[lead_index] if lead_index < len(row) else None
                             if lead_name in {"병록번호", "이름"}:
-                                hashes[lead_name] = _hash_value(row[lead_index] if lead_index < len(row) else None)
+                                hashes[lead_name] = _hash_value(cell)
+                            if lead_name == "병록번호":
+                                leading_token = normalize_subject_token(cell)
                     parsed_rows.append(ParsedRow(
                         sheet_name=data_name,
                         sheet_index=index + 1,
@@ -207,6 +252,8 @@ def parse_workbook(content: bytes) -> ParsedWorkbook:
                         values=values,
                         sensitive_hashes=hashes,
                         blinded_item_ids=blinded_ids,
+                        leading_subject_token=leading_token,
+                        form_version=form_version,
                     ))
                 sheets.append(ParsedSheet(
                     name=data_name,
@@ -215,6 +262,8 @@ def parse_workbook(content: bytes) -> ParsedWorkbook:
                     visit_code=visit_code,
                     items=items,
                     rows=parsed_rows,
+                    form_class=form_class,
+                    form_version=form_version,
                 ))
             else:
                 sheets.append(ParsedSheet(
@@ -225,6 +274,8 @@ def parse_workbook(content: bytes) -> ParsedWorkbook:
                     items=items,
                     rows=[],
                     mismatch_count=-1,
+                    form_class=form_class,
+                    form_version=form_version,
                 ))
             index += 2
             continue

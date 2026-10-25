@@ -1045,6 +1045,7 @@ class ImportBody(BaseModel):
     filename: str = "upload.xlsx"
     content_base64: str
     source_system: str = "external-edc"
+    enable_r1: bool = False
 
 
 def _import_bytes(encoded: str) -> bytes:
@@ -1085,6 +1086,7 @@ async def post_import_confirmation(
         filename=body.filename,
         content=_import_bytes(body.content_base64),
         source_system=body.source_system,
+        enable_r1=body.enable_r1,
     )
 
 

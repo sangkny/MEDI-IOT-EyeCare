@@ -60,7 +60,7 @@ from models.clinical_support import (
 )
 from models.medical import Diagnosis, EyeExam, Patient
 from services.clinical_explore import list_study_visits, subject_visit_history
-from services.clinical_import import aggregate_workbook, confirm_import, preview_import
+from services.clinical_import import aggregate_workbook, confirm_import, preview_import, r1_linkage_report
 from services.clinical_import_parse import LEADING_HEADERS
 from services.clinical_records import ClinicalRecordError, add_site, add_site_member, create_study
 
@@ -432,6 +432,243 @@ def test_postgresql_import_migration_when_configured():
     finally:
         db.close()
         engine.dispose()
+
+
+def _pair(book, spec_title, data_title, items, body_rows):
+    spec = book.create_sheet(spec_title) if book.sheetnames else book.active
+    if spec.title != spec_title:
+        spec.title = spec_title
+    spec.append(["Domain", "Item ID", "Item Label", "Code", "Layout", "Type", "Required"])
+    for domain, item_id, label, type_name in items:
+        spec.append([domain, item_id, label, "", "", type_name, "FALSE"])
+    data = book.create_sheet(data_title)
+    data.append(list(LEADING_HEADERS) + [label for _domain, _item, label, _type in items])
+    for row in body_rows:
+        data.append(row)
+    return data
+
+
+def _bytes(book) -> bytes:
+    buffer = BytesIO()
+    book.save(buffer)
+    book.close()
+    return buffer.getvalue()
+
+
+def _r1_workbook() -> bytes:
+    book = Workbook()
+    _pair(
+        book,
+        "1. Specification",
+        "1. V1 (스크리닝)",
+        _items(),
+        [list(LEADING_HEADERS[:1]) + ["SYN-01", "Synthetic Name", "F", "40"] + _row()],
+    )
+    _pair(
+        book,
+        "2. Specification",
+        "2. V2 (방문)",
+        [("SV", "SVDAT", "방문일", "VARCHAR(10)"), ("TB", "TBODORS1", "오른쪽 1회", "TEXT")],
+        [["2026-04-01", "SYN-01", "Synthetic Name", "F", "40", "2026-04-02", 3]],
+    )
+    _pair(
+        book,
+        "3. Specification",
+        "3. V2 (방문)_V1.1",
+        [("SV", "SVDAT", "방문일", "VARCHAR(10)"), ("TB", "TBODORS1", "오른쪽 1회", "TEXT")],
+        [["2026-04-01", "SYN-01", "Synthetic Name", "F", "40", "2026-04-02", 9]],
+    )
+    _pair(
+        book,
+        "4. Specification",
+        "4. V3 (방문)",
+        [("SV", "SVDAT", "방문일", "VARCHAR(10)"), ("TB", "TBODORS1", "오른쪽 1회", "TEXT")],
+        [
+            ["2026-05-01", "SYN-01", "Synthetic Name", "F", "40", "2026-05-02", 4],
+            ["2026-05-01", "SYN-01", "Synthetic Name", "F", "40", "2026-06-02", 4],
+        ],
+    )
+    _pair(
+        book,
+        "5. Specification",
+        "5. 이상사례",
+        [("AE", "AETERM", "이상사례", "TEXT")],
+        [
+            ["2026-05-01", "SYN-01", "Synthetic Name", "F", "40", "cough"],
+            ["2026-05-02", "SYN-01", "Synthetic Name", "F", "40", "rash"],
+            ["", "", "", "", "", "blank-event"],
+            ["2026-05-03", "NO-SUCH", "Synthetic Name", "F", "40", "unknown-event"],
+        ],
+    )
+    _pair(
+        book,
+        "6. Specification",
+        "6. MEDI-EYE 치료_V1.1",
+        [("EX", "EXYN", "치료 여부", "TEXT"), ("EX", "EXARM", "무작위배정", "TEXT")],
+        [["2026-05-01", "SYN-01", "Synthetic Name", "F", "40", "Y", "ARM-SECRET"]],
+    )
+    return _bytes(book)
+
+
+def test_r1_links_visits_and_keeps_subject_level_forms_staged():
+    content = _r1_workbook()
+    report = r1_linkage_report(content)
+    assert report["mapping_version"] == "spec-paired-1+r1"
+    assert report["unknown_rows"] == 1
+    assert report["unresolved_rows"] == 1
+    assert report["visit_date_contradiction_rows"] == 1
+    assert report["ambiguous_rows"] == 0
+    assert report["subject_level_canonical_promoted"] is False
+    assert "ARM-SECRET" not in json.dumps(report)
+    assert "Synthetic Name" not in json.dumps(report)
+    db = _db()
+    try:
+        study, site = _scope(db)
+        disabled = confirm_import(
+            db, study_id=study.id, site_id=site.id, actor_user_id="doc",
+            filename="r1-off.xlsx", content=content, enable_r1=False,
+        )
+        db.commit()
+        assert disabled["mapping_version"] == "spec-paired-1"
+        assert disabled["row_status_counts"].get("subject_level_staged", 0) == 0
+        assert db.scalar(select(func.count()).select_from(StudyVisit)) == 1
+        enabled = confirm_import(
+            db, study_id=study.id, site_id=site.id, actor_user_id="doc",
+            filename="r1-on.xlsx", content=content, enable_r1=True,
+        )
+        db.commit()
+        assert enabled["idempotent_replay"] is False
+        assert enabled["mapping_version"] == "spec-paired-1+r1"
+        assert enabled["row_status_counts"]["subject_level_staged"] == 3
+        assert enabled["row_status_counts"]["unresolved_blank_subject"] == 1
+        assert enabled["row_status_counts"]["unknown_subject"] == 1
+        assert enabled["automatic_correction"] is False
+        visits = set(db.scalars(select(StudyVisit.visit_code)).all())
+        assert visits == {"V1", "V2", "V3"}
+        v2 = db.scalar(select(StudyVisit).where(StudyVisit.visit_code == "V2"))
+        kept = db.scalar(
+            select(ClinicalObservation).where(
+                ClinicalObservation.visit_id == v2.id,
+                ClinicalObservation.code == "TBUT",
+            )
+        )
+        assert float(kept.value_number) == 3
+        assert db.scalar(select(func.count()).select_from(ImportDiscrepancy)) == 1
+        assert db.scalar(select(ClinicalObservation).where(ClinicalObservation.code == "AETERM")) is None
+        staged = db.scalars(select(ImportStagingRow).where(ImportStagingRow.status == "subject_level_staged")).all()
+        assert {json.loads(row.payload_json)["form_class"] for row in staged} == {"AE", "EX"}
+        assert any(json.loads(row.payload_json)["form_version"] == "V1.1" for row in staged)
+        assert all("ARM-SECRET" not in row.payload_json for row in staged)
+        assert all(row.subject_code != "NO-SUCH" for row in staged)
+        blank = db.scalar(select(ImportStagingRow).where(ImportStagingRow.status == "unresolved_blank_subject"))
+        assert blank.subject_code is None
+        replay = confirm_import(
+            db, study_id=study.id, site_id=site.id, actor_user_id="doc",
+            filename="r1-on.xlsx", content=content, enable_r1=True,
+        )
+        assert replay["idempotent_replay"] is True
+        assert db.scalar(select(func.count()).select_from(StudyVisit)) == 3
+        other = add_site(db, study_id=study.id, site_code="S2", name="Other", actor_user_id="doc")
+        add_site_member(db, site_id=other.id, user_id="doc", role="investigator", actor_user_id="doc")
+        db.commit()
+        denied = confirm_import(
+            db, study_id=study.id, site_id=other.id, actor_user_id="doc",
+            filename="r1-other-site.xlsx", content=_book([_row(TBODORS1=8)]), enable_r1=True,
+        )
+        db.commit()
+        assert denied["row_status_counts"]["cross_site_subject"] == 1
+        assert db.scalar(select(func.count()).select_from(StudySubject)) == 1
+    finally:
+        db.close()
+        db.get_bind().dispose()
+
+
+def test_r1_rejects_ambiguous_token_and_does_not_correct_case():
+    book = Workbook()
+    _pair(
+        book,
+        "1. Specification",
+        "1. V1 (스크리닝)",
+        [("DM", "SUBJID", "스크리닝 번호", "TEXT"), ("SV", "SVDAT", "방문일", "VARCHAR(10)")],
+        [
+            ["2026-03-01", "Sub-1", "Synthetic Name", "F", "40", "Sub-1", "2026-03-02"],
+            ["2026-03-01", "SUB-1", "Synthetic Name", "F", "40", "SUB-1", "2026-03-03"],
+        ],
+    )
+    _pair(
+        book,
+        "2. Specification",
+        "2. V2 (방문)",
+        [("SV", "SVDAT", "방문일", "VARCHAR(10)")],
+        [["2026-04-01", "SUB-1", "Synthetic Name", "F", "40", "2026-04-02"]],
+    )
+    content = _bytes(book)
+    report = r1_linkage_report(content)
+    assert report["ambiguous_rows"] == 1
+    assert report["r1_visit_linked_rows"] == 0
+    db = _db()
+    try:
+        study, site = _scope(db)
+        summary = confirm_import(
+            db, study_id=study.id, site_id=site.id, actor_user_id="doc",
+            filename="ambiguous.xlsx", content=content, enable_r1=True,
+        )
+        db.commit()
+        assert summary["row_status_counts"]["ambiguous_subject"] == 1
+        assert db.scalar(select(StudyVisit).where(StudyVisit.visit_code == "V2")) is None
+        lower = Workbook()
+        _pair(
+            lower,
+            "1. Specification",
+            "1. V1 (스크리닝)",
+            [("DM", "SUBJID", "스크리닝 번호", "TEXT"), ("SV", "SVDAT", "방문일", "VARCHAR(10)")],
+            [["2026-03-01", "SYN-01", "Synthetic Name", "F", "40", "SYN-01", "2026-03-02"]],
+        )
+        _pair(
+            lower,
+            "2. Specification",
+            "2. V4 (방문)",
+            [("SV", "SVDAT", "방문일", "VARCHAR(10)")],
+            [["2026-04-01", "syn-01", "Synthetic Name", "F", "40", "2026-04-02"]],
+        )
+        lowered = _bytes(lower)
+        case_summary = confirm_import(
+            db, study_id=study.id, site_id=site.id, actor_user_id="doc",
+            filename="case.xlsx", content=lowered, enable_r1=True,
+        )
+        db.commit()
+        assert case_summary["row_status_counts"]["unknown_subject"] == 1
+        assert db.scalar(select(StudyVisit).where(StudyVisit.visit_code == "V4")) is None
+    finally:
+        db.close()
+        db.get_bind().dispose()
+
+
+def test_r1_failure_removes_partial_rows(monkeypatch):
+    content = _r1_workbook()
+    db = _db()
+    engine = None
+    try:
+        study, site = _scope(db)
+        engine = db.get_bind()
+
+        def _boom(*_args, **_kwargs):
+            raise RuntimeError("forced persistence failure")
+
+        monkeypatch.setattr("services.clinical_import.create_draft_observation", _boom)
+        with pytest.raises(RuntimeError):
+            confirm_import(
+                db, study_id=study.id, site_id=site.id, actor_user_id="doc",
+                filename="r1-boom.xlsx", content=content, enable_r1=True,
+            )
+        db.rollback()
+        assert db.scalar(select(func.count()).select_from(StudySubject)) == 0
+        assert db.scalar(select(func.count()).select_from(StudyVisit)) == 0
+        assert db.scalar(select(func.count()).select_from(ImportStagingRow)) == 0
+    finally:
+        db.close()
+        if engine is not None:
+            engine.dispose()
 
 
 def test_aggregate_summary_has_no_row_payload():
