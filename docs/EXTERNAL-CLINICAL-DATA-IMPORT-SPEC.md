@@ -4,6 +4,37 @@
 
 ## 진행 기록
 
+### 2026-10-25T12:07:03+09:00 — Phase 009 게시
+
+- TASK_ID: PC2-EYECARE-PHASE009-PUBLICATION-002
+- EXECUTION_HOST: SVG-SKLEE
+- BRANCH: feat/external-clinical-import-009
+- HEAD_BEFORE: 1a92a4fae86598c903f4434f2b6a87ed0118b1cd
+- CODE_COMMIT: f5ef3295662a23da99b42fc1aadcac5eec35c8fd
+- START_TIME_KST: 2026-10-25T12:07:03+09:00
+- END_TIME_KST: 2026-10-25T12:08:24+09:00
+- ELAPSED: PT1M21S
+- TEST_RESULTS: 합성 SQLite 11 passed, 1 skipped, exit 0. PostgreSQL은 이번 게시에서 다시 실행하지 않음
+- R1_DEFAULT: false
+- NEXT_APPROVAL: Phase 010은 BLOCKED
+
+### 2026-10-25T10:38:00+09:00 — R1 연결 규칙
+
+- TASK_ID: PC2-EYECARE-PHASE009-LINKAGE-FIX-002
+- EXECUTION_HOST: SVG-SKLEE
+- BRANCH: feat/external-clinical-import-009
+- HEAD: 1a92a4fae86598c903f4434f2b6a87ed0118b1cd
+- START_TIME_KST: 2026-10-25T10:38:00+09:00
+- END_TIME_KST: 2026-10-25T10:50:16+09:00
+- ELAPSED: PT12M16S
+- MAPPING: `specification_paired`의 선택 버전 `spec-paired-1+r1`
+- STATUS: IMPLEMENTED, VERIFIED_IN_ISOLATION, REQUIRES_CLINICAL_CONFIRMATION
+- TEST_RESULTS: 합성 SQLite 11 passed, 1 skipped, exit 0. 일회용 PostgreSQL 15 합성 1 passed, exit 0. 원본 집계는 검증 보고에만 적음
+- REMAINING_ISSUES: 대상자 단위 양식의 정규 모델, 안정 원본 키, 연구·사이트 귀속, 단위, OSDI 코드표
+- NEXT_APPROVAL: 커밋과 운영 반입은 이 작업에 포함되지 않음. Phase 010은 BLOCKED
+
+R1은 앞열 토큰을 `normalize_subject_token`으로 바꾼 뒤 스크리닝 `SUBJID` 집합과 완전 일치할 때만 받는다. 이름, 병록번호 자체의 추론, 배정 번호는 키로 쓰지 않는다. 원본 앞열은 해시로만 스테이징에 남고 관찰 값에는 넣지 않는다. 방문은 시트 제목의 `V숫자 (`, 그 행의 `SVDAT`, 호출자가 준 연구·사이트, 시트 이름과 양식 버전으로 구분한다. 양식 버전 `_V1.1`은 Visit가 아니다. CM, DE, AE, CT, DS, EX는 `subject_level_staged`이며 `ClinicalObservation`이나 `StudyVisit`로 만들지 않는다.
+
 ### 2026-10-25T09:32:46+09:00 — Phase 009 게시
 
 - TASK_ID: PC2-EYECARE-PHASE009-PUBLICATION-001

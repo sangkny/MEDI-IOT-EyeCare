@@ -8,6 +8,30 @@
 
 ## 진행 기록
 
+### 2026-10-25T12:07:03+09:00 — Phase 009 게시
+
+- TASK_ID: PC2-EYECARE-PHASE009-PUBLICATION-002
+- EXECUTION_HOST: SVG-SKLEE
+- BRANCH: feat/external-clinical-import-009
+- HEAD_BEFORE: 1a92a4fae86598c903f4434f2b6a87ed0118b1cd
+- CODE_COMMIT: f5ef3295662a23da99b42fc1aadcac5eec35c8fd
+- START_TIME_KST: 2026-10-25T12:07:03+09:00
+- END_TIME_KST: 2026-10-25T12:08:24+09:00
+- ELAPSED: PT1M21S
+- NEXT_APPROVAL: PC1 통합 브랜치와 Draft PR은 변경하지 않음. Phase 010은 시작하지 않음
+
+### 2026-10-25T10:38:00+09:00 — Phase 009 R1 연결
+
+- TASK_ID: PC2-EYECARE-PHASE009-LINKAGE-FIX-002
+- EXECUTION_HOST: SVG-SKLEE
+- BRANCH: feat/external-clinical-import-009
+- HEAD: 1a92a4fae86598c903f4434f2b6a87ed0118b1cd
+- START_TIME_KST: 2026-10-25T10:38:00+09:00
+- END_TIME_KST: 2026-10-25T10:50:16+09:00
+- ELAPSED: PT12M16S
+- STATUS: VERIFIED_IN_ISOLATION, REQUIRES_CLINICAL_CONFIRMATION
+- NEXT_APPROVAL: PC1 저장소와 통합 브랜치는 수정하지 않음. 커밋과 푸시 없음
+
 ### 2026-10-25T09:32:46+09:00 — Phase 009 게시
 
 - TASK_ID: PC2-EYECARE-PHASE009-PUBLICATION-001
@@ -557,4 +581,4 @@ PC2는 `feat/clinical-data-lock-008`의 `79848a924515ee72e8ed3f95af444a6aab60f75
 
 가져오기 핵심은 명세 시트와 데이터 시트 라벨이 일치할 때만 매핑한다. 제품별 시트 이름을 서비스에 고정하지 않는다. 확인은 초안만 만들고 잠그거나 확정하지 않는다. 같은 SHA-256은 다시 쓰지 않고, 값이 다른 개정은 불일치로 남긴다. 무작위 배정 값은 저장하지 않는다.
 
-대상자·Visit 조회는 인증된 읽기 서비스만 있다. 대화형 대시보드와 AI 학습은 시작하지 않았다.
+R1은 기본으로 꺼져 있다. 켠 경우에도 연구·사이트 멤버십을 통과한 호출만 확정할 수 있고, 다른 사이트의 기존 대상자는 `cross_site_subject`로 거절한다. 대상자 단위 양식은 정규 Visit를 만들지 않는다. 대상자·Visit 조회는 인증된 읽기 서비스만 있다. 대화형 대시보드와 AI 학습은 시작하지 않았다.

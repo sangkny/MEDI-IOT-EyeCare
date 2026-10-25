@@ -7,6 +7,32 @@
 
 ## 진행 기록
 
+### 2026-10-25T12:07:03+09:00 — Phase 009 게시
+
+- TASK_ID: PC2-EYECARE-PHASE009-PUBLICATION-002
+- EXECUTION_HOST: SVG-SKLEE
+- BRANCH: feat/external-clinical-import-009
+- HEAD_BEFORE: 1a92a4fae86598c903f4434f2b6a87ed0118b1cd
+- CODE_COMMIT: f5ef3295662a23da99b42fc1aadcac5eec35c8fd
+- START_TIME_KST: 2026-10-25T12:07:03+09:00
+- END_TIME_KST: 2026-10-25T12:08:24+09:00
+- ELAPSED: PT1M21S
+- TEST_RESULTS: 합성 SQLite 11 passed, 1 skipped, exit 0
+- NEXT_APPROVAL: origin 기능 브랜치만 푸시. Phase 010은 시작하지 않음
+
+### 2026-10-25T10:38:00+09:00 — Phase 009 R1 연결
+
+- TASK_ID: PC2-EYECARE-PHASE009-LINKAGE-FIX-002
+- EXECUTION_HOST: SVG-SKLEE
+- BRANCH: feat/external-clinical-import-009
+- HEAD: 1a92a4fae86598c903f4434f2b6a87ed0118b1cd
+- START_TIME_KST: 2026-10-25T10:38:00+09:00
+- END_TIME_KST: 2026-10-25T10:50:16+09:00
+- ELAPSED: PT12M16S
+- STATUS: IMPLEMENTED, VERIFIED_IN_ISOLATION, REQUIRES_CLINICAL_CONFIRMATION
+- TEST_RESULTS: 합성 SQLite 11 passed, 1 skipped, exit 0. 일회용 PostgreSQL 합성 1 passed. 원본 격리 집계는 검증 보고
+- NEXT_APPROVAL: 커밋은 별도 승인. Phase 010은 BLOCKED
+
 ### 2026-10-25T09:32:46+09:00 — Phase 009 게시
 
 - TASK_ID: PC2-EYECARE-PHASE009-PUBLICATION-001
@@ -459,4 +485,4 @@ AI 보조 임상 수치 검증.
 
 `feat/external-clinical-import-009`에 명세 짝 가져오기, 출처 해시, 미리보기, 멱등 재가져오기, 개정 불일치, 초안 관찰과 OSDI 초안 응답, 대상자·Visit 조회 기초가 있다. Alembic 개정은 `medi010_external_clinical_import`이며 개발 단계 010이 아니다.
 
-`EYECARE-CLINICAL-IMPORT-001`의 파이프라인과 스크리닝 시트 매핑은 이 브랜치에서 구현했다. 전체 탐색 화면과 `EYECARE-CLINICAL-AI-QC-001`의 모델 학습은 아직 없다. V2 이후 대상자 키와 연구 코드 귀속은 데이터 사전에서 UNRESOLVED다.
+`EYECARE-CLINICAL-IMPORT-001`의 파이프라인과 스크리닝 시트 매핑은 이 브랜치에서 구현했다. R1은 선택 매핑 `spec-paired-1+r1`로 추가됐다. 격리 검증에서 V2–V6 원본 296행은 방문일 모순 없이 연결됐고, CM·DE·AE·CT·DS·EX 366행은 스테이징에만 남았으며 빈 토큰 34행은 미해결이다. 이 규칙은 임상 식별자 승인이 아니다. 전체 탐색 화면과 `EYECARE-CLINICAL-AI-QC-001`의 모델 학습은 아직 없다. 연구 코드 귀속은 UNRESOLVED다.
