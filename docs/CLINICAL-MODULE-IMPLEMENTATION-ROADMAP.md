@@ -7,6 +7,43 @@
 
 ## 진행 기록
 
+### 2026-10-25T09:32:46+09:00 — Phase 009 게시
+
+- TASK_ID: PC2-EYECARE-PHASE009-PUBLICATION-001
+- EXECUTION_HOST: SVG-SKLEE
+- PC_ROLE: PC2
+- REPOSITORY: MEDI-IOT-EyeCare
+- BRANCH: feat/external-clinical-import-009
+- BASELINE_HEAD: 79848a924515ee72e8ed3f95af444a6aab60f750
+- HEAD_BEFORE: 79848a924515ee72e8ed3f95af444a6aab60f750
+- HEAD_AFTER: 이 게시 커밋
+- START_TIME_KST: 2026-10-25T09:31:42+09:00
+- END_TIME_KST: 2026-10-25T09:32:46+09:00
+- ELAPSED: PT1M4S
+- COMMIT: `feat: implement external clinical data import foundation`
+- PUSH: origin `feat/external-clinical-import-009`만
+- TEST_RESULTS: 이번 합성 SQLite 8 passed, 1 skipped, exit 0. 이번 일회용 PostgreSQL 15 합성 1 passed, exit 0 후 삭제
+- REMAINING_ISSUES: A–E 미해결 매핑. 696행은 미반입. Phase 010 미착수. PC1 통합 PR 없음
+- NEXT_APPROVAL: PC1에서 별도 통합
+
+### 2026-10-25T01:01:03+09:00 — Phase 009 외부 가져오기
+
+- TASK_ID: PC2-EYECARE-CLINICAL-IMPORT-009
+- EXECUTION_HOST: SVG-SKLEE
+- PC_ROLE: PC2
+- REPOSITORY: MEDI-IOT-EyeCare
+- BRANCH: feat/external-clinical-import-009
+- BASELINE_HEAD: 79848a924515ee72e8ed3f95af444a6aab60f750
+- HEAD_BEFORE: 79848a924515ee72e8ed3f95af444a6aab60f750
+- HEAD_AFTER: 79848a924515ee72e8ed3f95af444a6aab60f750
+- START_TIME_KST: 2026-10-25T00:45:00+09:00
+- END_TIME_KST: 2026-10-25T01:01:03+09:00
+- ELAPSED: PT16M3S
+- FILES_CHANGED: 가져오기 파서와 서비스, 탐색 기초, `medi010_external_clinical_import`, 합성 테스트, 임상 문서. 원본 Excel은 Git에 없음
+- TEST_RESULTS: 합성 SQLite 8 passed, 1 skipped, exit 0. 일회용 PostgreSQL 15 합성 1 passed, exit 0 후 삭제
+- REMAINING_ISSUES: 전체 탐색 화면과 AI 모델 학습은 하지 않음. 커밋과 push 없음
+- NEXT_APPROVAL: Phase 009 검토 후 커밋. Phase 010 착수 금지
+
 ### 2026-10-24T17:28:14+09:00 — Phase 008 명세 게시
 
 - TASK_ID: PC2-EYECARE-PHASE008-PUBLICATION-001
@@ -417,3 +454,9 @@ AI 보조 임상 수치 검증.
 후보 순서는 합성 파일 계약, 그다음 스폰서 승인 후의 MEDI-DES-001 사례다. Phase 008에서 운영 파일을 가져오지 않는다.
 
 이 세 기능은 이후 Phase 009 요구로만 기록한다. Phase 008 구현과 검증은 이들을 포함하지 않으며, 이들의 착수 승인을 기다리지 않는다. `medi009_clinical_data_lock`이라는 Alembic 식별자는 그 이후 단계와 무관하다.
+
+## 14. Phase 009 상태
+
+`feat/external-clinical-import-009`에 명세 짝 가져오기, 출처 해시, 미리보기, 멱등 재가져오기, 개정 불일치, 초안 관찰과 OSDI 초안 응답, 대상자·Visit 조회 기초가 있다. Alembic 개정은 `medi010_external_clinical_import`이며 개발 단계 010이 아니다.
+
+`EYECARE-CLINICAL-IMPORT-001`의 파이프라인과 스크리닝 시트 매핑은 이 브랜치에서 구현했다. 전체 탐색 화면과 `EYECARE-CLINICAL-AI-QC-001`의 모델 학습은 아직 없다. V2 이후 대상자 키와 연구 코드 귀속은 데이터 사전에서 UNRESOLVED다.

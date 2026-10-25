@@ -6,6 +6,32 @@
 
 ## 진행 기록
 
+### 2026-10-25T09:32:46+09:00 — Phase 009 게시
+
+- TASK_ID: PC2-EYECARE-PHASE009-PUBLICATION-001
+- EXECUTION_HOST: SVG-SKLEE
+- BRANCH: feat/external-clinical-import-009
+- HEAD_BEFORE: 79848a924515ee72e8ed3f95af444a6aab60f750
+- HEAD_AFTER: 이 게시 커밋
+- START_TIME_KST: 2026-10-25T09:31:42+09:00
+- END_TIME_KST: 2026-10-25T09:32:46+09:00
+- ELAPSED: PT1M4S
+- REMAINING_ISSUES: 코드표와 단위가 없는 값은 오류로 단정하지 않음. Phase 010 미착수
+
+### 2026-10-25T01:01:03+09:00 — 가져오기 값 분류
+
+- TASK_ID: PC2-EYECARE-CLINICAL-IMPORT-009
+- EXECUTION_HOST: SVG-SKLEE
+- BRANCH: feat/external-clinical-import-009
+- HEAD_BEFORE: 79848a924515ee72e8ed3f95af444a6aab60f750
+- START_TIME_KST: 2026-10-25T00:45:00+09:00
+- END_TIME_KST: 2026-10-25T01:01:03+09:00
+- ELAPSED: PT16M3S
+- TEST_RESULTS: 합성 분류 테스트가 SQLite 가져오기 스위트에 포함. exit 0
+- REMAINING_ISSUES: 분류는 `import_validation_findings`에만 남고 관찰을 고치지 않음. 질의는 자동으로 열지 않음. AI 학습 없음
+
+가져오기 점검 분류는 `INVALID_BY_RULE`, `SUSPECTED_ENTRY_ERROR`, `STATISTICAL_OUTLIER`, `NEEDS_HUMAN_REVIEW`다. 통계적 이상만으로 입력 오류라고 하지 않는다. 빈 칸은 0이 아니다. 음수 측정만 구조적 불가로 본다. 코드표가 없는 텍스트는 `NEEDS_HUMAN_REVIEW`다. 이후 `EYECARE-CLINICAL-AI-QC-001`은 이 분류와 사람 검토를 입력으로 쓸 수 있으나, 원본 관찰을 덮어쓰지 않는다.
+
 ### 2026-10-24T16:45:06+09:00 — Phase 008 게시
 
 - TASK_ID: PC2-EYECARE-PHASE008-PUBLISH-001

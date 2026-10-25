@@ -1,8 +1,42 @@
 # 외부 임상 데이터 가져오기 명세
 
-요구 ID는 `EYECARE-CLINICAL-IMPORT-001`이다. 이 문서는 이후 Phase 009 요구의 계약이다. Phase 008에서는 코드를 추가하지 않았고, 운영 파일을 가져오지 않았다. Alembic 개정 `medi009_clinical_data_lock`은 Phase 008 데이터베이스 순서이며 이 가져오기 기능이 아니다.
+요구 ID는 `EYECARE-CLINICAL-IMPORT-001`이다. Phase 008에서는 코드를 추가하지 않았다. Phase 009 브랜치 `feat/external-clinical-import-009`에서 명세 짝 파이프라인을 구현했다. Alembic 개정 `medi009_clinical_data_lock`은 Phase 008 스키마이고, `medi010_external_clinical_import`는 가져오기 스테이징이다. 둘 다 개발 단계 번호가 아니다.
 
 ## 진행 기록
+
+### 2026-10-25T09:32:46+09:00 — Phase 009 게시
+
+- TASK_ID: PC2-EYECARE-PHASE009-PUBLICATION-001
+- EXECUTION_HOST: SVG-SKLEE
+- PC_ROLE: PC2
+- BRANCH: feat/external-clinical-import-009
+- HEAD_BEFORE: 79848a924515ee72e8ed3f95af444a6aab60f750
+- HEAD_AFTER: 이 게시 커밋
+- START_TIME_KST: 2026-10-25T09:31:42+09:00
+- END_TIME_KST: 2026-10-25T09:32:46+09:00
+- ELAPSED: PT1M4S
+- COMMIT: `feat: implement external clinical data import foundation`
+- PUSH: origin `feat/external-clinical-import-009`만
+- REMAINING_ISSUES: A 696행은 미반입. B 연구·사이트, C 단위, D OSDI 코드표, E MEDI-DES-001 귀속은 미해결
+
+### 2026-10-25T01:01:03+09:00 — Phase 009 가져오기 구현
+
+- TASK_ID: PC2-EYECARE-CLINICAL-IMPORT-009
+- EXECUTION_HOST: SVG-SKLEE
+- PC_ROLE: PC2
+- REPOSITORY: MEDI-IOT-EyeCare
+- BRANCH: feat/external-clinical-import-009
+- HEAD_BEFORE: 79848a924515ee72e8ed3f95af444a6aab60f750
+- HEAD_AFTER: 79848a924515ee72e8ed3f95af444a6aab60f750
+- START_TIME_KST: 2026-10-25T00:45:00+09:00
+- END_TIME_KST: 2026-10-25T01:01:03+09:00
+- ELAPSED: PT16M3S
+- ADAPTER: `specification_paired` `spec-paired-1`. 특정 시트 이름을 고정하지 않음
+- MIGRATION: `medi010_external_clinical_import`. Alembic 개정명이며 개발 단계 010이 아님
+- TEST_RESULTS: 합성 SQLite 8 passed, PostgreSQL 전용 1 skipped, exit 0. 일회용 PostgreSQL 15에서 같은 합성 테스트 1 passed 후 컨테이너 삭제
+- CASE_STUDY: 로컬 일회용 DB에만 반영하고 집계만 기록. 원본 워크북은 수정하지 않음. 컨테이너 삭제
+- REMAINING_ISSUES: 파일 안에 연구 코드와 사이트 코드가 없음. V2 이후 시트에 SUBJID가 없어 방문 연결은 UNRESOLVED. 커밋과 push 없음
+- NEXT_APPROVAL: 결과 검토 후 커밋. Phase 010은 시작하지 않음
 
 ### 2026-10-24T17:28:14+09:00 — 가져오기 명세 게시
 

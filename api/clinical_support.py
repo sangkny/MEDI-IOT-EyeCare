@@ -1,6 +1,7 @@
 """인증된 임상 지원 API. 레거시 무인증 환자 라우트와 분리한다."""
 from __future__ import annotations
 
+import base64
 from datetime import date
 
 from auth.policy import policy_require
@@ -15,6 +16,8 @@ from schemas.clinical_support import (
     SubjectRecord,
     VisitRecord,
 )
+from services.clinical_explore import list_study_visits, subject_visit_history
+from services.clinical_import import confirm_import, preview_import
 from services.clinical_lock import (
     apply_lock,
     approve_unlock,
@@ -1034,6 +1037,95 @@ async def post_monitoring(
             for row in rows
         ]
     }
+
+
+class ImportBody(BaseModel):
+    study_id: str
+    site_id: str
+    filename: str = "upload.xlsx"
+    content_base64: str
+    source_system: str = "external-edc"
+
+
+def _import_bytes(encoded: str) -> bytes:
+    try:
+        return base64.b64decode(encoded, validate=True)
+    except Exception as exc:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="파일을 읽을 수 없습니다.") from exc
+
+
+@router.post("/imports/previews")
+async def post_import_preview(
+    body: ImportBody,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(policy_require("medi-iot", "clinical_observation_read")),
+) -> dict:
+    return await _call(
+        db,
+        preview_import,
+        study_id=body.study_id,
+        site_id=body.site_id,
+        actor_user_id=_uid(user),
+        content=_import_bytes(body.content_base64),
+    )
+
+
+@router.post("/imports/confirmations", status_code=status.HTTP_201_CREATED)
+async def post_import_confirmation(
+    body: ImportBody,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(policy_require("medi-iot", "clinical_observation_create")),
+) -> dict:
+    return await _call(
+        db,
+        confirm_import,
+        study_id=body.study_id,
+        site_id=body.site_id,
+        actor_user_id=_uid(user),
+        filename=body.filename,
+        content=_import_bytes(body.content_base64),
+        source_system=body.source_system,
+    )
+
+
+@router.get("/subjects/{subject_id}/visit-history")
+async def get_subject_visit_history(
+    subject_id: str,
+    occurred_from: date | None = None,
+    occurred_to: date | None = None,
+    site_id: str | None = None,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(policy_require("medi-iot", "clinical_subject_read")),
+) -> dict:
+    return await _call(
+        db,
+        subject_visit_history,
+        subject_id=subject_id,
+        actor_user_id=_uid(user),
+        occurred_from=occurred_from,
+        occurred_to=occurred_to,
+        site_id=site_id,
+    )
+
+
+@router.get("/studies/{study_id}/visit-index")
+async def get_visit_index(
+    study_id: str,
+    site_id: str | None = None,
+    occurred_from: date | None = None,
+    occurred_to: date | None = None,
+    db: AsyncSession = Depends(get_db),
+    user: dict = Depends(policy_require("medi-iot", "clinical_visit_read")),
+) -> list[dict]:
+    return await _call(
+        db,
+        list_study_visits,
+        study_id=study_id,
+        actor_user_id=_uid(user),
+        site_id=site_id,
+        occurred_from=occurred_from,
+        occurred_to=occurred_to,
+    )
 
 
 @router.get("/studies/{study_id}/monitoring-indicators")

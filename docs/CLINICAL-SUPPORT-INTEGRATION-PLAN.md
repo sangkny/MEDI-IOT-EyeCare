@@ -8,6 +8,39 @@
 
 ## 진행 기록
 
+### 2026-10-25T09:32:46+09:00 — Phase 009 게시
+
+- TASK_ID: PC2-EYECARE-PHASE009-PUBLICATION-001
+- EXECUTION_HOST: SVG-SKLEE
+- PC_ROLE: PC2
+- REPOSITORY: MEDI-IOT-EyeCare
+- BRANCH: feat/external-clinical-import-009
+- HEAD_BEFORE: 79848a924515ee72e8ed3f95af444a6aab60f750
+- HEAD_AFTER: 이 게시 커밋
+- START_TIME_KST: 2026-10-25T09:31:42+09:00
+- END_TIME_KST: 2026-10-25T09:32:46+09:00
+- ELAPSED: PT1M4S
+- PUSH: origin `feat/external-clinical-import-009`만. PC1 통합 브랜치와 main은 변경하지 않음
+- REMAINING_ISSUES: 실데이터 재실행은 하지 않음. A–E는 미해결 매핑 의존성
+- NEXT_APPROVAL: Phase 010 착수 금지
+
+### 2026-10-25T01:01:03+09:00 — Phase 009 로컬 가져오기
+
+- TASK_ID: PC2-EYECARE-CLINICAL-IMPORT-009
+- EXECUTION_HOST: SVG-SKLEE
+- PC_ROLE: PC2
+- REPOSITORY: MEDI-IOT-EyeCare
+- BRANCH: feat/external-clinical-import-009
+- HEAD_BEFORE: 79848a924515ee72e8ed3f95af444a6aab60f750
+- HEAD_AFTER: 79848a924515ee72e8ed3f95af444a6aab60f750
+- START_TIME_KST: 2026-10-25T00:45:00+09:00
+- END_TIME_KST: 2026-10-25T01:01:03+09:00
+- ELAPSED: PT16M3S
+- FILES_CHANGED: EYECARE 가져오기 경로. DeeVo, PC1, 부모 서브모듈은 수정하지 않음
+- TEST_RESULTS: 합성 SQLite exit 0. 일회용 PostgreSQL 15에서 `medi010_external_clinical_import`까지 upgrade 후 합성 1 passed. 실데이터 반영 DB는 삭제
+- REMAINING_ISSUES: 워크북에 MEDI-DES-001 문자열이 없어 연구 귀속은 호출자가 지정. 커밋 없음
+- NEXT_APPROVAL: 검토 후 커밋
+
 ### 2026-10-24T17:28:14+09:00 — Phase 008 명세 게시
 
 - TASK_ID: PC2-EYECARE-PHASE008-PUBLICATION-001
@@ -517,3 +550,11 @@ shared-libraries 변경은 `main`이 아닌 `feat/clinical-data-lock-008`의 `8a
 Alembic 개정 `medi009_clinical_data_lock`은 Phase 008 스키마 순서다. 개발 단계 Phase 009가 아니다.
 
 이후 요구 `EYECARE-CLINICAL-UX-001`, `EYECARE-CLINICAL-AI-QC-001`, `EYECARE-CLINICAL-IMPORT-001`은 로드맵 13절과 `EXTERNAL-CLINICAL-DATA-IMPORT-SPEC.md`에 범위, 의존성, 수용 기준으로 적혀 있다. 외부 DeeVo Excel 가져오기, MEDI-DES-001 사례, 대상자·Visit 탐색, AI 보조 검증은 이후 Phase 009 요구로만 둔다. Phase 008은 그 구현 없이 검증을 마친다.
+
+## 19. Phase 009 가져오기
+
+PC2는 `feat/clinical-data-lock-008`의 `79848a924515ee72e8ed3f95af444a6aab60f750`에서 `feat/external-clinical-import-009`를 만들었다. DeeVo에는 접속하지 않았다. 원본 반출은 `data/`에 있고 Git 무시 규칙 `data/`에 걸린다.
+
+가져오기 핵심은 명세 시트와 데이터 시트 라벨이 일치할 때만 매핑한다. 제품별 시트 이름을 서비스에 고정하지 않는다. 확인은 초안만 만들고 잠그거나 확정하지 않는다. 같은 SHA-256은 다시 쓰지 않고, 값이 다른 개정은 불일치로 남긴다. 무작위 배정 값은 저장하지 않는다.
+
+대상자·Visit 조회는 인증된 읽기 서비스만 있다. 대화형 대시보드와 AI 학습은 시작하지 않았다.
