@@ -5,3 +5,4 @@
 ## 장
 
 - [09 계획서 1.10 통합](09-external-clinical-import.md)
+- [10 증례 대시보드](10-clinical-case-dashboard.md)

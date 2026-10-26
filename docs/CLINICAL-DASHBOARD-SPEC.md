@@ -4,6 +4,25 @@
 
 ## 진행 기록
 
+### 2026-10-27T08:43:58+09:00 — PC1 게시
+
+- TASK_ID: PC1-EYECARE-PHASE010-SECURITY-FIX-AND-PUBLISH-003
+- EXECUTION_HOST: MEDIIOT-SKLEE (PC1)
+- START_TIME_KST: 2026-10-27T08:33:44+09:00
+- END_TIME_KST: 2026-10-27T08:43:58+09:00
+- SECURITY_COMMIT: 3693f5258b907d9656906d808d710efd20d9c7b6
+- PR_URL: https://github.com/sangkny/MEDI-IOT-EyeCare/pull/5
+- 화면은 요청 세대를 올려 늦은 응답이 이전 대상자 값을 다시 그리지 못하게 한다. 서버 권한 검사는 유지한다
+
+### 2026-10-27T08:15:03+09:00 — PC1 통합 검증
+
+- TASK_ID: PC1-EYECARE-PHASE010-INTEGRATION-001
+- EXECUTION_HOST: MEDIIOT-SKLEE (PC1)
+- START_TIME_KST: 2026-10-27T08:08:51+09:00
+- END_TIME_KST: 2026-10-27T08:15:03+09:00
+- 이 호스트의 기존 가상환경 해석값은 pydantic 2.14.1, google-genai 2.32.0, anthropic 2.1.0이다. 선언된 google-genai 상한 `<2.9.0`과 pydantic `2.10.3`과는 다르다. 패키지를 낮추지 않았다
+- 품질과 질의는 상태별 건수다. 선택 대상자의 출처는 관찰의 source, unit, record_status다. 감사 사건 목록은 응답에 없다
+
 ### 2026-10-27T00:16:54+09:00 — 게시
 
 - TASK_ID: PC2-EYECARE-DASHBOARD-010-PUBLICATION-005
