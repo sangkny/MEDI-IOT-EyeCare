@@ -615,6 +615,7 @@ def create_draft_observation(
     value_number: float | None = None,
     value_text: str | None = None,
     unit: str | None = None,
+    source: str = "manual",
 ) -> ClinicalObservation:
     visit = session.get(StudyVisit, visit_id)
     if visit is None:
@@ -647,7 +648,7 @@ def create_draft_observation(
         value_number=value_number,
         value_text=value_text,
         unit=unit,
-        source="manual",
+        source=source,
         record_status="draft",
         recorded_by=recorded_by,
         recorded_at=datetime.now(timezone.utc),

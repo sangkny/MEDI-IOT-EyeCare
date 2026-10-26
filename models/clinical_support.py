@@ -747,3 +747,144 @@ class MonitoringIndicator(Base):
     computed_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False,
     )
+
+
+class ImportSource(Base):
+    """외부 반출 파일 등록. 원본 바이트는 저장소에 올리지 않고 해시만 남긴다."""
+
+    __tablename__ = "import_sources"
+    __table_args__ = (
+        UniqueConstraint("study_id", "content_sha256", name="uq_import_sources_sha"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    study_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("clinical_studies.id", ondelete="RESTRICT"),
+        nullable=False, index=True,
+    )
+    source_system: Mapped[str] = mapped_column(String(64), nullable=False)
+    original_filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    content_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    byte_size: Mapped[int] = mapped_column(Integer, nullable=False)
+    actor_user_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+
+
+class ImportBatch(Base):
+    __tablename__ = "import_batches"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    source_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("import_sources.id", ondelete="RESTRICT"),
+        nullable=False, index=True,
+    )
+    study_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("clinical_studies.id", ondelete="RESTRICT"),
+        nullable=False, index=True,
+    )
+    site_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("study_sites.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    mapping_version: Mapped[str] = mapped_column(String(64), nullable=False)
+    adapter: Mapped[str] = mapped_column(String(64), nullable=False)
+    mode: Mapped[str] = mapped_column(String(16), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False)
+    actor_user_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    summary_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+
+
+class ImportStagingRow(Base):
+    __tablename__ = "import_staging_rows"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    batch_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("import_batches.id", ondelete="RESTRICT"),
+        nullable=False, index=True,
+    )
+    sheet_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    sheet_index: Mapped[int] = mapped_column(Integer, nullable=False)
+    source_row: Mapped[int] = mapped_column(Integer, nullable=False)
+    subject_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    visit_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False)
+    payload_json: Mapped[str] = mapped_column(Text, nullable=False)
+    sensitive_hashes_json: Mapped[str] = mapped_column(Text, nullable=False, default="{}")
+    error_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+
+class ImportLink(Base):
+    """같은 연구 안의 안정 키. 재가져오기가 관찰을 복제하지 않게 한다."""
+
+    __tablename__ = "import_links"
+    __table_args__ = (
+        UniqueConstraint("study_id", "natural_key", name="uq_import_links_natural"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    study_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("clinical_studies.id", ondelete="RESTRICT"),
+        nullable=False, index=True,
+    )
+    natural_key: Mapped[str] = mapped_column(String(200), nullable=False)
+    value_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    target_type: Mapped[str] = mapped_column(String(32), nullable=False)
+    target_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    batch_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("import_batches.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    item_id: Mapped[str] = mapped_column(String(64), nullable=False)
+
+
+class ImportDiscrepancy(Base):
+    __tablename__ = "import_discrepancies"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    study_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("clinical_studies.id", ondelete="RESTRICT"),
+        nullable=False, index=True,
+    )
+    link_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("import_links.id", ondelete="RESTRICT"),
+        nullable=False, index=True,
+    )
+    batch_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("import_batches.id", ondelete="RESTRICT"),
+        nullable=False,
+    )
+    previous_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    new_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    new_value_json: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="open")
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+
+
+class ImportValidationFinding(Base):
+    __tablename__ = "import_validation_findings"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    batch_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("import_batches.id", ondelete="RESTRICT"),
+        nullable=False, index=True,
+    )
+    study_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("clinical_studies.id", ondelete="RESTRICT"),
+        nullable=False, index=True,
+    )
+    subject_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    visit_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    item_id: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    classification: Mapped[str] = mapped_column(String(32), nullable=False)
+    rule_code: Mapped[str] = mapped_column(String(64), nullable=False)
+    message_code: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
