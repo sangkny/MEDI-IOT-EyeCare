@@ -24,7 +24,10 @@ SQLITE_AFTER_COMMIT: 79 passed, 4 skipped, exit 0, aiosqlite workers 0
 POLICY_AFTER_COMMIT: 8 passed, exit 0, workers 0
 POSTGRESQL: not rerun after the merge commit. Evidence 2026-10-26T17:46:02+09:00 disposable pgvector/pgvector:pg15, medi010 head, original order 4 passed and reverse order 4 passed, exit 0, workers 0, container removed
 PROTOCOL: medi-des-001-v1.10. EXTRACTED, AWAITING_APPROVAL. enable_r1 false. protocol_advisory_id empty. window_check false. ACTIVE rejected before approval
-PUSH: https-origin normal push of this branch only. No force. Draft PR base is integration/eyecare-clinical-data-lock-008. Not merged
+PUSH: https-origin normal push. Remote HEAD matches the documentation commit after this record. No force
+PR_URL: https://github.com/sangkny/MEDI-IOT-EyeCare/pull/4
+PR_BASE: integration/eyecare-clinical-data-lock-008
+PR_STATE: Draft. Not merged
 DEPENDENCY: EyeCare Draft PR #3 remains unchanged
 ```
 
