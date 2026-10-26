@@ -1,4 +1,4 @@
-"""MEDI-DES-001 계획서 1.3에서 추출한 규칙. 기본 가져오기에는 적용하지 않는다.
+"""MEDI-DES-001 계획서 1.10에서 추출한 규칙. 기본 가져오기에는 적용하지 않는다.
 
 상태는 EXTRACTED다. 승인 없이 ACTIVE로 바꾸지 않으며 잠금이나 확정에 쓰지 않는다.
 호출자가 규칙 묶음 ID를 명시할 때만 권고 소견을 만든다. 원본 값은 바꾸지 않는다.
@@ -11,9 +11,9 @@ from dataclasses import dataclass
 from services.clinical_import_checks import parse_number
 from services.clinical_import_parse import ResponseChoice
 
-PACK_ID = "medi-des-001-v1.3"
-PROTOCOL_VERSION = "1.3"
-PROTOCOL_DATE = "2025-05-19"
+PACK_ID = "medi-des-001-v1.10"
+PROTOCOL_VERSION = "1.10"
+PROTOCOL_DATE = "2026-07-01"
 PROTOCOL_STATUS = "UNRESOLVED"
 FINDING_ADVISORY = "NEEDS_HUMAN_REVIEW"
 
@@ -44,7 +44,7 @@ def rule_pack() -> tuple[ProtocolRule, ...]:
     return (
         ProtocolRule(
             rule_id="OSDI-ITEMS-001",
-            source_reference="부록 1, p.91-93",
+            source_reference="부록 1, p.93-94",
             section="11.1 주석 17, 부록 1",
             variable="OSDI",
             unit="score",
@@ -55,7 +55,7 @@ def rule_pack() -> tuple[ProtocolRule, ...]:
         ),
         ProtocolRule(
             rule_id="OSDI-FORMULA-001",
-            source_reference="부록 1, p.91",
+            source_reference="부록 1, p.93",
             section="부록 1 계산식",
             variable="OSSCORE",
             unit="score",
@@ -66,7 +66,7 @@ def rule_pack() -> tuple[ProtocolRule, ...]:
         ),
         ProtocolRule(
             rule_id="TBUT-MEAN-001",
-            source_reference="p.49, p.55 주석 13",
+            source_reference="p.53, p.59 주석 13",
             section="10.2.4.12 (1), 11.1 주석 13",
             variable="TBUT",
             unit="s",
@@ -77,7 +77,7 @@ def rule_pack() -> tuple[ProtocolRule, ...]:
         ),
         ProtocolRule(
             rule_id="SCHIRMER-METHOD-001",
-            source_reference="p.50-51, p.55 주석 14",
+            source_reference="p.55, p.59 주석 14",
             section="10.2.4.12 (2), 11.1 주석 14",
             variable="SCHIRMER",
             unit="mm/5min",
@@ -88,7 +88,7 @@ def rule_pack() -> tuple[ProtocolRule, ...]:
         ),
         ProtocolRule(
             rule_id="VISIT-WINDOW-001",
-            source_reference="p.46 10.2.3과 p.53-59 11.1-11.2",
+            source_reference="p.51 10.2.3과 p.57-66 11.1-11.2",
             section="10.2.3, 11.1, 11.2",
             variable="VISIT_WINDOW",
             unit=None,
@@ -99,7 +99,7 @@ def rule_pack() -> tuple[ProtocolRule, ...]:
         ),
         ProtocolRule(
             rule_id="SCREENING-ID-001",
-            source_reference="p.56-57",
+            source_reference="p.62-63",
             section="11.2.1",
             variable="SUBJID",
             unit=None,
@@ -148,6 +148,20 @@ def window_conflict() -> dict[str, str]:
         "section_10_2_3": "방문 3-6 ±3일",
         "section_11": "방문 3-6 ±7일",
         "validation": "NOT_IMPLEMENTED",
+    }
+
+
+def osdi_form_visits() -> dict[str, str]:
+    """부록 1 그림의 방문 칸과 11.1 일정표의 OSDI 칸.
+
+    1.3 부록은 방문 1-5만 있었다. 1.10이 방문 1, 2, 3, 4, 6으로 일정과 맞다.
+    1.4-1.9 중 어느 개정인지는 로컬 전문이 없어 특정하지 않는다.
+    """
+    return {
+        "status": "RESOLVED_BY_V110",
+        "form_visits": "V1,V2,V3,V4,V6",
+        "schedule_visits": "V1,V2,V3,V4,V6",
+        "v13_form_visits": "V1,V2,V3,V4,V5",
     }
 
 
