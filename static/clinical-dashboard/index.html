@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>증례 대시보드</title>
+  <style>
+    :root { --bg:#0f1419; --card:#1a2332; --text:#e7ecf3; --muted:#94a3b8; --line:#334155; --draft:#f59e0b; --final:#34d399; --miss:#64748b; }
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); }
+    header, main { max-width: 1100px; margin: 0 auto; padding: 1rem; }
+    h1 { font-size: 1.3rem; margin: 0 0 .25rem; }
+    .muted { color: var(--muted); font-size: .85rem; }
+    form { display: grid; grid-template-columns: 1.4fr 1fr 1fr auto; gap: .5rem; margin: 1rem 0; }
+    input, button { padding: .55rem .7rem; border-radius: 8px; border: 1px solid var(--line); background: #0f172a; color: var(--text); }
+    button { background: #2563eb; border: none; font-weight: 650; cursor: pointer; }
+    section { background: var(--card); border-radius: 10px; padding: 1rem; margin-bottom: .8rem; }
+    table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+    th, td { text-align: left; padding: .35rem .4rem; border-bottom: 1px solid var(--line); }
+    .safety { display: flex; flex-wrap: wrap; gap: .4rem; }
+    .pill { border: 1px solid var(--line); border-radius: 999px; padding: .15rem .55rem; font-size: .75rem; }
+    svg { width: 100%; height: 160px; background: #0f172a; border-radius: 8px; }
+    .err { color: #f87171; }
+    @media (max-width: 800px) { form { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>증례 대시보드</h1>
+    <p class="muted">연구와 사이트 권한이 있는 집계만 표시합니다. 값은 수정, 확정, 잠금하지 않습니다.</p>
+    <form id="gate">
+      <input id="token" type="password" placeholder="접근 토큰" autocomplete="off" />
+      <input id="study" placeholder="연구 ID" />
+      <input id="site" placeholder="사이트 ID" />
+      <button type="submit">불러오기</button>
+    </form>
+    <p id="message" class="muted"></p>
+  </header>
+  <main>
+    <section id="overview"><h2>연구 개요</h2><div id="overview-body" class="muted">아직 불러오지 않았습니다.</div></section>
+    <section id="subjects"><h2>대상자</h2><div id="subjects-body"></div></section>
+    <section id="visits"><h2>방문</h2><div id="visits-body"></div></section>
+    <section id="analytics"><h2>TBUT · OSDI · Schirmer</h2><div id="analytics-body"></div></section>
+    <section id="quality"><h2>품질과 질의</h2><div id="quality-body"></div></section>
+    <section id="imports"><h2>가져오기 대조</h2><div id="imports-body"></div></section>
+  </main>
+  <script>
+    const message = document.getElementById("message");
+    function table(columns, rows) {
+      if (!rows.length) return "<p class='muted'>행이 없습니다.</p>";
+      const head = columns.map((column) => `<th>${column.label}</th>`).join("");
+      const body = rows.map((row) => `<tr>${columns.map((column) => `<td>${esc(row[column.key] ?? "")}</td>`).join("")}</tr>`).join("");
+      return `<table><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table>`;
+    }
+    function esc(value) {
+      return String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
+    }
+    function boxSvg(visits) {
+      if (!visits.length) return "<p class='muted'>표시할 숫자가 없습니다.</p>";
+      const width = 640;
+      const height = 150;
+      const values = visits.flatMap((visit) => [visit.min, visit.max]).filter((value) => value !== null);
+      const low = Math.min(...values);
+      const high = Math.max(...values);
+      const span = high - low || 1;
+      const step = width / visits.length;
+      const y = (value) => 20 + (1 - (value - low) / span) * 110;
+      const marks = visits.map((visit, index) => {
+        const x = step * index + step / 2;
+        const top = y(visit.q3);
+        const bottom = y(visit.q1);
+        const boxHeight = Math.max(10, bottom - top);
+        return `<line x1="${x}" y1="${y(visit.min)}" x2="${x}" y2="${y(visit.max)}" stroke="#94a3b8"/>
+          <rect x="${x - 14}" y="${top - (boxHeight - (bottom - top)) / 2}" width="28" height="${boxHeight}" fill="#1d4ed8" opacity="0.8"/>
+          <line x1="${x - 14}" y1="${y(visit.median)}" x2="${x + 14}" y2="${y(visit.median)}" stroke="#f8fafc"/>
+          <circle cx="${x}" cy="${y(visit.median)}" r="3" fill="#f8fafc"/>
+          <text x="${x}" y="12" fill="#e7ecf3" font-size="11" text-anchor="middle">n=${visit.n}</text>
+          <text x="${x}" y="145" fill="#94a3b8" font-size="11" text-anchor="middle">${esc(visit.visit_code)}</text>`;
+      }).join("");
+      return `<svg viewBox="0 0 ${width} ${height}">${marks}</svg>`;
+    }
+    function seriesSvg(points) {
+      if (!points.length) return "<p class='muted'>이 구간의 숫자가 없습니다.</p>";
+      const order = ["V1", "V2", "V3", "V4", "V5", "V6"];
+      const visits = order.filter((code) => points.some((point) => point.visit_code === code));
+      const low = Math.min(...points.map((point) => point.value_number));
+      const high = Math.max(...points.map((point) => point.value_number));
+      const span = high - low || 1;
+      const width = 640;
+      const step = width / Math.max(visits.length, 1);
+      const x = (visit) => visits.indexOf(visit) * step + step / 2;
+      const y = (value) => 20 + (1 - (value - low) / span) * 100;
+      const groups = {};
+      points.forEach((point) => {
+        const key = `${point.code}|${point.laterality}|${point.method}|${point.repeat_index}`;
+        (groups[key] ||= []).push(point);
+      });
+      const paths = Object.values(groups).map((series) => {
+        const sorted = series.sort((a, b) => order.indexOf(a.visit_code) - order.indexOf(b.visit_code));
+        const path = sorted.map((point, index) => `${index ? "L" : "M"}${x(point.visit_code)},${y(point.value_number)}`).join(" ");
+        const dots = sorted.map((point) => `<circle cx="${x(point.visit_code)}" cy="${y(point.value_number)}" r="4" fill="currentColor"/>`).join("");
+        return `<path d="${path}" fill="none" stroke="currentColor" stroke-width="2"/>${dots}`;
+      }).join("");
+      return `<svg viewBox="0 0 ${width} 140">${paths}</svg>`;
+    }
+    function chartBlock(title, rows) {
+      if (!rows.length) return `<h3>${esc(title)}</h3><p class="muted">숫자가 없습니다.</p>`;
+      return rows.map((row) => `<h3>${esc(title)} · ${esc(row.code)} · ${esc(row.laterality)} · ${esc(row.method)} · ${esc(row.unit)}</h3>${boxSvg(row.visits)}`).join("");
+    }
+    let current = { study: "", site: "", token: "" };
+    async function load(subjectCode) {
+      message.textContent = "불러오는 중";
+      message.className = "muted";
+      const params = new URLSearchParams({ site_id: current.site });
+      if (subjectCode) params.set("subject_code", subjectCode);
+      const response = await fetch(`/api/v1/clinical-support/studies/${encodeURIComponent(current.study)}/case-dashboard?${params}`, {
+        headers: { Authorization: `Bearer ${current.token}` },
+      });
+      if (!response.ok) {
+        message.textContent = "권한이 없거나 요청이 거절되었습니다.";
+        message.className = "err";
+        return;
+      }
+      const data = await response.json();
+      message.textContent = subjectCode ? `대상자 ${subjectCode}` : "사이트 집계";
+      const safety = Object.entries(data.safety).map(([key, value]) => `<span class="pill">${esc(key)}: ${esc(value)}</span>`).join("");
+      document.getElementById("overview-body").innerHTML = `${safety}<p>대상자 ${data.overview.subject_count} · 방문 ${data.overview.visit_count} · 초안 ${data.overview.observation_status.draft} · 확정 ${data.overview.observation_status.final} · 스테이징 ${data.overview.staged_row_count} · 미해결 ${data.overview.unresolved_row_count}</p>`;
+      document.getElementById("subjects-body").innerHTML = data.subjects.map((row) => `<button type="button" data-subject="${esc(row.subject_code)}">${esc(row.subject_code)} · 방문 ${row.visit_count} · DRAFT ${row.draft_count} · FINAL ${row.final_count}</button>`).join(" ") || "<p class='muted'>대상자가 없습니다.</p>";
+      document.getElementById("visits-body").innerHTML = table([
+        {key:"visit_code", label:"방문"}, {key:"occurred_on", label:"날짜"}, {key:"subject_count", label:"대상자 수"}, {key:"draft_count", label:"초안"}, {key:"final_count", label:"확정"}
+      ], data.visits);
+      const series = data.analytics.subject_series;
+      document.getElementById("analytics-body").innerHTML = `
+        <h3>FINAL</h3>${chartBlock("FINAL", data.analytics.final_descriptive)}
+        <h3>DRAFT / NON-FINAL</h3>${chartBlock("DRAFT", data.analytics.draft_exploratory)}
+        ${series ? `<h3>선택 대상자 FINAL</h3>${seriesSvg(series.FINAL)}<h3>선택 대상자 DRAFT / NON-FINAL</h3>${seriesSvg(series.DRAFT)}` : "<p class='muted'>대상자를 선택하면 개인 추이를 따로 봅니다.</p>"}
+        <h3>결측과 비숫자</h3>${table([
+          {key:"code", label:"항목"}, {key:"visit_code", label:"방문"}, {key:"unit", label:"단위"},
+          {key:"expected", label:"분모"}, {key:"numeric_final", label:"확정 숫자"}, {key:"numeric_draft", label:"초안 숫자"},
+          {key:"nonnumeric", label:"비숫자"}, {key:"absent", label:"없음"}
+        ], data.analytics.coverage)}
+        <h3>출처</h3>${table([
+          {key:"visit_code", label:"방문"}, {key:"code", label:"항목"}, {key:"laterality", label:"눈"},
+          {key:"method", label:"방법"}, {key:"record_status", label:"상태"}, {key:"source", label:"출처"}, {key:"unit", label:"단위"}
+        ], data.analytics.provenance)}`;
+      document.getElementById("quality-body").innerHTML = `<p>품질 ${esc(JSON.stringify(data.quality.findings))} · 질의 ${esc(JSON.stringify(data.quality.queries))}</p>`;
+      document.getElementById("imports-body").innerHTML = `<p>배치 ${data.imports.batch_count} · 불일치 ${data.imports.discrepancy_count} · 매핑 ${esc(data.imports.mapping_versions.join(", ") || "없음")}</p><p class="muted">원본 행은 표시하지 않습니다. OSDI는 다시 계산하지 않습니다.</p>`;
+      document.querySelectorAll("[data-subject]").forEach((button) => {
+        button.addEventListener("click", () => load(button.getAttribute("data-subject")));
+      });
+    }
+    document.getElementById("gate").addEventListener("submit", async (event) => {
+      event.preventDefault();
+      current = {
+        study: document.getElementById("study").value.trim(),
+        site: document.getElementById("site").value.trim(),
+        token: document.getElementById("token").value.trim(),
+      };
+      await load("");
+    });
+  </script>
+</body>
+</html>
