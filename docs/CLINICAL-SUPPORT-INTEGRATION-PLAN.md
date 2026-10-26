@@ -8,6 +8,77 @@
 
 ## 진행 기록
 
+### 2026-10-27T08:43:58+09:00 — PC1-EYECARE-PHASE010-SECURITY-FIX-AND-PUBLISH-003
+
+```
+TASK_ID: PC1-EYECARE-PHASE010-SECURITY-FIX-AND-PUBLISH-003
+EXECUTION_HOST: MEDIIOT-SKLEE
+PC_ROLE: PC1
+START_TIME_KST: 2026-10-27T08:33:44+09:00
+END_TIME_KST: 2026-10-27T08:43:58+09:00
+ELAPSED: PT10M14S
+BRANCH: integration/eyecare-clinical-dashboard-010
+INITIAL_HEAD: 1fce8cfb5e1ee7ae3137249332c4699af1fc3fc9
+INITIAL_MERGE_HEAD: a81b410f5bbdc4ac1739c99b4f97eb29187ac28e
+MERGE_COMMIT: adc2be3cbb4ecb65e7591a991c95d4a946415771
+MERGE_PARENTS: 1fce8cfb5e1ee7ae3137249332c4699af1fc3fc9 a81b410f5bbdc4ac1739c99b4f97eb29187ac28e
+SECURITY_COMMIT: 3693f5258b907d9656906d808d710efd20d9c7b6
+FINAL_HEAD_BEFORE_DOCS: 3693f5258b907d9656906d808d710efd20d9c7b6
+REMOTE_HEAD_AFTER_FIRST_PUSH: 3693f5258b907d9656906d808d710efd20d9c7b6
+PR_URL: https://github.com/sangkny/MEDI-IOT-EyeCare/pull/5
+PR_BASE: integration/eyecare-clinical-protocol-v110-009
+PR_HEAD: integration/eyecare-clinical-dashboard-010
+PR_STATE: Draft. Not merged
+DEPENDENCIES: pydantic 2.10.3, google-genai 2.8.0, anthropic 2.3.0. numpy==1.26.4 and onnxruntime==1.17.3 have no Python 3.13 wheel and were not replaced
+SQLITE: 84 passed, 4 skipped, exit 0, workers 0
+POLICY: 8 passed, exit 0, workers 0
+POSTGRESQL: both orders 4 passed, exit 0, workers 0, head medi010_external_clinical_import, container removed
+BROWSER: synthetic SYN-01 loaded, token change cleared panels, 403 left panels empty
+SECURITY: request serial drops stale responses. Server clinical_observation_read and site membership remain
+SAFETY: enable_r1 false, protocol_advisory_id empty, window_check false, v1.10 EXTRACTED AWAITING_APPROVAL, no automatic correction finalize or lock, no allocation disclosure
+LIMITATIONS: query and audit drill-down are absent. Clinical approval remains open
+GIT_ACTIONS: normal push to https-origin. No force. Draft PRs 1-4 unchanged. No merge
+JUDGMENT: PHASE010_INTEGRATION_PUBLISHED
+```
+
+### 2026-10-27T08:15:03+09:00 — PC1-EYECARE-PHASE010-INTEGRATION-001
+
+```
+TASK_ID: PC1-EYECARE-PHASE010-INTEGRATION-001
+EXECUTION_HOST: MEDIIOT-SKLEE
+PC_ROLE: PC1
+START_TIME_KST: 2026-10-27T08:08:51+09:00
+END_TIME_KST: 2026-10-27T08:15:03+09:00
+ELAPSED: PT6M12S
+BRANCH: integration/eyecare-clinical-dashboard-010
+BASE_HEAD: 1fce8cfb5e1ee7ae3137249332c4699af1fc3fc9
+SOURCE_BRANCH: feat/clinical-case-dashboard-010
+SOURCE_HEAD: a81b410f5bbdc4ac1739c99b4f97eb29187ac28e
+SOURCE_BASE: 600ac7bd6f3dca5b7ef8cc998c621b43828a5f16
+SOURCE_ANCESTRY: 600ac7b and 8fba4bf are ancestors. 1fce8cf is not an ancestor
+MERGE_HEAD: a81b410f5bbdc4ac1739c99b4f97eb29187ac28e
+HEAD: 1fce8cfb5e1ee7ae3137249332c4699af1fc3fc9
+MERGE: git merge --no-commit --no-ff. Stopped before commit. No conflict markers. api/__init__.py auto-merged
+SHARED_LIBRARIES: integration/clinical-data-lock-008 at 41642d0cb17d79f66fd0162d284a81003629551d
+PC1_TESTS: lock ancestry, AsyncEngine finally dispose, and study/site/subject import assertions were not in the Phase 010 diff and remain the 1fce8cf versions
+TEST_CLEANUP: tests/test_clinical_case_dashboard.py now disposes the HTTP test AsyncEngine in finally. The first run left 1 aiosqlite worker and did not exit. After the teardown, workers were 0
+DEPENDENCIES_DECLARED: pydantic==2.10.3, google-genai>=1.0.0,<2.9.0, anthropic>=0.28.0
+DEPENDENCIES_RESOLVED: existing EyeCare venv pydantic 2.14.1, google-genai 2.32.0, anthropic 2.1.0, fastapi 0.159.1. google-genai 2.32.0 is outside the declared upper bound. Packages were not downgraded. uvicorn 0.32.1 and click 8.5.0 were added because uvicorn was missing. Global Python was not changed
+IMPORT_MAIN: success in a fresh process
+RUNTIME: configured ports 8000 and 8001 were already listening and were left alone. Temporary app 127.0.0.1:55443 with disposable PostgreSQL 15 on 127.0.0.1:55442, database upgraded through medi010. /health 200 db_connected true. /clinical-dashboard HTML 200. Dashboard JSON 200. Unauthenticated API 401. Unauthorized study/site 403. Process stopped
+REDIS: /health/detail redis status error, getaddrinfo failed for redis:6379. Startup still logged the event subscription. No code change
+ENCODING: startup log had no cp949 UnicodeEncodeError. Korean messages were written as UTF-8 JSON
+BROWSER: verified in a real browser with synthetic SYN-01 only. Study overview, subject selection, V1-V3 timeline, TBUT/OSDI/Schirmer FINAL and DRAFT charts, provenance source/unit, quality open 1, query open 1, import batch 1 and discrepancy 1. Unauthorized token showed the rejection message. Previous panels stayed on screen after that rejection
+SQLITE: 83 passed, 4 skipped, exit 0, workers 0
+POLICY: 8 passed, exit 0, workers 0
+POSTGRESQL: disposable pgvector/pgvector:pg15, head medi010. lifecycle-query-lock-import 4 passed, exit 0. Reverse order 4 passed, exit 0. workers 0. Container removed. Binds null. Not written to PORT-ALLOCATION.md
+SAFETY: enable_r1 false, protocol_advisory_id empty, window_check false, unapproved_rules_active false, automatic correction/finalize/lock false, blinding_preserved true
+ABSENT: detailed audit drill-down and Query event drill-down are not implemented. Quality and queries are status counts. Provenance is observation metadata for a selected subject
+CLINICAL_APPROVAL: signature, visit window, visit 4 treatment, OSDI rounding, unit-only cells, study attribution, R1 operational use, and repeat-form keys remain blockers. No rule was promoted
+GIT_ACTIONS: no commit, no push, no PR. Draft PR #4 remains open and unmerged
+JUDGMENT: READY_FOR_COMMIT
+```
+
 ### 2026-10-26T17:54:11+09:00 — PC1-EYECARE-PHASE009-V110-PUBLICATION-007
 
 ```

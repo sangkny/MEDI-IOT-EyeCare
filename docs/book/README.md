@@ -5,3 +5,4 @@
 ## 장
 
 - [09 외부 가져오기와 계획서 1.10 권고](09-external-clinical-import.md)
+- [10 증례 대시보드](10-clinical-case-dashboard.md)
