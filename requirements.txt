@@ -34,6 +34,7 @@ cryptography==44.0.0               # 환자 데이터 암호화
 # ── Utilities ──────────────────────────────────────────────
 python-dateutil==2.9.0
 pytz==2024.2
+openpyxl==3.1.5          # 외부 EDC Excel 읽기 전용 파서
 
 # ── Vector DB (Week 3) ─────────────────────────────────────
 pgvector==0.4.2            # pgvector Python 클라이언트 (SQLAlchemy 연동)

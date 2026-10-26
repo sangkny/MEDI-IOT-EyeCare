@@ -8,6 +8,9 @@ import types
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
+from alembic.config import Config
+from alembic.script import ScriptDirectory
+
 _ROOT = Path(__file__).resolve().parents[1]
 _SHARED = Path(r"C:\Tools\downloads\phase005-inspect\shared-libraries")
 if _SHARED.is_dir() and str(_SHARED) not in sys.path:
@@ -155,6 +158,24 @@ def _approve(db: Session, study_id: str, requirements: dict, actor: str = "dm-a"
         db, study_id=study_id, actor_user_id=actor, requirements=requirements,
     )
     return approve_protocol_definition(db, row.id, actor_user_id=actor)
+
+
+def _revision_chain(current: str) -> list[str]:
+    """적용된 개정에서 베이스까지 Alembic 스크립트 조상을 따라간다."""
+    config = Config(str(_ROOT / "alembic.ini"))
+    config.set_main_option("script_location", str(_ROOT / "alembic"))
+    script = ScriptDirectory.from_config(config)
+    heads = script.get_heads()
+    assert heads == [current]
+    chain = [current]
+    revision = current
+    while True:
+        down = script.get_revision(revision).down_revision
+        assert not isinstance(down, tuple)
+        if down is None:
+            return chain
+        chain.append(down)
+        revision = down
 
 
 def _base_requirements(**extra) -> dict:
@@ -659,82 +680,84 @@ def test_lock_api_authorization() -> None:
     from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
     async_engine = create_async_engine("sqlite+aiosqlite://", poolclass=StaticPool)
-    event.listen(async_engine.sync_engine, "connect", lambda dbapi, _rec: dbapi.execute("PRAGMA foreign_keys=ON"))
+    try:
+        event.listen(async_engine.sync_engine, "connect", lambda dbapi, _rec: dbapi.execute("PRAGMA foreign_keys=ON"))
 
-    def _seed(sync) -> tuple[str, str]:
-        Base.metadata.create_all(sync, tables=_TABLES)
-        db = Session(bind=sync)
-        study, _site, _subject, visit = _ready(db)
-        final = _final(db, visit, 8)
-        _approve(db, study.id, _base_requirements())
-        run_quality_rules(db, study_id=study.id, actor_user_id="doc-a")
-        db.flush()
-        return study.id, final.id
+        def _seed(sync) -> tuple[str, str]:
+            Base.metadata.create_all(sync, tables=_TABLES)
+            db = Session(bind=sync)
+            study, _site, _subject, visit = _ready(db)
+            final = _final(db, visit, 8)
+            _approve(db, study.id, _base_requirements())
+            run_quality_rules(db, study_id=study.id, actor_user_id="doc-a")
+            db.flush()
+            return study.id, final.id
 
-    async def _prepare() -> tuple[str, str]:
-        async with async_engine.begin() as conn:
-            return await conn.run_sync(_seed)
+        async def _prepare() -> tuple[str, str]:
+            async with async_engine.begin() as conn:
+                return await conn.run_sync(_seed)
 
-    study_id, observation_id = asyncio.run(_prepare())
-    factory = async_sessionmaker(async_engine, expire_on_commit=False)
+        study_id, observation_id = asyncio.run(_prepare())
+        factory = async_sessionmaker(async_engine, expire_on_commit=False)
 
-    async def _db():
-        async with factory() as session:
-            try:
-                yield session
-                await session.commit()
-            except Exception:
-                await session.rollback()
-                raise
+        async def _db():
+            async with factory() as session:
+                try:
+                    yield session
+                    await session.commit()
+                except Exception:
+                    await session.rollback()
+                    raise
 
-    app = FastAPI()
-    app.include_router(router, prefix="/api/v1/clinical-support")
-    app.dependency_overrides[get_db] = _db
-    doctor = {"Authorization": f"Bearer {create_access_token(subject='dm-a', role='doctor')}"}
-    staff = {"Authorization": f"Bearer {create_access_token(subject='dm-a', role='staff')}"}
-    with TestClient(app) as client:
-        assert client.post(
-            "/api/v1/clinical-support/locks/applications",
-            json={
-                "study_id": study_id, "target_type": "observation",
-                "target_id": observation_id, "reason": "잠금",
-            },
-        ).status_code == 401
-        denied = client.post(
-            "/api/v1/clinical-support/locks/applications",
-            headers=staff,
-            json={
-                "study_id": study_id, "target_type": "observation",
-                "target_id": observation_id, "reason": "잠금",
-            },
-        )
-        assert denied.status_code == 403
-        requested = client.post(
-            "/api/v1/clinical-support/locks/requests",
-            headers=doctor,
-            json={
-                "study_id": study_id, "target_type": "observation",
-                "target_id": observation_id, "reason": "검토",
-            },
-        )
-        assert requested.status_code == 200
-        applied = client.post(
-            "/api/v1/clinical-support/locks/applications",
-            headers=doctor,
-            json={
-                "study_id": study_id, "target_type": "observation",
-                "target_id": observation_id, "reason": "잠금",
-            },
-        )
-        assert applied.status_code == 200
-        assert applied.json()["state"] == "LOCKED"
-        outsider = client.get(
-            "/api/v1/clinical-support/readiness",
-            headers={"Authorization": f"Bearer {create_access_token(subject='other', role='doctor')}"},
-            params={"study_id": study_id, "target_type": "observation", "target_id": observation_id},
-        )
-        assert outsider.status_code == 403
-    asyncio.run(async_engine.dispose())
+        app = FastAPI()
+        app.include_router(router, prefix="/api/v1/clinical-support")
+        app.dependency_overrides[get_db] = _db
+        doctor = {"Authorization": f"Bearer {create_access_token(subject='dm-a', role='doctor')}"}
+        staff = {"Authorization": f"Bearer {create_access_token(subject='dm-a', role='staff')}"}
+        with TestClient(app) as client:
+            assert client.post(
+                "/api/v1/clinical-support/locks/applications",
+                json={
+                    "study_id": study_id, "target_type": "observation",
+                    "target_id": observation_id, "reason": "잠금",
+                },
+            ).status_code == 401
+            denied = client.post(
+                "/api/v1/clinical-support/locks/applications",
+                headers=staff,
+                json={
+                    "study_id": study_id, "target_type": "observation",
+                    "target_id": observation_id, "reason": "잠금",
+                },
+            )
+            assert denied.status_code == 403
+            requested = client.post(
+                "/api/v1/clinical-support/locks/requests",
+                headers=doctor,
+                json={
+                    "study_id": study_id, "target_type": "observation",
+                    "target_id": observation_id, "reason": "검토",
+                },
+            )
+            assert requested.status_code == 200
+            applied = client.post(
+                "/api/v1/clinical-support/locks/applications",
+                headers=doctor,
+                json={
+                    "study_id": study_id, "target_type": "observation",
+                    "target_id": observation_id, "reason": "잠금",
+                },
+            )
+            assert applied.status_code == 200
+            assert applied.json()["state"] == "LOCKED"
+            outsider = client.get(
+                "/api/v1/clinical-support/readiness",
+                headers={"Authorization": f"Bearer {create_access_token(subject='other', role='doctor')}"},
+                params={"study_id": study_id, "target_type": "observation", "target_id": observation_id},
+            )
+            assert outsider.status_code == 403
+    finally:
+        asyncio.run(async_engine.dispose())
 
 
 @pytest.mark.integration
@@ -744,6 +767,7 @@ def test_postgresql_lock_and_migration_when_configured() -> None:
         pytest.skip("일회용 PostgreSQL URL 없음")
     engine = create_engine(url)
     db = sessionmaker(bind=engine)()
+    check = None
     try:
         with engine.connect() as conn:
             names = {
@@ -751,7 +775,9 @@ def test_postgresql_lock_and_migration_when_configured() -> None:
                 for row in conn.execute(text("SELECT tablename FROM pg_tables WHERE schemaname='public'"))
             }
             version = conn.execute(text("SELECT version_num FROM alembic_version")).scalar()
-        assert version == "medi009_clinical_data_lock"
+        chain = _revision_chain(version)
+        assert chain.index("medi010_external_clinical_import") < chain.index("medi009_clinical_data_lock")
+        assert chain.index("medi009_clinical_data_lock") < chain.index("medi008_clinical_query")
         assert {"data_lock_states", "data_unlock_requests", "monitoring_indicators"} <= names
         study, site, _subject, visit = _ready(db, "pg-doc", "PG", "pg-dm")
         final = _final(db, visit, 4, user_id="pg-doc")
@@ -792,6 +818,16 @@ def test_postgresql_lock_and_migration_when_configured() -> None:
         check = sessionmaker(bind=engine)()
         saved = check.get(ClinicalObservation, observation_id)
         assert saved is not None and float(saved.value_number) == 4
+        locked = check.scalar(select(DataLockState).where(DataLockState.target_id == observation_id))
+        assert locked is not None and locked.state == "LOCKED"
+        unlock = request_unlock(
+            check, study_id=study_id, target_type="observation", target_id=observation_id,
+            actor_user_id="pg-doc", reason="정정 필요",
+        )
+        released = approve_unlock(check, unlock.id, actor_user_id="pg-dm", reason="승인")
+        check.commit()
+        assert released.state == "UNLOCKED"
+        assert float(check.get(ClinicalObservation, observation_id).value_number) == 4
         event_id = check.scalar(
             select(ClinicalAuditEvent.id).where(ClinicalAuditEvent.action == "lock_apply")
         )
@@ -804,7 +840,9 @@ def test_postgresql_lock_and_migration_when_configured() -> None:
         check.rollback()
         add_site_member(db, site_id=site.id, user_id="pg-dm2", role="data_manager", actor_user_id="pg-dm")
         db.commit()
-        check.close()
     finally:
+        if check is not None:
+            check.rollback()
+            check.close()
         db.close()
         engine.dispose()
