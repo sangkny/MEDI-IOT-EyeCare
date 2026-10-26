@@ -138,6 +138,8 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
 # ── 라우터 등록 ────────────────────────────────────────────
 
 app.include_router(api_router, prefix="/api/v1")
+from api.clinical_dashboard import page_router as clinical_dashboard_page_router  # noqa: E402
+app.include_router(clinical_dashboard_page_router)
 
 # /health는 prefix 없이 (Docker HEALTHCHECK 호환)
 from api.health import router as health_router  # noqa: E402
