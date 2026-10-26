@@ -4,6 +4,30 @@
 
 ## 진행 기록
 
+### 2026-10-26T15:51:33+09:00 — 1.10 단위 근거 게시
+
+- TASK_ID: PC2-EYECARE-PROTOCOL-V110-PUBLICATION-004
+- EXECUTION_HOST: SVG-SKLEE
+- BRANCH: feat/clinical-protocol-validation-009
+- CODE_COMMIT: 574b9527fbed211d6ef2f75699888f8db58f50d6
+- START_TIME_KST: 2026-10-26T15:51:33+09:00
+- END_TIME_KST: 2026-10-26T15:53:37+09:00
+- ELAPSED: PT2M4S
+- TEST_RESULTS: 합성 SQLite 15 passed, 1 skipped, exit 0. 일회용 PostgreSQL 15 합성 1 passed, exit 0
+- NEXT_APPROVAL: 식별자와 측정값은 문서에 넣지 않음. Phase 010은 시작하지 않음
+
+### 2026-10-26T15:01:00+09:00 — 계획서 1.10 단위
+
+- TASK_ID: 로컬 계획서 1.10 반영
+- EXECUTION_HOST: SVG-SKLEE
+- BRANCH: feat/clinical-protocol-validation-009
+- START_TIME_KST: 2026-10-26T15:01:00+09:00
+- END_TIME_KST: 2026-10-26T15:04:39+09:00
+- ELAPSED: PT3M39S
+- TBUT 3회 평균은 1.10 p.53, 쉬르머 단위는 p.55의 mm/5min이다. 11.1 주석은 방법을 반복하지 않는다
+- TEST_RESULTS: 합성 SQLite 15 passed, 1 skipped, exit 0
+- NEXT_APPROVAL: 커밋과 푸시 없음. Phase 010은 시작하지 않음
+
 ### 2026-10-26T00:09:57+09:00 — 단위 표현 게시
 
 - TASK_ID: PC2-EYECARE-PROTOCOL009-PUBLICATION-003

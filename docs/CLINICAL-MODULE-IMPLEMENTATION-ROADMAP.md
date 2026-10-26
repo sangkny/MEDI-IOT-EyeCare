@@ -7,6 +7,35 @@
 
 ## 진행 기록
 
+### 2026-10-26T15:51:33+09:00 — 계획서 1.10 분기 게시
+
+- TASK_ID: PC2-EYECARE-PROTOCOL-V110-PUBLICATION-004
+- EXECUTION_HOST: SVG-SKLEE
+- BRANCH: feat/clinical-protocol-validation-009
+- BASE_HEAD: 388a8ea9001904b5a4a1d48ab0f778fd9b299c2d
+- CODE_COMMIT: 574b9527fbed211d6ef2f75699888f8db58f50d6
+- DOCS_COMMIT: 이 문서 커밋
+- START_TIME_KST: 2026-10-26T15:51:33+09:00
+- END_TIME_KST: 2026-10-26T15:53:37+09:00
+- ELAPSED: PT2M4S
+- STATUS: PROTOCOL_V110_PUBLISHED
+- TEST_RESULTS: 합성 SQLite 15 passed, 1 skipped, exit 0. 일회용 PostgreSQL 15 합성 1 passed, exit 0
+- 게시된 `feat/external-clinical-import-009`는 8fba4bfe59ccd28841653cfc55510852e1256ba3로 유지
+- NEXT_APPROVAL: 이 분기만 origin에 일반 푸시. PR 병합과 Phase 010은 시작하지 않음
+
+### 2026-10-26T15:01:00+09:00 — 계획서 1.10 반영
+
+- TASK_ID: 로컬 계획서 1.10 반영
+- EXECUTION_HOST: SVG-SKLEE
+- BRANCH: feat/clinical-protocol-validation-009
+- START_TIME_KST: 2026-10-26T15:01:00+09:00
+- END_TIME_KST: 2026-10-26T15:04:39+09:00
+- ELAPSED: PT3M39S
+- STATUS: 작업 트리만 갱신. 커밋과 푸시 없음
+- TEST_RESULTS: 합성 SQLite 15 passed, 1 skipped, exit 0
+- 게시된 `feat/external-clinical-import-009`는 변경하지 않음
+- NEXT_APPROVAL: Phase 010은 시작하지 않음
+
 ### 2026-10-26T00:09:57+09:00 — 계획서 검증 분기 게시
 
 - TASK_ID: PC2-EYECARE-PROTOCOL009-PUBLICATION-003

@@ -4,6 +4,34 @@
 
 ## 진행 기록
 
+### 2026-10-26T15:51:33+09:00 — 계획서 1.10 규칙 게시
+
+- TASK_ID: PC2-EYECARE-PROTOCOL-V110-PUBLICATION-004
+- EXECUTION_HOST: SVG-SKLEE (PC2)
+- BRANCH: feat/clinical-protocol-validation-009
+- BASE_HEAD: 388a8ea9001904b5a4a1d48ab0f778fd9b299c2d
+- CODE_COMMIT: 574b9527fbed211d6ef2f75699888f8db58f50d6
+- DOCS_COMMIT: 이 문서 커밋
+- START_TIME_KST: 2026-10-26T15:51:33+09:00
+- END_TIME_KST: 2026-10-26T15:53:37+09:00
+- ELAPSED: PT2M4S
+- PACK_ID: `medi-des-001-v1.10`. EXTRACTED, AWAITING_APPROVAL. 방문 6 OSDI는 RESOLVED_BY_V110
+- TEST_RESULTS: 합성 SQLite 15 passed, 1 skipped, exit 0. 일회용 PostgreSQL 15 합성 1 passed, exit 0. 컨테이너 삭제
+- NEXT_APPROVAL: 허용기간 판정과 규칙 활성화는 하지 않음. Phase 010은 시작하지 않음
+
+### 2026-10-26T15:01:00+09:00 — 계획서 1.10
+
+- TASK_ID: 로컬 계획서 1.10 반영
+- EXECUTION_HOST: SVG-SKLEE (PC2)
+- BRANCH: feat/clinical-protocol-validation-009
+- START_TIME_KST: 2026-10-26T15:01:00+09:00
+- END_TIME_KST: 2026-10-26T15:04:39+09:00
+- ELAPSED: PT3M39S
+- PROTOCOL_SHA256: 9e24fcedbd869e4e2b88d8b33e32acf617d4fd541199c78cd4c75d6444e2ac44
+- PACK_ID: `medi-des-001-v1.10`
+- TEST_RESULTS: 합성 SQLite 15 passed, 1 skipped, exit 0. PostgreSQL은 다시 실행하지 않음
+- NEXT_APPROVAL: 커밋과 푸시 없음. Phase 010은 시작하지 않음
+
 ### 2026-10-26T00:09:57+09:00 — 권고 규칙 게시
 
 - TASK_ID: PC2-EYECARE-PROTOCOL009-PUBLICATION-003
@@ -51,17 +79,17 @@
 
 ## 상태
 
-`EXTRACTED`에서 시작한다. `AWAITING_APPROVAL`인 규칙은 `ACTIVE`로 올리지 않는다. 호출자가 `protocol_advisory_id=medi-des-001-v1.3`를 줄 때만 권고 소견을 만든다. 기본값은 끄짐이다. 원본 관찰 값은 바꾸지 않는다. 새 마이그레이션은 만들지 않았다. 권고 소견은 기존 `import_validation_findings`에만 남는다.
+`EXTRACTED`에서 시작한다. `AWAITING_APPROVAL`인 규칙은 `ACTIVE`로 올리지 않는다. 호출자가 `protocol_advisory_id=medi-des-001-v1.10`를 줄 때만 권고 소견을 만든다. 기본값은 끄짐이다. 원본 관찰 값은 바꾸지 않는다. 새 마이그레이션은 만들지 않았다. 권고 소견은 기존 `import_validation_findings`에만 남는다.
 
 ## 규칙
 
 | 규칙 ID | 변수 | 근거 | 논리 | 상태 |
 |---|---|---|---|---|
-| OSDI-ITEMS-001 | OSQ1-12 | 부록 1, p.91-93. 11.1 주석 17 | 12문항, 임상 점수 0-4. 6-12번의 해당 없음은 제외 | EXTRACTED |
-| OSDI-FORMULA-001 | OSSCORE | 부록 1 계산식 | 대답한 점수 합 x 25 / 대답한 문항 수 | EXTRACTED |
-| TBUT-MEAN-001 | TBUT | p.49, p.55 주석 13 | 세극등, 플루오레세인, 3회 후 평균, 단위 초 | EXTRACTED |
-| SCHIRMER-METHOD-001 | STT | p.50-51, p.55 주석 14 | 비마취, 5분, mm, 소수 첫째 자리, 양안 | EXTRACTED |
-| VISIT-WINDOW-001 | 방문 허용기간 | p.46 10.2.3과 p.53-59 | ±3일과 ±7일이 같은 문서에 있음. 판정하지 않음 | CONFLICTING |
-| SCREENING-ID-001 | SUBJID | p.56-57 11.2.1 | 예시 SA-001. 기본 가져오기에서 강제하지 않음 | EXTRACTED |
+| OSDI-ITEMS-001 | OSQ1-12 | 부록 1, p.93-94. 11.1 주석 17 | 12문항, 임상 점수 0-4. 6-12번의 해당 없음은 제외 | EXTRACTED |
+| OSDI-FORMULA-001 | OSSCORE | 부록 1 계산식, p.93 | 대답한 점수 합 x 25 / 대답한 문항 수 | EXTRACTED |
+| TBUT-MEAN-001 | TBUT | p.53, p.59 주석 13 | 세극등, 플루오레세인, 3회 후 평균, 단위 초 | EXTRACTED |
+| SCHIRMER-METHOD-001 | STT | p.55, p.59 주석 14 | 비마취, 5분, mm/5min, 소수 첫째 자리, 양안 | EXTRACTED |
+| VISIT-WINDOW-001 | 방문 허용기간 | p.51 10.2.3과 p.57-66 | ±3일과 ±7일이 1.10 안에 있음. 판정하지 않음 | CONFLICTING |
+| SCREENING-ID-001 | SUBJID | p.62-63 11.2.1 | 예시 SA-001. 기본 가져오기에서 강제하지 않음 | EXTRACTED |
 
 R1은 계속 기본 꺼짐이다. 이 규칙 묶음은 R1을 켜지 않는다.

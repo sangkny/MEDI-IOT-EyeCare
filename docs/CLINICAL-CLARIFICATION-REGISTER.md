@@ -4,6 +4,43 @@
 
 ## 진행 기록
 
+### 2026-10-26T15:51:33+09:00 — 계획서 1.10 게시
+
+- TASK_ID: PC2-EYECARE-PROTOCOL-V110-PUBLICATION-004
+- EXECUTION_HOST: SVG-SKLEE (PC2)
+- BRANCH: feat/clinical-protocol-validation-009
+- BASE_HEAD: 388a8ea9001904b5a4a1d48ab0f778fd9b299c2d
+- CODE_COMMIT: 574b9527fbed211d6ef2f75699888f8db58f50d6 `feat: update clinical protocol advisory rules for v1.10`
+- DOCS_COMMIT: 이 문서 커밋 `docs: reconcile v1.10 protocol and export validation`
+- START_TIME_KST: 2026-10-26T15:51:33+09:00
+- END_TIME_KST: 2026-10-26T15:53:37+09:00
+- ELAPSED: PT2M4S
+- PROTOCOL_SHA256: 9e24fcedbd869e4e2b88d8b33e32acf617d4fd541199c78cd4c75d6444e2ac44
+- PROTOCOL_VERSION: 1.10, 2026-07-01, 95쪽. 승인 상태는 UNRESOLVED
+- TEST_RESULTS: 이번 합성 SQLite 15 passed, 1 skipped, exit 0. 이번 일회용 PostgreSQL 15 `127.0.0.1:55442`에서 `medi010_external_clinical_import` 이후 합성 1 passed, exit 0. 컨테이너 `eyecare-protocol-v110-pg` 삭제. pytest 종료 후 Python 프로세스는 없음
+- RESOLVED_BY_V110: 방문 6 OSDI. 1.3 부록의 방문 1-5 기록은 유지. 1.4-1.9 개정 시점은 특정하지 않음
+- REMAINING: 서명 승인, ±3일과 ±7일, 방문 4 MEDI-EYE 치료, OSDI 반올림, 단위 문자만 있는 칸, 연구 귀속, R1 운영 승인, 반복 양식 원본 키
+- PUSH: origin `feat/clinical-protocol-validation-009`만 일반 푸시. 규칙 활성화, 운영 반입, 배포, PR 병합은 하지 않음
+- NEXT_APPROVAL: Phase 010은 시작하지 않음
+
+### 2026-10-26T15:01:00+09:00 — 계획서 1.10 대조
+
+- TASK_ID: 로컬 계획서 1.10 반영
+- EXECUTION_HOST: SVG-SKLEE (PC2)
+- BRANCH: feat/clinical-protocol-validation-009
+- HEAD_BEFORE: 388a8ea9001904b5a4a1d48ab0f778fd9b299c2d
+- START_TIME_KST: 2026-10-26T15:01:00+09:00
+- END_TIME_KST: 2026-10-26T15:04:39+09:00
+- ELAPSED: PT3M39S
+- PROTOCOL: `MEDI-DES-001_Protocol_V1.10_01Jul2026.pdf`, 95쪽, 3582719바이트
+- PROTOCOL_SHA256: 9e24fcedbd869e4e2b88d8b33e32acf617d4fd541199c78cd4c75d6444e2ac44
+- PROTOCOL_VERSION: 1.10, 표지 날짜 2026-07-01. 서명란의 이름과 날짜는 비어 있음
+- PACK_ID: `medi-des-001-v1.10`. 기본 가져오기는 계속 꺼져 있음
+- TEST_RESULTS: 합성 SQLite 15 passed, 1 skipped, exit 0. PostgreSQL은 다시 실행하지 않음
+- RESOLVED_IN_1_10: 부록 1 방문 칸은 방문 1, 2, 3, 4, 6이다. 11.1 OSDI 일정과 같다
+- REMAINING: 10.2.3의 ±3일과 11.1·11.2의 ±7일. 서명 승인. 1.4–1.9 전문은 로컬에 없음. 반올림 자릿수, 연구 귀속, R1, 반복 양식 키
+- NEXT_APPROVAL: 커밋과 푸시 없음. 규칙 활성화와 Phase 010은 시작하지 않음
+
 ### 2026-10-26T00:09:57+09:00 — 계획서 검증 게시
 
 - TASK_ID: PC2-EYECARE-PROTOCOL009-PUBLICATION-003
@@ -40,9 +77,9 @@
 
 | 항목 | 현재 근거 | 상태 | 소프트웨어 동작 |
 |---|---|---|---|
-| 계획서 승인·버전 | 표지에 번호 MEDI-DES-001, 버전 1.3, 날짜 2025-05-19. 본문 버전 이력은 1.0 2024-02-23, 1.1 2025-02-13, 1.2 2025-03-31, 1.3 2025-05-19. 로컬에는 1.3 전문만 있음. 2-3쪽 서명란의 이름과 날짜는 비어 있음. 파일명의 Final은 승인이 아님. 변경대비표 6쪽은 별도 승인 개정이 아님 | UNRESOLVED | 묶음 상태는 EXTRACTED, AWAITING_APPROVAL. ACTIVE 승격은 승인 전 거부 |
-| 방문 허용기간 | 10.2.3은 방문 3-6에 ±3일. 11.1, 11.2와 변경대비표, 시트 제목은 ±7일 | CONFLICTING | `window_check`는 모든 방문에서 false. 허용기간 판정 없음 |
-| 방문 6 OSDI | 11.1과 11.2 일정에는 방문 6 OSDI가 있음. 부록 설문 그림의 방문 선택지는 1-5만 있음 | SOURCE_CONFLICT | 방문 6 일정 플래그는 true. 그림과 일정 중 하나를 고르지 않음 |
+| 계획서 승인·버전 | 현재 근거 문서는 1.10, 표지 날짜 2026-07-01, 95쪽. 이력은 1.0부터 1.10까지이며 1.10 행은 담당자·관리자 정보 변경이다. 로컬 전문은 1.3과 1.10뿐이다. 2-3쪽 서명란은 비어 있다 | UNRESOLVED | 묶음 ID는 `medi-des-001-v1.10`. EXTRACTED, AWAITING_APPROVAL. ACTIVE 승격은 승인 전 거부 |
+| 방문 허용기간 | 1.10의 10.2.3은 방문 3-6에 ±3일. 11.1과 11.2는 ±7일 | CONFLICTING | `window_check`는 모든 방문에서 false. 허용기간 판정 없음 |
+| 방문 6 OSDI | 1.10의 11.1·11.2와 부록 1 방문 칸이 방문 1, 2, 3, 4, 6이다. 방문 5는 양쪽 다 없다. 1.3 부록은 방문 1-5만 있어 SOURCE_CONFLICT였다. 1.4-1.9 중 어느 개정인지는 특정하지 않는다 | RESOLVED_BY_V110 | 방문 6 일정 플래그는 true. 방문 5는 false. 허용기간 판정은 하지 않음 |
 | OSDI 반올림 | 계산식은 부록 1에 있음. 소수 자릿수와 반올림 규칙은 없음 | UNRESOLVED | 원본 점수를 유지. 차이 0.05 초과 0.5 이내 207행만 권고. 0.5 초과 0행. 0.05 구간은 구현 허용이지 계획서 규칙이 아님 |
 | 결측·비숫자 표현 | 아래 표현 분류. 명세 코드 라벨이 아닌 단위 문자와 단위 철자가 있음 | UNRESOLVED | 오류로 바꾸지 않음. 빈 문항을 0이나 해당없음으로 채우지 않음 |
 | 워크북 연구 귀속 | 시트명에 연구 코드가 없음. 스크리닝 63행은 `SA-`와 세 자리 형식과 맞음. 외부 이관 기록은 없음 | UNRESOLVED | 워크북만으로 MEDI-DES-001을 확정하지 않음 |

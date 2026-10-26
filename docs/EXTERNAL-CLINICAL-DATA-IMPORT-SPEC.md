@@ -4,6 +4,32 @@
 
 ## 진행 기록
 
+### 2026-10-26T15:51:33+09:00 — 1.10 권고 게시
+
+- TASK_ID: PC2-EYECARE-PROTOCOL-V110-PUBLICATION-004
+- EXECUTION_HOST: SVG-SKLEE
+- BRANCH: feat/clinical-protocol-validation-009
+- CODE_COMMIT: 574b9527fbed211d6ef2f75699888f8db58f50d6
+- DOCS_COMMIT: 이 문서 커밋
+- START_TIME_KST: 2026-10-26T15:51:33+09:00
+- END_TIME_KST: 2026-10-26T15:53:37+09:00
+- ELAPSED: PT2M4S
+- 선택 가능한 묶음은 `medi-des-001-v1.10`이다. `medi-des-001-v1.3`은 이력으로만 남고 호출하면 거부한다
+- TEST_RESULTS: 합성 SQLite 15 passed, 1 skipped, exit 0. 일회용 PostgreSQL 15 합성 1 passed, exit 0
+- NEXT_APPROVAL: HTTP 본문에 권고 선택자는 없다. Phase 010은 시작하지 않음
+
+### 2026-10-26T15:01:00+09:00 — 규칙 묶음 1.10
+
+- TASK_ID: 로컬 계획서 1.10 반영
+- EXECUTION_HOST: SVG-SKLEE
+- BRANCH: feat/clinical-protocol-validation-009
+- START_TIME_KST: 2026-10-26T15:01:00+09:00
+- END_TIME_KST: 2026-10-26T15:04:39+09:00
+- ELAPSED: PT3M39S
+- `protocol_advisory_id`의 현재 값은 `medi-des-001-v1.10`이다. 기본값은 비어 있고 HTTP 본문에는 없다
+- TEST_RESULTS: 합성 SQLite 15 passed, 1 skipped, exit 0. PostgreSQL은 다시 실행하지 않음
+- NEXT_APPROVAL: 커밋과 푸시 없음. Phase 010은 시작하지 않음
+
 ### 2026-10-26T00:09:57+09:00 — 권고 가져오기 게시
 
 - TASK_ID: PC2-EYECARE-PROTOCOL009-PUBLICATION-003
