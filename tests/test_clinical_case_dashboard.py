@@ -273,68 +273,71 @@ def test_dashboard_http_rejects_unauthenticated_and_unauthorized_access():
         async with engine.begin() as conn:
             return await conn.run_sync(_fill)
 
-    study_id, site_id = asyncio.run(_prepare())
-    factory = async_sessionmaker(engine, expire_on_commit=False)
+    try:
+        study_id, site_id = asyncio.run(_prepare())
+        factory = async_sessionmaker(engine, expire_on_commit=False)
 
-    async def _db():
-        async with factory() as session:
-            yield session
+        async def _db():
+            async with factory() as session:
+                yield session
 
-    app = FastAPI()
-    app.include_router(module.page_router)
-    app.include_router(module.router, prefix="/api/v1/clinical-support")
-    app.dependency_overrides[get_db] = _db
-    doctor = {"Authorization": f"Bearer {create_access_token(subject='doc', role='doctor')}"}
-    with TestClient(app) as client:
-        page = client.get("/clinical-dashboard")
-        assert page.status_code == 200
-        assert page.headers["content-type"].startswith("text/html")
-        assert "증례 대시보드" in page.text
-        denied = client.get(f"/api/v1/clinical-support/studies/{study_id}/case-dashboard", params={"site_id": site_id})
-        assert denied.status_code == 401
-        manager = {"Authorization": f"Bearer {create_access_token(subject='doc', role='manager')}"}
-        forbidden = client.get(
-            f"/api/v1/clinical-support/studies/{study_id}/case-dashboard",
-            params={"site_id": site_id},
-            headers=manager,
-        )
-        assert forbidden.status_code == 403
-        outsider = {"Authorization": f"Bearer {create_access_token(subject='other', role='doctor')}"}
-        blocked = client.get(
-            f"/api/v1/clinical-support/studies/{study_id}/case-dashboard",
-            params={"site_id": site_id},
-            headers=outsider,
-        )
-        assert blocked.status_code == 403
-        unknown = client.get(
-            "/api/v1/clinical-support/studies/not-a-member-study/case-dashboard",
-            params={"site_id": site_id},
-            headers=doctor,
-        )
-        assert unknown.status_code == 400
-        long_code = client.get(
-            f"/api/v1/clinical-support/studies/{study_id}/case-dashboard",
-            params={"site_id": site_id, "subject_code": "X" * 65},
-            headers=doctor,
-        )
-        assert long_code.status_code == 422
-        long_study = client.get(
-            f"/api/v1/clinical-support/studies/{'S' * 40}/case-dashboard",
-            params={"site_id": site_id},
-            headers=doctor,
-        )
-        assert long_study.status_code == 422
-        allowed = client.get(
-            f"/api/v1/clinical-support/studies/{study_id}/case-dashboard",
-            params={"site_id": site_id, "subject_code": "SYN-01"},
-            headers=doctor,
-        )
-        assert allowed.status_code == 200
-        assert allowed.headers["content-type"].startswith("application/json")
-        assert allowed.json()["analytics"]["subject_series"]["FINAL"][0]["value_number"] == 4.0
-        audit = client.get(
-            f"/api/v1/clinical-support/studies/{study_id}/case-dashboard",
-            params={"site_id": site_id, "subject_code": "SYN-01"},
-            headers=outsider,
-        )
-        assert audit.status_code == 403
+        app = FastAPI()
+        app.include_router(module.page_router)
+        app.include_router(module.router, prefix="/api/v1/clinical-support")
+        app.dependency_overrides[get_db] = _db
+        doctor = {"Authorization": f"Bearer {create_access_token(subject='doc', role='doctor')}"}
+        with TestClient(app) as client:
+            page = client.get("/clinical-dashboard")
+            assert page.status_code == 200
+            assert page.headers["content-type"].startswith("text/html")
+            assert "증례 대시보드" in page.text
+            denied = client.get(f"/api/v1/clinical-support/studies/{study_id}/case-dashboard", params={"site_id": site_id})
+            assert denied.status_code == 401
+            manager = {"Authorization": f"Bearer {create_access_token(subject='doc', role='manager')}"}
+            forbidden = client.get(
+                f"/api/v1/clinical-support/studies/{study_id}/case-dashboard",
+                params={"site_id": site_id},
+                headers=manager,
+            )
+            assert forbidden.status_code == 403
+            outsider = {"Authorization": f"Bearer {create_access_token(subject='other', role='doctor')}"}
+            blocked = client.get(
+                f"/api/v1/clinical-support/studies/{study_id}/case-dashboard",
+                params={"site_id": site_id},
+                headers=outsider,
+            )
+            assert blocked.status_code == 403
+            unknown = client.get(
+                "/api/v1/clinical-support/studies/not-a-member-study/case-dashboard",
+                params={"site_id": site_id},
+                headers=doctor,
+            )
+            assert unknown.status_code == 400
+            long_code = client.get(
+                f"/api/v1/clinical-support/studies/{study_id}/case-dashboard",
+                params={"site_id": site_id, "subject_code": "X" * 65},
+                headers=doctor,
+            )
+            assert long_code.status_code == 422
+            long_study = client.get(
+                f"/api/v1/clinical-support/studies/{'S' * 40}/case-dashboard",
+                params={"site_id": site_id},
+                headers=doctor,
+            )
+            assert long_study.status_code == 422
+            allowed = client.get(
+                f"/api/v1/clinical-support/studies/{study_id}/case-dashboard",
+                params={"site_id": site_id, "subject_code": "SYN-01"},
+                headers=doctor,
+            )
+            assert allowed.status_code == 200
+            assert allowed.headers["content-type"].startswith("application/json")
+            assert allowed.json()["analytics"]["subject_series"]["FINAL"][0]["value_number"] == 4.0
+            audit = client.get(
+                f"/api/v1/clinical-support/studies/{study_id}/case-dashboard",
+                params={"site_id": site_id, "subject_code": "SYN-01"},
+                headers=outsider,
+            )
+            assert audit.status_code == 403
+    finally:
+        asyncio.run(engine.dispose())

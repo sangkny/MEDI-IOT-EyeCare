@@ -75,7 +75,7 @@
           <line x1="${x - 14}" y1="${y(visit.median)}" x2="${x + 14}" y2="${y(visit.median)}" stroke="#f8fafc"/>
           <circle cx="${x}" cy="${y(visit.median)}" r="3" fill="#f8fafc"/>
           <text x="${x}" y="12" fill="#e7ecf3" font-size="11" text-anchor="middle">n=${visit.n}</text>
-          <text x="${x}" y="145" fill="#94a3b8" font-size="11" text-anchor="middle">${esc(visit.visit_code)}</text>`;
+          <text x="${x}" y="145" fill="#94a3b8" font-size="11" text-anchor="middle">${esc(visit.visit_code)} ${esc(visit.median)}</text>`;
       }).join("");
       return `<svg viewBox="0 0 ${width} ${height}">${marks}</svg>`;
     }
@@ -98,7 +98,7 @@
       const paths = Object.values(groups).map((series) => {
         const sorted = series.sort((a, b) => order.indexOf(a.visit_code) - order.indexOf(b.visit_code));
         const path = sorted.map((point, index) => `${index ? "L" : "M"}${x(point.visit_code)},${y(point.value_number)}`).join(" ");
-        const dots = sorted.map((point) => `<circle cx="${x(point.visit_code)}" cy="${y(point.value_number)}" r="4" fill="currentColor"/>`).join("");
+        const dots = sorted.map((point) => `<circle cx="${x(point.visit_code)}" cy="${y(point.value_number)}" r="4" fill="currentColor"/><text x="${x(point.visit_code)}" y="${y(point.value_number) - 8}" fill="currentColor" font-size="11">${esc(point.value_number)}</text>`).join("");
         return `<path d="${path}" fill="none" stroke="currentColor" stroke-width="2"/>${dots}`;
       }).join("");
       return `<svg viewBox="0 0 ${width} 140">${paths}</svg>`;
@@ -108,20 +108,71 @@
       return rows.map((row) => `<h3>${esc(title)} · ${esc(row.code)} · ${esc(row.laterality)} · ${esc(row.method)} · ${esc(row.unit)}</h3>${boxSvg(row.visits)}`).join("");
     }
     let current = { study: "", site: "", token: "" };
+    let requestSerial = 0;
+    const sensitiveIds = ["overview-body", "subjects-body", "visits-body", "analytics-body", "quality-body", "imports-body"];
+    function clearClinicalPanels() {
+      sensitiveIds.forEach((id) => {
+        const node = document.getElementById(id);
+        if (node) node.innerHTML = "";
+      });
+    }
+    function dropStaleResponses() {
+      requestSerial += 1;
+      clearClinicalPanels();
+    }
+    function stillCurrent(serial, scope) {
+      return serial === requestSerial
+        && scope.study === current.study
+        && scope.site === current.site
+        && scope.token === current.token;
+    }
     async function load(subjectCode) {
+      const serial = ++requestSerial;
+      const scope = {
+        study: current.study,
+        site: current.site,
+        token: current.token,
+      };
+      clearClinicalPanels();
       message.textContent = "불러오는 중";
       message.className = "muted";
-      const params = new URLSearchParams({ site_id: current.site });
-      if (subjectCode) params.set("subject_code", subjectCode);
-      const response = await fetch(`/api/v1/clinical-support/studies/${encodeURIComponent(current.study)}/case-dashboard?${params}`, {
-        headers: { Authorization: `Bearer ${current.token}` },
-      });
-      if (!response.ok) {
+      if (!scope.token || !scope.study || !scope.site) {
         message.textContent = "권한이 없거나 요청이 거절되었습니다.";
         message.className = "err";
         return;
       }
-      const data = await response.json();
+      const params = new URLSearchParams({ site_id: scope.site });
+      if (subjectCode) params.set("subject_code", subjectCode);
+      let response;
+      try {
+        response = await fetch(`/api/v1/clinical-support/studies/${encodeURIComponent(scope.study)}/case-dashboard?${params}`, {
+          headers: { Authorization: `Bearer ${scope.token}` },
+        });
+      } catch (error) {
+        if (!stillCurrent(serial, scope)) return;
+        clearClinicalPanels();
+        message.textContent = "불러오지 못했습니다.";
+        message.className = "err";
+        return;
+      }
+      if (!stillCurrent(serial, scope)) return;
+      if (!response.ok) {
+        clearClinicalPanels();
+        message.textContent = "권한이 없거나 요청이 거절되었습니다.";
+        message.className = "err";
+        return;
+      }
+      let data;
+      try {
+        data = await response.json();
+      } catch (error) {
+        if (!stillCurrent(serial, scope)) return;
+        clearClinicalPanels();
+        message.textContent = "불러오지 못했습니다.";
+        message.className = "err";
+        return;
+      }
+      if (!stillCurrent(serial, scope)) return;
       message.textContent = subjectCode ? `대상자 ${subjectCode}` : "사이트 집계";
       const safety = Object.entries(data.safety).map(([key, value]) => `<span class="pill">${esc(key)}: ${esc(value)}</span>`).join("");
       document.getElementById("overview-body").innerHTML = `${safety}<p>대상자 ${data.overview.subject_count} · 방문 ${data.overview.visit_count} · 초안 ${data.overview.observation_status.draft} · 확정 ${data.overview.observation_status.final} · 스테이징 ${data.overview.staged_row_count} · 미해결 ${data.overview.unresolved_row_count}</p>`;
@@ -149,6 +200,13 @@
         button.addEventListener("click", () => load(button.getAttribute("data-subject")));
       });
     }
+    ["token", "study", "site"].forEach((id) => {
+      document.getElementById(id).addEventListener("input", () => {
+        dropStaleResponses();
+        message.textContent = "이전 표시를 지웠습니다.";
+        message.className = "muted";
+      });
+    });
     document.getElementById("gate").addEventListener("submit", async (event) => {
       event.preventDefault();
       current = {
@@ -158,6 +216,7 @@
       };
       await load("");
     });
+    window.__caseDashboard = { load, clearClinicalPanels, dropStaleResponses };
   </script>
 </body>
 </html>
