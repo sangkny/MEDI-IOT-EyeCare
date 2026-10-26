@@ -8,6 +8,26 @@
 
 ## 진행 기록
 
+### 2026-10-26T17:54:11+09:00 — PC1-EYECARE-PHASE009-V110-PUBLICATION-007
+
+```
+TASK_ID: PC1-EYECARE-PHASE009-V110-PUBLICATION-007
+EXECUTION_HOST: MEDIIOT-SKLEE
+PC_ROLE: PC1
+BRANCH: integration/eyecare-clinical-protocol-v110-009
+HEAD_BEFORE: b5b5f1ace304580bc977d8731a4d013b551552cf
+SOURCE_SHA: 600ac7bd6f3dca5b7ef8cc998c621b43828a5f16
+MERGE_COMMIT: 3d5489f1097ad352e58c825b604733e856dace94
+PARENTS: b5b5f1ace304580bc977d8731a4d013b551552cf 600ac7bd6f3dca5b7ef8cc998c621b43828a5f16
+START_TIME_KST: 2026-10-26T17:52:30+09:00
+SQLITE_AFTER_COMMIT: 79 passed, 4 skipped, exit 0, aiosqlite workers 0
+POLICY_AFTER_COMMIT: 8 passed, exit 0, workers 0
+POSTGRESQL: not rerun after the merge commit. Evidence 2026-10-26T17:46:02+09:00 disposable pgvector/pgvector:pg15, medi010 head, original order 4 passed and reverse order 4 passed, exit 0, workers 0, container removed
+PROTOCOL: medi-des-001-v1.10. EXTRACTED, AWAITING_APPROVAL. enable_r1 false. protocol_advisory_id empty. window_check false. ACTIVE rejected before approval
+PUSH: https-origin normal push of this branch only. No force. Draft PR base is integration/eyecare-clinical-data-lock-008. Not merged
+DEPENDENCY: EyeCare Draft PR #3 remains unchanged
+```
+
 ### 2026-10-26T17:46:02+09:00 — PC1-EYECARE-PHASE009-V110-FINAL-INTEGRATION-006
 
 ```
