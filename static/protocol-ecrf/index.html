@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>계획서 eCRF</title>
+  <style>
+    body { margin: 0; font-family: system-ui, sans-serif; background: #0f1419; color: #e7ecf3; }
+    main { max-width: 900px; margin: 0 auto; padding: 1rem; }
+    section { background: #1a2332; border-radius: 10px; padding: 1rem; margin-bottom: .8rem; }
+    input, button { padding: .5rem; margin: .2rem; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: #e7ecf3; }
+    button { background: #2563eb; border: none; cursor: pointer; }
+    .muted { color: #94a3b8; }
+    table { width: 100%; border-collapse: collapse; }
+    td, th { text-align: left; padding: .3rem; border-bottom: 1px solid #334155; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>계획서 eCRF 초안</h1>
+  <p class="muted">추출은 제안입니다. 모의 승인은 실제 서명이 아니며 창 검증은 켜지지 않습니다.</p>
+  <section>
+    <input id="token" type="password" placeholder="접근 토큰" />
+    <input id="study" placeholder="연구 ID" />
+    <input id="site" placeholder="사이트 ID" />
+    <input id="schema" placeholder="스키마 ID" />
+    <input id="subject" placeholder="대상자 ID" />
+    <input id="visitid" placeholder="방문 ID" />
+    <select id="visit"></select>
+    <button type="button" id="load">폼 보기</button>
+    <input id="field" placeholder="논리 필드" />
+    <input id="value" placeholder="초안 값" />
+    <input id="repeat" placeholder="반복" value="1" />
+    <button type="button" id="save">초안 저장</button>
+    <p id="message" class="muted"></p>
+  </section>
+  <section id="form"><h2>필드</h2><div id="fields" class="muted">스키마를 불러오세요.</div></section>
+  <section id="history"><h2>입력 이력</h2><div id="entries"></div></section>
+</main>
+<script>
+  const message = document.getElementById("message");
+  function esc(value) {
+    return String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
+  }
+  document.getElementById("load").onclick = async () => {
+    const study = document.getElementById("study").value.trim();
+    const schema = document.getElementById("schema").value.trim();
+    const token = document.getElementById("token").value.trim();
+    message.textContent = "";
+    document.getElementById("fields").textContent = "";
+    document.getElementById("entries").textContent = "";
+    const site = document.getElementById("site").value.trim();
+    const response = await fetch(`/api/v1/clinical-support/studies/${encodeURIComponent(study)}/ecrf-schemas/${encodeURIComponent(schema)}?site_id=${encodeURIComponent(site)}`, {
+      headers: { Authorization: `Bearer ${token}` }
+    });
+    if (!response.ok) {
+      message.textContent = "폼을 불러오지 못했습니다.";
+      return;
+    }
+    const payload = await response.json();
+    const visits = [...new Set(payload.fields.flatMap((field) => field.visits))];
+    const forms = (payload.forms || []).map((form) => `<li>${esc(form.form_code)} · ${esc(form.coverage)}</li>`).join("");
+    const selected = document.getElementById("visit").value;
+    const visible = payload.fields.filter((field) => !selected || field.visits.includes(selected));
+    const rows = visible.map((field) => `<tr><td>${esc(field.logical_field_id)}</td><td>${esc(field.unit)}</td><td>${field.required ? "필수" : "선택"}</td><td>${field.repeated ? "반복 " + esc(field.repeat_count) : ""}</td><td>${field.allows_not_applicable ? "해당 없음 가능" : ""}</td><td>${esc(field.visits.join(","))}</td></tr>`).join("");
+    document.getElementById("visit").innerHTML = `<option value="">모든 방문</option>` + visits.map((visit) => `<option ${visit === selected ? "selected" : ""}>${esc(visit)}</option>`).join("");
+    document.getElementById("fields").innerHTML = `<p>계획서 ${esc(payload.protocol_version)} · ${esc(payload.status)} · 제안</p><ul>${forms}</ul><table><tr><th>필드</th><th>단위</th><th>필수</th><th>반복</th><th>조건</th><th>방문</th></tr>${rows}</table><p class="muted">감사 ${esc(payload.audit && payload.audit.count)} · 잠금 ${esc((payload.locks || []).length)} · 질의 ${esc(Object.keys(payload.queries || {}).length)}</p>`;
+    const entries = (payload.entries || []).map((row) => `<tr><td>${esc(row.logical_field_id)}</td><td>${esc(row.protocol_version)}</td><td>${esc(row.revision)}</td><td>${esc(row.record_status)}</td></tr>`).join("");
+    document.getElementById("entries").innerHTML = entries ? `<table>${entries}</table>` : "<p class='muted'>입력이 없습니다.</p>";
+  };
+  document.getElementById("save").onclick = async () => {
+    const study = document.getElementById("study").value.trim();
+    const site = document.getElementById("site").value.trim();
+    const token = document.getElementById("token").value.trim();
+    const raw = document.getElementById("value").value.trim();
+    const numeric = raw !== "" && raw !== "NA" && !Number.isNaN(Number(raw));
+    const response = await fetch(`/api/v1/clinical-support/studies/${encodeURIComponent(study)}/ecrf-entries`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        site_id: site,
+        schema_id: document.getElementById("schema").value.trim(),
+        subject_id: document.getElementById("subject").value.trim(),
+        visit_id: document.getElementById("visitid").value.trim(),
+        logical_field_id: document.getElementById("field").value.trim(),
+        value_number: numeric ? Number(raw) : null,
+        value_text: numeric ? null : raw,
+        repeat_index: Number(document.getElementById("repeat").value || "1"),
+        reason: "합성 초안"
+      })
+    });
+    if (!response.ok) {
+      message.textContent = "저장하지 못했습니다.";
+      document.getElementById("fields").textContent = "";
+      document.getElementById("entries").textContent = "";
+      return;
+    }
+    document.getElementById("load").onclick();
+  };
+</script>
+</body>
+</html>

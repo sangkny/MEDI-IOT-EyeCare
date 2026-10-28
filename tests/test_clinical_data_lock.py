@@ -751,7 +751,7 @@ def test_postgresql_lock_and_migration_when_configured() -> None:
                 for row in conn.execute(text("SELECT tablename FROM pg_tables WHERE schemaname='public'"))
             }
             version = conn.execute(text("SELECT version_num FROM alembic_version")).scalar()
-        assert version == "medi009_clinical_data_lock"
+        assert version == "medi012_questionnaire_engine"
         assert {"data_lock_states", "data_unlock_requests", "monitoring_indicators"} <= names
         study, site, _subject, visit = _ready(db, "pg-doc", "PG", "pg-dm")
         final = _final(db, visit, 4, user_id="pg-doc")

@@ -34,6 +34,8 @@
       <input id="site" placeholder="사이트 ID" />
       <button type="submit">불러오기</button>
     </form>
+    <button type="button" id="ecrf">계획서 eCRF</button>
+    <button type="button" id="questionnaire">설문</button>
     <p id="message" class="muted"></p>
   </header>
   <main>
@@ -46,6 +48,8 @@
   </main>
   <script>
     const message = document.getElementById("message");
+    document.getElementById("ecrf").onclick = () => location.assign("/protocol-ecrf");
+    document.getElementById("questionnaire").onclick = () => location.assign("/questionnaire");
     function table(columns, rows) {
       if (!rows.length) return "<p class='muted'>행이 없습니다.</p>";
       const head = columns.map((column) => `<th>${column.label}</th>`).join("");

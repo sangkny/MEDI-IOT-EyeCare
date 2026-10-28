@@ -431,7 +431,7 @@ def test_postgresql_import_migration_when_configured():
     db = Session(engine)
     try:
         version = db.execute(text("SELECT version_num FROM alembic_version")).scalar()
-        assert version == "medi010_external_clinical_import"
+        assert version == "medi012_questionnaire_engine"
         study, site = _scope(db)
         content = _book([_row()])
         summary = confirm_import(
