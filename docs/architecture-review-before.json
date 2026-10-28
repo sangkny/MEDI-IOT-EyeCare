@@ -1,0 +1,561 @@
+{
+  "schema_version": "1.3.0",
+  "kind": "architecture_review",
+  "created_utc": "2026-10-27T02:43:55.150328+00:00",
+  "tool": {
+    "name": "svg-analyzer",
+    "version": "0.3.3"
+  },
+  "limitations": [
+    "Static architecture review only; not REA/Ghidra binary analysis.",
+    "Does not read clinical exports, research databases, or confidential Protocol PDFs.",
+    "Severity remains UNASSESSED until human review; proposed_severity is a hypothesis.",
+    "Heuristic data-loss and OpenAPI checks may produce false positives.",
+    "No host ports are bound and the target repository is not modified."
+  ],
+  "repository_root": "C:\\Office_Automation\\MEDI-IOT-EyeCare-ecrf-012",
+  "repository_head": "a81b410f5bbdc4ac1739c99b4f97eb29187ac28e",
+  "repository_branch": "feat/protocol-ecrf-autogen-audit-012",
+  "evidence_contract_schema": "eyecare-architecture-evidence/1",
+  "evidence_contract_sha256": "cbcaac27cadeac4d8d67ad9f3d2129701db5e1bd10d420ac7209be9eddd4bc65",
+  "checks_executed": [
+    "module_cycle",
+    "undefined_ownership",
+    "unversioned_interface",
+    "db_ownership_conflict",
+    "schema_migration_gap",
+    "source_rule_gap",
+    "audit_coverage_gap",
+    "critical_test_gap",
+    "version_incompatibility",
+    "data_loss_path",
+    "runtime_dependency"
+  ],
+  "modules": [
+    {
+      "module_id": "protocol_registry",
+      "paths": [
+        "services/protocol_ecrf.py"
+      ],
+      "owner": "clinical-platform",
+      "critical": true,
+      "interfaces": [
+        "http:/api/v1/clinical-support/studies/{id}/protocol-documents"
+      ],
+      "db_owns": [
+        "protocol_documents"
+      ],
+      "audit_covered": true,
+      "test_paths": [
+        "tests/test_protocol_ecrf.py"
+      ]
+    },
+    {
+      "module_id": "protocol_extraction",
+      "paths": [
+        "services/clinical_protocol_rules.py"
+      ],
+      "owner": "clinical-platform",
+      "critical": true,
+      "interfaces": [],
+      "db_owns": [],
+      "audit_covered": true,
+      "test_paths": [
+        "tests/test_clinical_import.py"
+      ]
+    },
+    {
+      "module_id": "amendment_engine",
+      "paths": [
+        "services/protocol_ecrf.py"
+      ],
+      "owner": "clinical-platform",
+      "critical": true,
+      "interfaces": [
+        "http:/api/v1/clinical-support/studies/{id}/ecrf-amendments"
+      ],
+      "db_owns": [
+        "ecrf_schema_versions"
+      ],
+      "audit_covered": true,
+      "test_paths": [
+        "tests/test_protocol_ecrf.py"
+      ]
+    },
+    {
+      "module_id": "ecrf_schema",
+      "paths": [
+        "services/protocol_ecrf.py",
+        "models/clinical_support.py"
+      ],
+      "owner": "clinical-platform",
+      "critical": true,
+      "interfaces": [
+        "http:/api/v1/clinical-support/studies/{id}/ecrf-schemas/{id}"
+      ],
+      "db_owns": [
+        "ecrf_schema_versions",
+        "ecrf_entries"
+      ],
+      "audit_covered": true,
+      "test_paths": [
+        "tests/test_protocol_ecrf.py"
+      ]
+    },
+    {
+      "module_id": "ecrf_renderer",
+      "paths": [
+        "static/protocol-ecrf/index.html",
+        "api/protocol_ecrf.py"
+      ],
+      "owner": "clinical-platform",
+      "critical": false,
+      "interfaces": [
+        "http:/protocol-ecrf"
+      ],
+      "db_owns": [],
+      "audit_covered": false,
+      "test_paths": [
+        "tests/test_protocol_ecrf.py"
+      ]
+    },
+    {
+      "module_id": "questionnaire_definition",
+      "paths": [
+        "services/questionnaire_engine.py"
+      ],
+      "owner": "clinical-platform",
+      "critical": true,
+      "interfaces": [
+        "http:/api/v1/clinical-support/studies/{id}/questionnaire-drafts"
+      ],
+      "db_owns": [
+        "questionnaire_definitions",
+        "questionnaire_versions"
+      ],
+      "audit_covered": true,
+      "test_paths": [
+        "tests/test_questionnaire_engine.py"
+      ]
+    },
+    {
+      "module_id": "questionnaire_response",
+      "paths": [
+        "services/clinical_records.py",
+        "services/questionnaire_engine.py"
+      ],
+      "owner": "clinical-platform",
+      "critical": true,
+      "interfaces": [
+        "http:/api/v1/clinical-support/questionnaire-engine/responses"
+      ],
+      "db_owns": [
+        "questionnaire_responses",
+        "questionnaire_response_items"
+      ],
+      "audit_covered": true,
+      "test_paths": [
+        "tests/test_questionnaire_engine.py"
+      ]
+    },
+    {
+      "module_id": "questionnaire_scoring",
+      "paths": [
+        "services/questionnaire_engine.py"
+      ],
+      "owner": "clinical-platform",
+      "critical": true,
+      "interfaces": [
+        "http:/api/v1/clinical-support/questionnaire-engine/responses/{id}/score"
+      ],
+      "db_owns": [
+        "questionnaire_score_results"
+      ],
+      "audit_covered": true,
+      "test_paths": [
+        "tests/test_questionnaire_engine.py"
+      ]
+    },
+    {
+      "module_id": "questionnaire_analytics",
+      "paths": [
+        "services/questionnaire_engine.py"
+      ],
+      "owner": "clinical-platform",
+      "critical": false,
+      "interfaces": [
+        "http:/api/v1/clinical-support/studies/{id}/questionnaire-stats"
+      ],
+      "db_owns": [],
+      "audit_covered": true,
+      "test_paths": [
+        "tests/test_questionnaire_engine.py"
+      ]
+    },
+    {
+      "module_id": "clinical_records",
+      "paths": [
+        "services/clinical_records.py"
+      ],
+      "owner": "clinical-platform",
+      "critical": true,
+      "interfaces": [],
+      "db_owns": [
+        "clinical_observations"
+      ],
+      "audit_covered": true,
+      "test_paths": [
+        "tests/test_observation_lifecycle.py"
+      ]
+    },
+    {
+      "module_id": "data_quality",
+      "paths": [
+        "services/clinical_quality.py"
+      ],
+      "owner": "clinical-platform",
+      "critical": true,
+      "interfaces": [],
+      "db_owns": [
+        "data_quality_findings"
+      ],
+      "audit_covered": true,
+      "test_paths": [
+        "tests/test_clinical_query_quality.py"
+      ]
+    },
+    {
+      "module_id": "clinical_query",
+      "paths": [
+        "services/clinical_queries.py"
+      ],
+      "owner": "clinical-platform",
+      "critical": true,
+      "interfaces": [],
+      "db_owns": [
+        "clinical_queries"
+      ],
+      "audit_covered": true,
+      "test_paths": [
+        "tests/test_clinical_query_quality.py"
+      ]
+    },
+    {
+      "module_id": "audit_trail",
+      "paths": [
+        "services/clinical_records.py",
+        "models/clinical_support.py"
+      ],
+      "owner": "clinical-platform",
+      "critical": true,
+      "interfaces": [
+        "http:/api/v1/clinical-support/architecture-evidence"
+      ],
+      "db_owns": [
+        "clinical_audit_events",
+        "audit_event_chains"
+      ],
+      "audit_covered": true,
+      "test_paths": [
+        "tests/test_protocol_ecrf.py",
+        "tests/test_questionnaire_engine.py"
+      ]
+    },
+    {
+      "module_id": "dashboard",
+      "paths": [
+        "services/clinical_case_dashboard.py",
+        "api/clinical_dashboard.py"
+      ],
+      "owner": "clinical-platform",
+      "critical": false,
+      "interfaces": [
+        "http:/clinical-dashboard"
+      ],
+      "db_owns": [],
+      "audit_covered": true,
+      "test_paths": [
+        "tests/test_clinical_case_dashboard.py"
+      ]
+    },
+    {
+      "module_id": "import_reconciliation",
+      "paths": [
+        "services/clinical_import.py"
+      ],
+      "owner": "clinical-platform",
+      "critical": true,
+      "interfaces": [],
+      "db_owns": [
+        "import_batches"
+      ],
+      "audit_covered": true,
+      "test_paths": [
+        "tests/test_clinical_import.py"
+      ]
+    },
+    {
+      "module_id": "analyzer_integration",
+      "paths": [
+        "services/architecture_evidence.py",
+        "services/improvement_loop.py"
+      ],
+      "owner": "clinical-platform",
+      "critical": true,
+      "interfaces": [
+        "http:/api/v1/clinical-support/architecture-evidence",
+        "http:/api/v1/clinical-support/improvement-findings"
+      ],
+      "db_owns": [
+        "improvement_findings"
+      ],
+      "audit_covered": true,
+      "test_paths": [
+        "tests/test_questionnaire_engine.py"
+      ]
+    },
+    {
+      "module_id": "alembic",
+      "paths": [
+        "alembic/versions"
+      ],
+      "owner": "clinical-platform",
+      "critical": true,
+      "interfaces": [],
+      "db_owns": [],
+      "audit_covered": true,
+      "test_paths": [
+        "tests/test_clinical_import.py",
+        "tests/test_clinical_data_lock.py"
+      ]
+    }
+  ],
+  "edges": [
+    {
+      "source": "alembic",
+      "target": "ecrf_schema",
+      "kind": "declared"
+    },
+    {
+      "source": "alembic",
+      "target": "questionnaire_scoring",
+      "kind": "declared"
+    },
+    {
+      "source": "analyzer_integration",
+      "target": "questionnaire_definition",
+      "kind": "declared"
+    },
+    {
+      "source": "clinical_query",
+      "target": "audit_trail",
+      "kind": "declared"
+    },
+    {
+      "source": "clinical_records",
+      "target": "audit_trail",
+      "kind": "declared"
+    },
+    {
+      "source": "ecrf_schema",
+      "target": "amendment_engine",
+      "kind": "declared"
+    },
+    {
+      "source": "ecrf_schema",
+      "target": "ecrf_renderer",
+      "kind": "declared"
+    },
+    {
+      "source": "import_reconciliation",
+      "target": "data_quality",
+      "kind": "declared"
+    },
+    {
+      "source": "protocol_extraction",
+      "target": "ecrf_schema",
+      "kind": "declared"
+    },
+    {
+      "source": "protocol_extraction",
+      "target": "questionnaire_definition",
+      "kind": "declared"
+    },
+    {
+      "source": "protocol_registry",
+      "target": "protocol_extraction",
+      "kind": "declared"
+    },
+    {
+      "source": "questionnaire_definition",
+      "target": "questionnaire_response",
+      "kind": "declared"
+    },
+    {
+      "source": "questionnaire_response",
+      "target": "audit_trail",
+      "kind": "declared"
+    },
+    {
+      "source": "questionnaire_response",
+      "target": "questionnaire_scoring",
+      "kind": "declared"
+    },
+    {
+      "source": "questionnaire_scoring",
+      "target": "questionnaire_analytics",
+      "kind": "declared"
+    }
+  ],
+  "findings": [
+    {
+      "finding_id": "ARCH-DB-4a39d6a5",
+      "claim_origin": "svg-extension",
+      "verification_status": "MACHINE_CHECKED",
+      "severity": "UNASSESSED",
+      "confidence": "HIGH",
+      "evidence": [
+        {
+          "kind": "human_note",
+          "source": "architecture-evidence",
+          "note": "Modules ['amendment_engine', 'ecrf_schema'] both list ecrf_schema_versions"
+        }
+      ],
+      "recommendation": "Assign a single owning module for the database object in the evidence contract.",
+      "module_id": "amendment_engine,ecrf_schema",
+      "check_id": "db_ownership_conflict",
+      "finding_class": "confirmed_defect",
+      "title": "Database object claimed by multiple modules: ecrf_schema_versions",
+      "trigger": "db_owns conflict for ecrf_schema_versions",
+      "proposed_improvement": "Assign a single owning module for the database object in the evidence contract.",
+      "regression_tests": [
+        "tests/test_architecture_review.py::test_db_ownership_conflict"
+      ],
+      "disposition": "open",
+      "proposed_severity": "HIGH"
+    },
+    {
+      "finding_id": "ARCH-IFACE-dashboard-c6a76acf",
+      "claim_origin": "svg-extension",
+      "verification_status": "MACHINE_CHECKED",
+      "severity": "UNASSESSED",
+      "confidence": "MEDIUM",
+      "evidence": [
+        {
+          "kind": "source_location",
+          "source": "services/clinical_case_dashboard.py",
+          "note": "Declared interface without version: http:/clinical-dashboard",
+          "source_sha256": "7ab4d2592d0fd518900e7bee39ae525504986bfc42cd78e2f91617d23fb08182"
+        }
+      ],
+      "recommendation": "Add an explicit interface version (for example /v1/ or version=1).",
+      "module_id": "dashboard",
+      "check_id": "unversioned_interface",
+      "finding_class": "architectural_recommendation",
+      "title": "Unversioned interface on dashboard",
+      "trigger": "interface 'http:/clinical-dashboard' has no version token",
+      "proposed_improvement": "Add an explicit interface version (for example /v1/ or version=1).",
+      "regression_tests": [
+        "tests/test_architecture_review.py::test_unversioned_interface"
+      ],
+      "disposition": "open",
+      "proposed_severity": "MEDIUM"
+    },
+    {
+      "finding_id": "ARCH-IFACE-ecrf_renderer-1370a14b",
+      "claim_origin": "svg-extension",
+      "verification_status": "MACHINE_CHECKED",
+      "severity": "UNASSESSED",
+      "confidence": "MEDIUM",
+      "evidence": [
+        {
+          "kind": "source_location",
+          "source": "static/protocol-ecrf/index.html",
+          "note": "Declared interface without version: http:/protocol-ecrf",
+          "source_sha256": "6aeb0b0dc7397e4b4b3222b1d3c3a7bd516937b246216caf0f05e7556e10be6d"
+        }
+      ],
+      "recommendation": "Add an explicit interface version (for example /v1/ or version=1).",
+      "module_id": "ecrf_renderer",
+      "check_id": "unversioned_interface",
+      "finding_class": "architectural_recommendation",
+      "title": "Unversioned interface on ecrf_renderer",
+      "trigger": "interface 'http:/protocol-ecrf' has no version token",
+      "proposed_improvement": "Add an explicit interface version (for example /v1/ or version=1).",
+      "regression_tests": [
+        "tests/test_architecture_review.py::test_unversioned_interface"
+      ],
+      "disposition": "open",
+      "proposed_severity": "MEDIUM"
+    },
+    {
+      "finding_id": "ARCH-LOSS-57fb48bd61",
+      "claim_origin": "svg-extension",
+      "verification_status": "MACHINE_CHECKED",
+      "severity": "UNASSESSED",
+      "confidence": "LOW",
+      "evidence": [
+        {
+          "kind": "source_location",
+          "source": "alembic/versions/medi003_clinical_studies.py",
+          "note": "Heuristic destructive call pattern",
+          "locator": "line:152",
+          "source_sha256": "70b47a7a2b8bd8f3ac78e7210489f4db662a455f9af6a32a3e550a1cb6133a67"
+        }
+      ],
+      "recommendation": "Guard destructive paths with explicit audit, soft-delete, or migration-only DDL.",
+      "module_id": "alembic",
+      "check_id": "data_loss_path",
+      "finding_class": "architectural_recommendation",
+      "title": "Potential data-loss call in alembic/versions/medi003_clinical_studies.py",
+      "trigger": "pattern 'DELETE FROM' at line 152",
+      "proposed_improvement": "Guard destructive paths with explicit audit, soft-delete, or migration-only DDL.",
+      "regression_tests": [
+        "tests/test_architecture_review.py::test_data_loss_path"
+      ],
+      "disposition": "open",
+      "proposed_severity": "HIGH"
+    },
+    {
+      "finding_id": "ARCH-MIG-gap",
+      "claim_origin": "svg-extension",
+      "verification_status": "MACHINE_CHECKED",
+      "severity": "UNASSESSED",
+      "confidence": "MEDIUM",
+      "evidence": [
+        {
+          "kind": "source_location",
+          "source": "models",
+          "note": "Missing table name count=2"
+        }
+      ],
+      "recommendation": "Add or name migrations that reference each table, or document intentional exclusions.",
+      "module_id": "alembic",
+      "check_id": "schema_migration_gap",
+      "finding_class": "architectural_recommendation",
+      "title": "Model table names without migration text hits",
+      "trigger": "2 __tablename__ value(s) absent from alembic/versions/*.py text",
+      "proposed_improvement": "Add or name migrations that reference each table, or document intentional exclusions.",
+      "regression_tests": [
+        "tests/test_architecture_review.py::test_schema_migration_gap"
+      ],
+      "disposition": "open",
+      "proposed_severity": "MEDIUM"
+    }
+  ],
+  "skipped_paths": [
+    ".git",
+    ".pytest_cache",
+    ".venv",
+    "__pycache__",
+    "build",
+    "data",
+    "dist",
+    "node_modules",
+    "private",
+    "uploads",
+    "venv"
+  ],
+  "offline": true,
+  "destructive": false
+}
