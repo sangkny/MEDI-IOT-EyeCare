@@ -8,6 +8,39 @@
 
 ## 진행 기록
 
+### 2026-10-29T17:55:00+09:00 — PC1-EYECARE-PHASE012-013-STACKED-INTEGRATION-001 (Phase 012)
+
+```
+TASK_ID: PC1-EYECARE-PHASE012-013-STACKED-INTEGRATION-001
+PHASE: 012
+EXECUTION_HOST: MEDIIOT-SKLEE
+PC_ROLE: PC1
+START_TIME_KST: 2026-10-29T17:41:28+09:00
+WORKTREE: E:/Office_Automation/idea-collection/projects/_integration_eyecare_012
+BRANCH: integration/eyecare-protocol-ecrf-questionnaire-012
+BASE_HEAD: 3fa584572d3f988c80c09fd9b7fe39fc6fc4bce0
+SOURCE_BRANCH: feat/protocol-ecrf-autogen-audit-012
+SOURCE_HEAD: 9ab5b0df385a8ddd4e8974f1090cd19075b7bb94
+MERGE_COMMIT: d3ef65fac380fdc7dbd1ca9da4e20431ebddb753
+MERGE_PARENTS: 3fa584572d3f988c80c09fd9b7fe39fc6fc4bce0 9ab5b0df385a8ddd4e8974f1090cd19075b7bb94
+FIX_COMMIT: 9e5f8c9a4b53cc4031158d43bdb6b48dcf39caa1
+PORT_REGISTRY: E:/Office_Automation/idea-collection/projects/PORT-ALLOCATION.md
+PORT_REGISTRY_SHA256: 5D97108C4BB335CFD3653EC32D9B7C91302B34F6947F38BEE0F4C9F822FED734
+DOCKER: WSL2 Ubuntu-22.04-AX + Docker Engine 29.7.2. Internal network eyecare-p012-align. No host port publish. Python 3.11.15 container. PostgreSQL 15 pgvector tmpfs
+MIGRATION_HEAD: medi012_questionnaire_engine
+SQLITE: 94 passed, 4 skipped, exit 0, workers 0
+POLICY: 8 passed, exit 0, workers 0
+POSTGRESQL: both orders 4 passed, exit 0, workers 0
+HTTP: /health 200 db_connected true. /clinical-dashboard /protocol-ecrf /questionnaire 200. unauth 401 auth 200 outsider 403
+BROWSER: BROWSER_NOT_VERIFIED. In-container HTTP and Node privacy harness covered Phase 010 clearing
+SECURITY: clearClinicalPanels stillCurrent requestSerial retained. Privacy harness updated for eCRF/questionnaire nav stubs
+AUDIT: append-only hash chain and audit rollback covered by protocol/questionnaire tests
+SAFETY: enable_r1 false, window_check false, no automatic correction finalize or lock
+PR_BASE: integration/eyecare-clinical-dashboard-010
+PR_HEAD: integration/eyecare-protocol-ecrf-questionnaire-012
+JUDGMENT: PHASE012_READY_FOR_PUSH
+```
+
 ### 2026-10-27T08:43:58+09:00 — PC1-EYECARE-PHASE010-SECURITY-FIX-AND-PUBLISH-003
 
 ```
