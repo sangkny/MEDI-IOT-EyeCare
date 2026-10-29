@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import (
     async_sessionmaker,
     create_async_engine,
 )
+from sqlalchemy import text
 from sqlalchemy.orm import DeclarativeBase
 
 from config import get_settings
@@ -45,6 +46,16 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """FastAPI 의존성 주입용 DB 세션 생성기"""
     async with AsyncSessionLocal() as session:
         try:
+            def _probe(sync) -> None:
+                if "link_audit_chain" in sync.info:
+                    return
+                try:
+                    sync.execute(text("SELECT 1 FROM audit_event_chains LIMIT 1"))
+                    sync.info["link_audit_chain"] = True
+                except Exception:
+                    sync.rollback()
+                    sync.info["link_audit_chain"] = False
+            await session.run_sync(_probe)
             yield session
             await session.commit()
         except Exception:

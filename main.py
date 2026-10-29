@@ -139,7 +139,11 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
 
 app.include_router(api_router, prefix="/api/v1")
 from api.clinical_dashboard import page_router as clinical_dashboard_page_router  # noqa: E402
+from api.protocol_ecrf import page_router as protocol_ecrf_page_router  # noqa: E402
+from api.questionnaire_engine import page_router as questionnaire_page_router  # noqa: E402
 app.include_router(clinical_dashboard_page_router)
+app.include_router(protocol_ecrf_page_router)
+app.include_router(questionnaire_page_router)
 
 # /health는 prefix 없이 (Docker HEALTHCHECK 호환)
 from api.health import router as health_router  # noqa: E402

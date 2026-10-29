@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>설문 응답</title>
+  <style>
+    body { margin: 0; font-family: system-ui, sans-serif; background: #0f1419; color: #e7ecf3; }
+    main { max-width: 920px; margin: 0 auto; padding: 1rem; }
+    section { background: #1a2332; border-radius: 10px; padding: 1rem; margin-bottom: .8rem; }
+    input, button, select { padding: .5rem; margin: .2rem; border-radius: 8px; border: 1px solid #334155; background: #0f172a; color: #e7ecf3; }
+    button { background: #2563eb; border: none; cursor: pointer; }
+    .muted { color: #94a3b8; }
+    table { width: 100%; border-collapse: collapse; }
+    td, th { text-align: left; padding: .3rem; border-bottom: 1px solid #334155; }
+  </style>
+</head>
+<body>
+<main>
+  <h1>설문 응답</h1>
+  <p class="muted">문항 원문은 표시하지 않습니다. 코드와 점수만 다룹니다. 권한 거부 시 대상자 정보를 지웁니다.</p>
+  <section>
+    <input id="token" type="password" placeholder="접근 토큰" />
+    <input id="study" placeholder="연구 ID" />
+    <input id="site" placeholder="사이트 ID" />
+    <input id="version" placeholder="설문 버전 ID" />
+    <input id="visit" placeholder="방문 ID" />
+    <button type="button" id="start">응답 시작</button>
+    <button type="button" id="stats">통계</button>
+    <p id="message" class="muted"></p>
+  </section>
+  <section>
+    <h2>문항</h2>
+    <input id="item" placeholder="OSQ1" />
+    <input id="value" placeholder="0-4 또는 NA" />
+    <button type="button" id="save">저장</button>
+    <button type="button" id="finalize">확정</button>
+    <button type="button" id="score">권고 채점</button>
+    <div id="result" class="muted"></div>
+  </section>
+  <section>
+    <h2>통계</h2>
+    <pre id="stats-body" class="muted"></pre>
+  </section>
+</main>
+<script>
+  let responseId = "";
+  const message = document.getElementById("message");
+  function clearSubject() {
+    responseId = "";
+    document.getElementById("result").textContent = "";
+    document.getElementById("stats-body").textContent = "";
+  }
+  async function api(path, options = {}) {
+    const token = document.getElementById("token").value.trim();
+    const headers = Object ...(options.headers || {}), Authorization: `Bearer ${token}` };
+    if (options.body) headers["Content-Type"] = "application/json";
+    const response = await fetch(path, { ...options, headers });
+    if (response.status === 401 || response.status === 403) {
+      clearSubject();
+      message.textContent = "권한이 없어 대상자 정보를 지웠습니다.";
+      throw new Error("auth");
+    }
+    return response;
+  }
+  document.getElementById("start").onclick = async () => {
+    message.textContent = "";
+    const response = await api("/api/v1/clinical-support/questionnaire-engine/responses", {
+      method: "POST",
+      body: JSON.stringify({
+        version_id: document.getElementById("version").value.trim(),
+        visit_id: document.getElementById("visit").value.trim()
+      })
+    });
+    if (!response.ok) { message.textContent = "응답을 시작하지 못했습니다."; clearSubject(); return; }
+    const payload = await response.json();
+    responseId = payload.id;
+    document.getElementById("result").textContent = `응답 ${payload.id} · ${payload.status}`;
+  };
+  document.getElementById("save").onclick = async () => {
+    const raw = document.getElementById("value").value.trim();
+    const numeric = raw !== "" && raw.toUpperCase() !== "NA" && !Number.isNaN(Number(raw));
+    const response = await api(`/api/v1/clinical-support/questionnaire-engine/responses/${encodeURIComponent(responseId)}/items`, {
+      method: "POST",
+      body: JSON.stringify({
+        item_code: document.getElementById("item").value.trim(),
+        value: numeric ? Number(raw) : raw,
+        reason: "합성 입력"
+      })
+    });
+    message.textContent = response.ok ? "저장했습니다." : "저장하지 못했습니다.";
+  };
+  document.getElementById("finalize").onclick = async () => {
+    const response = await api(`/api/v1/clinical-support/questionnaire-engine/responses/${encodeURIComponent(responseId)}/finalize`, { method: "POST" });
+    message.textContent = response.ok ? "확정했습니다." : "확정하지 못했습니다.";
+  };
+  document.getElementById("score").onclick = async () => {
+    const response = await api(`/api/v1/clinical-support/questionnaire-engine/responses/${encodeURIComponent(responseId)}/score`, { method: "POST" });
+    if (!response.ok) { message.textContent = "채점하지 못했습니다."; return; }
+    const payload = await response.json();
+    document.getElementById("result").textContent = `채점 ${payload.status} · 응답 ${payload.answered_count} · NA ${payload.not_applicable_count}`;
+  };
+  document.getElementById("stats").onclick = async () => {
+    const study = document.getElementById("study").value.trim();
+    const site = document.getElementById("site").value.trim();
+    const response = await api(`/api/v1/clinical-support/studies/${encodeURIComponent(study)}/questionnaire-stats?site_id=${encodeURIComponent(site)}`);
+    if (!response.ok) { message.textContent = "통계를 불러오지 못했습니다."; clearSubject(); return; }
+    const payload = await response.json();
+    document.getElementById("stats-body").textContent = JSON.stringify({
+      denominator_responses: payload.denominator_responses,
+      status_counts: payload.status_counts,
+      score_distributions: payload.score_distributions,
+      version_comparison: payload.version_comparison
+    }, null, 2);
+  };
+</script>
+</body>
+</html>

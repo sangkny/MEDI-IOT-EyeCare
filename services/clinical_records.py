@@ -7,6 +7,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import uuid
 from datetime import date, datetime, timezone
 
 from sqlalchemy import inspect, select
@@ -14,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from models.clinical import ClinicalStudy, StudyStatusEnum
 from models.clinical_support import (
+    AuditEventChain,
     ClinicalAuditEvent,
     ClinicalObservation,
     DataLockState,
@@ -72,6 +74,47 @@ def verify_audit_integrity(event: ClinicalAuditEvent) -> dict:
     }
 
 
+_AUDIT_GENESIS = "0" * 64
+
+
+def _append_audit_chain(
+    session: Session,
+    event: ClinicalAuditEvent,
+    *,
+    actor_role: str | None,
+    protocol_version: str | None,
+    schema_version_id: str | None,
+    correlation_id: str,
+) -> None:
+    previous = session.scalar(
+        select(AuditEventChain)
+        .where(AuditEventChain.study_id == event.study_id)
+        .order_by(AuditEventChain.chain_seq.desc())
+        .limit(1)
+    )
+    previous_hash = previous.event_hash if previous is not None else _AUDIT_GENESIS
+    chain_seq = 1 if previous is None else previous.chain_seq + 1
+    material = _canonical({
+        "event_id": event.id,
+        "previous_hash": previous_hash,
+        "action": event.action,
+        "target_id": event.target_id,
+        "payload_hash": event.payload_hash,
+    })
+    session.add(AuditEventChain(
+        event_id=event.id,
+        chain_seq=chain_seq,
+        study_id=event.study_id,
+        actor_role=actor_role,
+        protocol_version=protocol_version,
+        schema_version_id=schema_version_id,
+        correlation_id=correlation_id,
+        previous_hash=previous_hash,
+        event_hash=hashlib.sha256(material.encode("utf-8")).hexdigest(),
+    ))
+    session.flush()
+
+
 def _audit(
     session: Session,
     *,
@@ -87,6 +130,11 @@ def _audit(
     new_state: str | None = None,
     reason: str | None = None,
     target_revision: int | None = None,
+    actor_role: str | None = None,
+    protocol_version: str | None = None,
+    schema_version_id: str | None = None,
+    correlation_id: str | None = None,
+    link_chain: bool = False,
 ) -> ClinicalAuditEvent:
     raw = _canonical(payload)
     event = ClinicalAuditEvent(
@@ -106,6 +154,16 @@ def _audit(
         target_revision=target_revision,
     )
     session.add(event)
+    if link_chain or session.info.get("link_audit_chain"):
+        session.flush()
+        _append_audit_chain(
+            session,
+            event,
+            actor_role=actor_role,
+            protocol_version=protocol_version,
+            schema_version_id=schema_version_id,
+            correlation_id=correlation_id or str(uuid.uuid4()),
+        )
     return event
 
 
@@ -987,6 +1045,8 @@ def _item_spec(version: QuestionnaireVersion) -> list[dict]:
         parsed = json.loads(version.items_json)
     except json.JSONDecodeError as exc:
         raise ClinicalRecordError("설문 문항 JSON 이 올바르지 않습니다.") from exc
+    if isinstance(parsed, dict):
+        parsed = parsed.get("items")
     if not isinstance(parsed, list):
         raise ClinicalRecordError("설문 문항은 목록이어야 합니다.")
     return parsed
@@ -1056,8 +1116,17 @@ def response_errors(session: Session, response: QuestionnaireResponse) -> list[s
         if raw is None or spec.get("type") != "number":
             continue
         try:
-            number = float(json.loads(raw))
+            parsed_value = json.loads(raw)
         except (TypeError, ValueError, json.JSONDecodeError):
+            errors.append(f"type:{code}")
+            continue
+        if spec.get("allows_not_applicable") and str(parsed_value).upper() in {
+            "NA", "N/A", "해당없음",
+        }:
+            continue
+        try:
+            number = float(parsed_value)
+        except (TypeError, ValueError):
             errors.append(f"type:{code}")
             continue
         if "min" in spec and number < float(spec["min"]):

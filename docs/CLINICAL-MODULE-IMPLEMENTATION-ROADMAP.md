@@ -7,6 +7,62 @@
 
 ## 진행 기록
 
+### 2026-10-29T07:29:19+09:00 — Phase 012 feature branch 게시
+
+- TASK_ID: PC2-EYECARE-PHASE012-PUBLISH-AND-AMD013-PREP-003
+- BRANCH: feat/protocol-ecrf-autogen-audit-012
+- BASE: a81b410f5bbdc4ac1739c99b4f97eb29187ac28e
+- Docker verify: 75 passed through medi012_questionnaire_engine
+- STATUS: PHASE012_PUBLISHING
+- Note: Draft PR/merge 없음. AMD catalog 미포함.
+
+### 2026-10-27T12:11:13+09:00 — 설문·Analyzer 통합 루프 (012B)
+
+- TASK_ID: PC2-EYECARE-QUESTIONNAIRE-ANALYZER-INTEGRATION-012B
+- EXECUTION_HOST: SVG-SKLEE (PC2)
+- BRANCH: feat/protocol-ecrf-autogen-audit-012
+- HEAD: a81b410f5bbdc4ac1739c99b4f97eb29187ac28e (미커밋 보존)
+- STATUS: QUESTIONNAIRE_ANALYZER_LOOP_VERIFIED
+- Evidence schema: eyecare-architecture-evidence/1 (v1 REJECTED)
+- First loop: ARCH-DB-4a39d6a5 CLOSED by reanalysis
+- Docker: JWT_FLOW_OK; pytest 79 passed; medi012 head
+- Port Registry SHA-256: `5d97108c4bb335cfd3653ec32d9b7c91302b34f6947f38bee0f4c9f822fed734`
+- LLM: LLM_UNAVAILABLE; Browser: BROWSER_NOT_VERIFIED
+- 상세: `QUESTIONNAIRE-ANALYZER-FIRST-CYCLE-EVIDENCE.md`, `SVG-ANALYZER-INTEGRATION-CONTRACT.md`
+
+### 2026-10-27T11:19:52+09:00 — 모듈형 설문 엔진과 개선 루프
+
+- TASK_ID: PC2-EYECARE-MODULAR-QUESTIONNAIRE-AND-IMPROVEMENT-012A
+- EXECUTION_HOST: SVG-SKLEE (PC2)
+- BRANCH: feat/protocol-ecrf-autogen-audit-012
+- HEAD: a81b410f5bbdc4ac1739c99b4f97eb29187ac28e
+- STATUS: PARTIAL_IMPLEMENTATION
+- Alembic: medi012_questionnaire_engine
+- 포트 레지스트리 SHA-256: `5d97108c4bb335cfd3653ec32d9b7c91302b34f6947f38bee0f4c9f822fed734`
+- LLM: LLM_UNAVAILABLE (1234 무응답)
+- 상세: `QUESTIONNAIRE-ENGINE-ARCHITECTURE.md`, `EYECARE-MODULE-REGISTRY.md`, `SVG-ANALYZER-INTEGRATION-CONTRACT.md`
+
+### 2026-10-27T08:52:53+09:00 — 계획서 eCRF 보강과 Docker 검증
+
+- TASK_ID: PC2-EYECARE-PHASE012-COMPLETION-AND-DOCKER-VALIDATION-002
+- EXECUTION_HOST: SVG-SKLEE (PC2)
+- BRANCH: feat/protocol-ecrf-autogen-audit-012
+- HEAD: a81b410f5bbdc4ac1739c99b4f97eb29187ac28e
+- STATUS: PARTIAL_IMPLEMENTATION
+- 포트 레지스트리: `\\MEDIIOT-SKLEE\idea-collection\projects\PORT-ALLOCATION.md`, SHA-256 `5d97108c4bb335cfd3653ec32d9b7c91302b34f6947f38bee0f4c9f822fed734`
+- 호스트 8001은 기존 uvicorn이 사용 중이라 새 앱을 공개하지 않았다. PostgreSQL과 Redis는 Docker 내부 네트워크만 사용했고 컨테이너는 삭제했다.
+- LLM: LLM_UNAVAILABLE. 등록 포트 1234가 응답하지 않았다.
+
+### 2026-10-27T08:36:00+09:00 — 계획서 eCRF 초안과 감사 체인
+
+- TASK_ID: PC2-EYECARE-PROTOCOL-AUTOGEN-VERSIONING-AUDIT-012
+- EXECUTION_HOST: SVG-SKLEE (PC2)
+- BRANCH: feat/protocol-ecrf-autogen-audit-012
+- BASE_HEAD: a81b410f5bbdc4ac1739c99b4f97eb29187ac28e
+- STATUS: PARTIAL_IMPLEMENTATION
+- 상세: `PROTOCOL-DRIVEN-ECRF-ARCHITECTURE.md`, `PROTOCOL-AMENDMENT-VERSIONING-SPEC.md`, `CLINICAL-AUDIT-TRAIL-GAP-ANALYSIS.md`, `ECRF-AUTOGENERATION-VALIDATION-REPORT.md`
+- 커밋과 푸시는 하지 않았다. 로컬 LLM은 꺼져 있어 초안은 기존 규칙 묶음에서 만들었다.
+
 ### 2026-10-27T00:16:54+09:00 — 증례 대시보드 게시
 
 - TASK_ID: PC2-EYECARE-DASHBOARD-010-PUBLICATION-005

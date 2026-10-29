@@ -776,6 +776,9 @@ def test_postgresql_lock_and_migration_when_configured() -> None:
             }
             version = conn.execute(text("SELECT version_num FROM alembic_version")).scalar()
         chain = _revision_chain(version)
+        assert version == "medi012_questionnaire_engine"
+        assert chain.index("medi012_questionnaire_engine") < chain.index("medi011_protocol_ecrf_audit")
+        assert chain.index("medi011_protocol_ecrf_audit") < chain.index("medi010_external_clinical_import")
         assert chain.index("medi010_external_clinical_import") < chain.index("medi009_clinical_data_lock")
         assert chain.index("medi009_clinical_data_lock") < chain.index("medi008_clinical_query")
         assert {"data_lock_states", "data_unlock_requests", "monitoring_indicators"} <= names
