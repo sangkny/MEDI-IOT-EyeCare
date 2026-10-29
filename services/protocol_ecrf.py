@@ -118,18 +118,31 @@ def _schema_body(identifier: str, version: str) -> dict:
         fields, forms = [], [{"form_code": "UNCONFIGURED", "coverage": "NO_CATALOG", "proposal": True, "source": None}]
     else:
         fields, forms = builder(version)
+    if identifier == "MEDI-AMD-001":
+        unresolved = [
+            "FORMAL_SIGNATURE",
+            "AMD-WAVE",
+            "AMD-SCHED-V6",
+            "AMD-EP-VISIT",
+            "AMD-N15-N16",
+            "AMD-DATA-RETENTION",
+            "AMD-DESIGN-RAND",
+            "AMD-TX-SETTINGS",
+        ]
+    else:
+        unresolved = [
+            "FORMAL_SIGNATURE",
+            "WINDOW_3_VS_7",
+            "VISIT4_TREATMENT",
+            "OSDI_ROUNDING",
+        ]
     return {
         "protocol_identifier": identifier,
         "protocol_version": version,
         "proposal": True,
         "rules_active": False,
         "window_check": False,
-        "unresolved": [
-            "FORMAL_SIGNATURE",
-            "WINDOW_3_VS_7",
-            "VISIT4_TREATMENT",
-            "OSDI_ROUNDING",
-        ],
+        "unresolved": unresolved,
         "forms": forms,
         "fields": fields,
     }
