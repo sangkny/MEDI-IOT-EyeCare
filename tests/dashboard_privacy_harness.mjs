@@ -20,7 +20,7 @@ function makeEl(id) {
     addEventListener(type, fn) { this.listeners[type] = fn; },
   };
 }
-["token", "study", "site", "message", "overview-body", "subjects-body", "visits-body", "analytics-body", "quality-body", "imports-body", "gate"].forEach(makeEl);
+["token", "study", "site", "message", "overview-body", "subjects-body", "visits-body", "analytics-body", "quality-body", "imports-body", "gate", "ecrf", "questionnaire"].forEach(makeEl);
 
 const subjectClicks = {};
 const documentStub = {
@@ -90,7 +90,13 @@ function assertHas(label, token) {
   console.log("PASS", label);
 }
 
-const context = { document: documentStub, fetch: fetchImpl, URLSearchParams, console };
+const context = {
+  document: documentStub,
+  fetch: fetchImpl,
+  URLSearchParams,
+  console,
+  location: { assign() {} },
+};
 context.window = context;
 vm.createContext(context);
 vm.runInContext(match[1], context);

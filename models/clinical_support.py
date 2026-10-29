@@ -9,6 +9,7 @@ import uuid
 from datetime import date, datetime
 
 from sqlalchemy import (
+    Boolean,
     Date,
     DateTime,
     ForeignKey,
@@ -886,5 +887,179 @@ class ImportValidationFinding(Base):
     rule_code: Mapped[str] = mapped_column(String(64), nullable=False)
     message_code: Mapped[str] = mapped_column(String(64), nullable=False)
     created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+
+
+class ProtocolDocument(Base):
+    """계획서 버전 등록. 승인, 추출, 운영 활성은 서로 다른 상태다."""
+
+    __tablename__ = "protocol_documents"
+    __table_args__ = (
+        UniqueConstraint(
+            "study_id", "protocol_identifier", "version_label",
+            name="uq_protocol_documents_version",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    study_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("clinical_studies.id", ondelete="RESTRICT"),
+        nullable=False, index=True,
+    )
+    protocol_identifier: Mapped[str] = mapped_column(String(64), nullable=False)
+    version_label: Mapped[str] = mapped_column(String(16), nullable=False)
+    source_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
+    document_date: Mapped[str] = mapped_column(String(16), nullable=False)
+    source_reference: Mapped[str] = mapped_column(String(200), nullable=False)
+    source_present: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    extraction_status: Mapped[str] = mapped_column(String(32), nullable=False, default="NOT_STARTED")
+    review_status: Mapped[str] = mapped_column(String(32), nullable=False, default="UNREVIEWED")
+    approval_status: Mapped[str] = mapped_column(String(32), nullable=False, default="UNRESOLVED")
+    activation_status: Mapped[str] = mapped_column(String(16), nullable=False, default="INACTIVE")
+    simulated_approval: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    parent_document_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    registered_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+    effective_date: Mapped[str | None] = mapped_column(String(16), nullable=True)
+
+
+class EcrfSchemaVersion(Base):
+    """불변 스키마 본문. 활성화는 상태만 바꾸고 definition_json 은 고치지 않는다."""
+
+    __tablename__ = "ecrf_schema_versions"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    document_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("protocol_documents.id", ondelete="RESTRICT"),
+        nullable=False, index=True,
+    )
+    study_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("clinical_studies.id", ondelete="RESTRICT"),
+        nullable=False, index=True,
+    )
+    schema_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="DRAFT")
+    definition_json: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+
+
+class EcrfEntry(Base):
+    """스키마 버전에 묶인 입력. 계획서 개정이 기존 값을 덮어쓰지 않는다."""
+
+    __tablename__ = "ecrf_entries"
+    __table_args__ = (
+        UniqueConstraint(
+            "visit_id", "schema_version_id", "logical_field_id", "repeat_index", "revision",
+            name="uq_ecrf_entries_revision",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    study_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    site_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    subject_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    visit_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    schema_version_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    protocol_version: Mapped[str] = mapped_column(String(16), nullable=False)
+    logical_field_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    repeat_index: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    value_number: Mapped[float | None] = mapped_column(Numeric(12, 4), nullable=True)
+    value_text: Mapped[str | None] = mapped_column(Text, nullable=True)
+    unit: Mapped[str] = mapped_column(String(16), nullable=False)
+    record_status: Mapped[str] = mapped_column(String(16), nullable=False, default="draft")
+    source: Mapped[str] = mapped_column(String(32), nullable=False, default="manual")
+    reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_by: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+
+
+class AuditEventChain(Base):
+    """기존 감사 행에 연결하는 추가 전용 체인."""
+
+    __tablename__ = "audit_event_chains"
+    __table_args__ = (
+        UniqueConstraint("study_id", "chain_seq", name="uq_audit_event_chains_seq"),
+    )
+
+    event_id: Mapped[str] = mapped_column(String(36), primary_key=True)
+    chain_seq: Mapped[int] = mapped_column(Integer, nullable=False)
+    study_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    actor_role: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    protocol_version: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    schema_version_id: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    correlation_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    previous_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    event_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+
+
+class QuestionnaireScoreResult(Base):
+    """원본 응답과 분리된 권고 채점. 원본 문항 값을 바꾸지 않는다."""
+
+    __tablename__ = "questionnaire_score_results"
+    __table_args__ = (
+        UniqueConstraint(
+            "response_id", "scoring_version", "revision",
+            name="uq_questionnaire_score_results_revision",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    study_id: Mapped[str] = mapped_column(String(36), nullable=False, index=True)
+    site_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    response_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("questionnaire_responses.id", ondelete="RESTRICT"),
+        nullable=False, index=True,
+    )
+    questionnaire_version_id: Mapped[str] = mapped_column(String(36), nullable=False)
+    scoring_version: Mapped[str] = mapped_column(String(32), nullable=False)
+    revision: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    answered_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    not_applicable_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    blank_count: Mapped[int] = mapped_column(Integer, nullable=False)
+    score_sum: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    calculated_score: Mapped[float | None] = mapped_column(Numeric(12, 4), nullable=True)
+    reported_score: Mapped[float | None] = mapped_column(Numeric(12, 4), nullable=True)
+    status: Mapped[str] = mapped_column(String(32), nullable=False, default="ADVISORY")
+    evidence_json: Mapped[str] = mapped_column(Text, nullable=False)
+    created_by: Mapped[str] = mapped_column(String(64), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+
+
+class ImprovementFinding(Base):
+    """SVG-Analyzer 등에서 받은 개선 제안. 임상 DB를 직접 고치지 않는다."""
+
+    __tablename__ = "improvement_findings"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=_uuid)
+    finding_code: Mapped[str] = mapped_column(String(64), nullable=False, unique=True)
+    source_analyzer: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_version: Mapped[str] = mapped_column(String(32), nullable=False)
+    module_id: Mapped[str] = mapped_column(String(64), nullable=False)
+    severity: Mapped[str] = mapped_column(String(16), nullable=False)
+    evidence_json: Mapped[str] = mapped_column(Text, nullable=False)
+    proposed_correction: Mapped[str] = mapped_column(Text, nullable=False)
+    reproduction: Mapped[str | None] = mapped_column(Text, nullable=True)
+    state: Mapped[str] = mapped_column(String(16), nullable=False, default="DETECTED")
+    decision: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    decision_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    fix_ref: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    test_evidence: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reanalysis_outcome: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), nullable=False,
+    )
+    updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), nullable=False,
     )
