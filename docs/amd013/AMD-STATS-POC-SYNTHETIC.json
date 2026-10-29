@@ -1,0 +1,166 @@
+{
+  "stats_version": "amd-bcva-drusen-descriptive-v0.1",
+  "disclaimer": "SYNTHETIC_PROOF_OF_CONCEPT_NOT_CLINICAL_EVIDENCE",
+  "exploratory_only": true,
+  "study_eye_metadata_present": true,
+  "populations": {
+    "FAS": [
+      "SYN-A",
+      "SYN-B"
+    ],
+    "SS": [
+      "SYN-A",
+      "SYN-B",
+      "SYN-C"
+    ]
+  },
+  "bcva_change_from_baseline": {
+    "week5_visit3": {
+      "n": 2,
+      "missing": 0,
+      "mean": 2.5,
+      "sd": 0.7071067811865476,
+      "min": 2.0,
+      "max": 3.0
+    },
+    "week9_visit5": {
+      "n": 1,
+      "missing": 1,
+      "mean": 5.0,
+      "sd": 0.0,
+      "min": 5.0,
+      "max": 5.0
+    },
+    "week21_visit6": {
+      "n": 1,
+      "missing": 1,
+      "mean": 4.0,
+      "sd": 0.0,
+      "min": 4.0,
+      "max": 4.0
+    }
+  },
+  "missing_data_preserved": true,
+  "observations": [
+    {
+      "subject_id": "SYN-A",
+      "study_id": "MEDI-AMD-001",
+      "study_eye": "OD",
+      "visit": "V2",
+      "week": 0,
+      "bcva_letters": 55.0,
+      "drusen_vol": 0.42,
+      "drusen_thk": 85.0,
+      "fas_eligible": true,
+      "ss_eligible": true
+    },
+    {
+      "subject_id": "SYN-A",
+      "study_id": "MEDI-AMD-001",
+      "study_eye": "OD",
+      "visit": "V3",
+      "week": 5,
+      "bcva_letters": 58.0,
+      "drusen_vol": 0.4,
+      "drusen_thk": 82.0,
+      "fas_eligible": true,
+      "ss_eligible": true
+    },
+    {
+      "subject_id": "SYN-A",
+      "study_id": "MEDI-AMD-001",
+      "study_eye": "OD",
+      "visit": "V5",
+      "week": 9,
+      "bcva_letters": 60.0,
+      "drusen_vol": 0.38,
+      "drusen_thk": 80.0,
+      "fas_eligible": true,
+      "ss_eligible": true
+    },
+    {
+      "subject_id": "SYN-A",
+      "study_id": "MEDI-AMD-001",
+      "study_eye": "OD",
+      "visit": "V6",
+      "week": 21,
+      "bcva_letters": 59.0,
+      "drusen_vol": 0.37,
+      "drusen_thk": 79.0,
+      "fas_eligible": true,
+      "ss_eligible": true
+    },
+    {
+      "subject_id": "SYN-B",
+      "study_id": "MEDI-AMD-001",
+      "study_eye": "OS",
+      "visit": "V2",
+      "week": 0,
+      "bcva_letters": 48.0,
+      "drusen_vol": 0.55,
+      "drusen_thk": 95.0,
+      "fas_eligible": true,
+      "ss_eligible": true
+    },
+    {
+      "subject_id": "SYN-B",
+      "study_id": "MEDI-AMD-001",
+      "study_eye": "OS",
+      "visit": "V3",
+      "week": 5,
+      "bcva_letters": 50.0,
+      "drusen_vol": 0.53,
+      "drusen_thk": 93.0,
+      "fas_eligible": true,
+      "ss_eligible": true
+    },
+    {
+      "subject_id": "SYN-B",
+      "study_id": "MEDI-AMD-001",
+      "study_eye": "OS",
+      "visit": "V5",
+      "week": 9,
+      "bcva_letters": null,
+      "drusen_vol": 0.52,
+      "drusen_thk": null,
+      "fas_eligible": true,
+      "ss_eligible": true
+    },
+    {
+      "subject_id": "SYN-B",
+      "study_id": "MEDI-AMD-001",
+      "study_eye": "OS",
+      "visit": "V6",
+      "week": 21,
+      "bcva_letters": null,
+      "drusen_vol": null,
+      "drusen_thk": 90.0,
+      "fas_eligible": true,
+      "ss_eligible": true
+    },
+    {
+      "subject_id": "SYN-C",
+      "study_id": "MEDI-AMD-001",
+      "study_eye": "OD",
+      "visit": "V2",
+      "week": 0,
+      "bcva_letters": 40.0,
+      "drusen_vol": 0.6,
+      "drusen_thk": 100.0,
+      "fas_eligible": false,
+      "ss_eligible": true
+    },
+    {
+      "subject_id": "SYN-C",
+      "study_id": "MEDI-AMD-001",
+      "study_eye": "OD",
+      "visit": "V3",
+      "week": 5,
+      "bcva_letters": 41.0,
+      "drusen_vol": 0.59,
+      "drusen_thk": 99.0,
+      "fas_eligible": false,
+      "ss_eligible": true
+    }
+  ]
+}
