@@ -1,0 +1,454 @@
+{
+  "edges": [
+    {
+      "kind": "declared",
+      "source": "protocol_registry",
+      "target": "protocol_extraction"
+    },
+    {
+      "kind": "declared",
+      "source": "protocol_extraction",
+      "target": "ecrf_schema"
+    },
+    {
+      "kind": "declared",
+      "source": "protocol_extraction",
+      "target": "questionnaire_definition"
+    },
+    {
+      "kind": "declared",
+      "source": "ecrf_schema",
+      "target": "amendment_engine"
+    },
+    {
+      "kind": "declared",
+      "source": "ecrf_schema",
+      "target": "ecrf_renderer"
+    },
+    {
+      "kind": "declared",
+      "source": "questionnaire_definition",
+      "target": "questionnaire_response"
+    },
+    {
+      "kind": "declared",
+      "source": "questionnaire_response",
+      "target": "questionnaire_scoring"
+    },
+    {
+      "kind": "declared",
+      "source": "questionnaire_scoring",
+      "target": "questionnaire_analytics"
+    },
+    {
+      "kind": "declared",
+      "source": "clinical_records",
+      "target": "audit_trail"
+    },
+    {
+      "kind": "declared",
+      "source": "questionnaire_response",
+      "target": "audit_trail"
+    },
+    {
+      "kind": "declared",
+      "source": "clinical_query",
+      "target": "audit_trail"
+    },
+    {
+      "kind": "declared",
+      "source": "import_reconciliation",
+      "target": "data_quality"
+    },
+    {
+      "kind": "declared",
+      "source": "analyzer_integration",
+      "target": "questionnaire_definition"
+    },
+    {
+      "kind": "declared",
+      "source": "alembic",
+      "target": "ecrf_schema"
+    },
+    {
+      "kind": "declared",
+      "source": "alembic",
+      "target": "questionnaire_scoring"
+    }
+  ],
+  "eyecare_meta": {
+    "audit_coverage": {
+      "event_only": [
+        "clinical_query",
+        "data_lock",
+        "clinical_import"
+      ],
+      "hash_chained": [
+        "protocol_registered",
+        "ecrf_generated",
+        "questionnaire_drafted",
+        "questionnaire_response_started",
+        "questionnaire_item_saved",
+        "questionnaire_response_finalized",
+        "questionnaire_scored"
+      ],
+      "missing": [
+        "electronic_signature",
+        "data_export"
+      ]
+    },
+    "exclusions": [
+      "patient_records",
+      "credentials",
+      "unblinded_allocation",
+      "response_values",
+      "protocol_pdf_bodies"
+    ],
+    "generated_at_utc": "2026-10-29T08:32:26.792842+00:00",
+    "legacy_draft_schema": "eyecare-architecture-evidence/v1",
+    "legacy_draft_status": "REJECTED",
+    "migration_ancestry": [
+      "31f9f0473e87_create_medical_tables.py",
+      "c45bcf9c73f7_add_eye_images_and_knowledge_tables_.py",
+      "medi003_clinical_studies.py",
+      "medi004_billing.py",
+      "medi006_clinical_support.py",
+      "medi007_ecrf_foundation.py",
+      "medi008_clinical_query.py",
+      "medi009_clinical_data_lock.py",
+      "medi010_external_clinical_import.py",
+      "medi011_protocol_ecrf_audit.py",
+      "medi012_questionnaire_engine.py"
+    ],
+    "repository_commit_sha": "9ab5b0df385a8ddd4e8974f1090cd19075b7bb94",
+    "schema_compatibility": {
+      "eyecare-architecture-evidence/1": {
+        "maps_to": "eyecare-architecture-evidence/1",
+        "reason": "ADAPTER_SCHEMA",
+        "status": "CANONICAL"
+      },
+      "eyecare-architecture-evidence/v1": {
+        "maps_to": "eyecare-architecture-evidence/1",
+        "reason": "SVG-Analyzer load_evidence_contract accepts only /1",
+        "status": "REJECTED"
+      }
+    },
+    "test_results": {
+      "amd013_publish": "81_passed"
+    },
+    "tool_version": "012b.1"
+  },
+  "modules": [
+    {
+      "audit_covered": true,
+      "critical": true,
+      "db_owns": [
+        "protocol_documents"
+      ],
+      "interfaces": [
+        "http:/api/v1/clinical-support/studies/{id}/protocol-documents"
+      ],
+      "module_id": "protocol_registry",
+      "owner": "clinical-platform",
+      "paths": [
+        "services/protocol_ecrf.py"
+      ],
+      "test_paths": [
+        "tests/test_protocol_ecrf.py"
+      ]
+    },
+    {
+      "audit_covered": true,
+      "critical": true,
+      "db_owns": [],
+      "interfaces": [],
+      "module_id": "protocol_extraction",
+      "owner": "clinical-platform",
+      "paths": [
+        "services/clinical_protocol_rules.py"
+      ],
+      "test_paths": [
+        "tests/test_clinical_import.py"
+      ]
+    },
+    {
+      "audit_covered": true,
+      "critical": true,
+      "db_owns": [],
+      "interfaces": [
+        "http:/api/v1/clinical-support/studies/{id}/ecrf-amendments"
+      ],
+      "module_id": "amendment_engine",
+      "owner": "clinical-platform",
+      "paths": [
+        "services/protocol_ecrf.py"
+      ],
+      "test_paths": [
+        "tests/test_protocol_ecrf.py"
+      ]
+    },
+    {
+      "audit_covered": true,
+      "critical": true,
+      "db_owns": [
+        "ecrf_schema_versions",
+        "ecrf_entries"
+      ],
+      "interfaces": [
+        "http:/api/v1/clinical-support/studies/{id}/ecrf-schemas/{id}"
+      ],
+      "module_id": "ecrf_schema",
+      "owner": "clinical-platform",
+      "paths": [
+        "services/protocol_ecrf.py",
+        "models/clinical_support.py"
+      ],
+      "test_paths": [
+        "tests/test_protocol_ecrf.py"
+      ]
+    },
+    {
+      "audit_covered": false,
+      "critical": false,
+      "db_owns": [],
+      "interfaces": [
+        "http:/protocol-ecrf"
+      ],
+      "module_id": "ecrf_renderer",
+      "owner": "clinical-platform",
+      "paths": [
+        "static/protocol-ecrf/index.html",
+        "api/protocol_ecrf.py"
+      ],
+      "test_paths": [
+        "tests/test_protocol_ecrf.py"
+      ]
+    },
+    {
+      "audit_covered": true,
+      "critical": true,
+      "db_owns": [
+        "questionnaire_definitions",
+        "questionnaire_versions"
+      ],
+      "interfaces": [
+        "http:/api/v1/clinical-support/studies/{id}/questionnaire-drafts"
+      ],
+      "module_id": "questionnaire_definition",
+      "owner": "clinical-platform",
+      "paths": [
+        "services/questionnaire_engine.py"
+      ],
+      "test_paths": [
+        "tests/test_questionnaire_engine.py"
+      ]
+    },
+    {
+      "audit_covered": true,
+      "critical": true,
+      "db_owns": [
+        "questionnaire_responses",
+        "questionnaire_response_items"
+      ],
+      "interfaces": [
+        "http:/api/v1/clinical-support/questionnaire-engine/responses"
+      ],
+      "module_id": "questionnaire_response",
+      "owner": "clinical-platform",
+      "paths": [
+        "services/clinical_records.py",
+        "services/questionnaire_engine.py"
+      ],
+      "test_paths": [
+        "tests/test_questionnaire_engine.py"
+      ]
+    },
+    {
+      "audit_covered": true,
+      "critical": true,
+      "db_owns": [
+        "questionnaire_score_results"
+      ],
+      "interfaces": [
+        "http:/api/v1/clinical-support/questionnaire-engine/responses/{id}/score"
+      ],
+      "module_id": "questionnaire_scoring",
+      "owner": "clinical-platform",
+      "paths": [
+        "services/questionnaire_engine.py"
+      ],
+      "test_paths": [
+        "tests/test_questionnaire_engine.py"
+      ]
+    },
+    {
+      "audit_covered": true,
+      "critical": false,
+      "db_owns": [],
+      "interfaces": [
+        "http:/api/v1/clinical-support/studies/{id}/questionnaire-stats"
+      ],
+      "module_id": "questionnaire_analytics",
+      "owner": "clinical-platform",
+      "paths": [
+        "services/questionnaire_engine.py"
+      ],
+      "test_paths": [
+        "tests/test_questionnaire_engine.py"
+      ]
+    },
+    {
+      "audit_covered": true,
+      "critical": true,
+      "db_owns": [
+        "clinical_observations"
+      ],
+      "interfaces": [],
+      "module_id": "clinical_records",
+      "owner": "clinical-platform",
+      "paths": [
+        "services/clinical_records.py"
+      ],
+      "test_paths": [
+        "tests/test_observation_lifecycle.py"
+      ]
+    },
+    {
+      "audit_covered": true,
+      "critical": true,
+      "db_owns": [
+        "data_quality_findings"
+      ],
+      "interfaces": [],
+      "module_id": "data_quality",
+      "owner": "clinical-platform",
+      "paths": [
+        "services/clinical_quality.py"
+      ],
+      "test_paths": [
+        "tests/test_clinical_query_quality.py"
+      ]
+    },
+    {
+      "audit_covered": true,
+      "critical": true,
+      "db_owns": [
+        "clinical_queries"
+      ],
+      "interfaces": [],
+      "module_id": "clinical_query",
+      "owner": "clinical-platform",
+      "paths": [
+        "services/clinical_queries.py"
+      ],
+      "test_paths": [
+        "tests/test_clinical_query_quality.py"
+      ]
+    },
+    {
+      "audit_covered": true,
+      "critical": true,
+      "db_owns": [
+        "clinical_audit_events",
+        "audit_event_chains"
+      ],
+      "interfaces": [
+        "http:/api/v1/clinical-support/architecture-evidence"
+      ],
+      "module_id": "audit_trail",
+      "owner": "clinical-platform",
+      "paths": [
+        "services/clinical_records.py",
+        "models/clinical_support.py"
+      ],
+      "test_paths": [
+        "tests/test_protocol_ecrf.py",
+        "tests/test_questionnaire_engine.py"
+      ]
+    },
+    {
+      "audit_covered": true,
+      "critical": false,
+      "db_owns": [],
+      "interfaces": [
+        "http:/clinical-dashboard"
+      ],
+      "module_id": "dashboard",
+      "owner": "clinical-platform",
+      "paths": [
+        "services/clinical_case_dashboard.py",
+        "api/clinical_dashboard.py"
+      ],
+      "test_paths": [
+        "tests/test_clinical_case_dashboard.py"
+      ]
+    },
+    {
+      "audit_covered": true,
+      "critical": true,
+      "db_owns": [
+        "import_batches"
+      ],
+      "interfaces": [],
+      "module_id": "import_reconciliation",
+      "owner": "clinical-platform",
+      "paths": [
+        "services/clinical_import.py"
+      ],
+      "test_paths": [
+        "tests/test_clinical_import.py"
+      ]
+    },
+    {
+      "audit_covered": true,
+      "critical": true,
+      "db_owns": [
+        "improvement_findings"
+      ],
+      "interfaces": [
+        "http:/api/v1/clinical-support/architecture-evidence",
+        "http:/api/v1/clinical-support/improvement-findings"
+      ],
+      "module_id": "analyzer_integration",
+      "owner": "clinical-platform",
+      "paths": [
+        "services/architecture_evidence.py",
+        "services/improvement_loop.py"
+      ],
+      "test_paths": [
+        "tests/test_questionnaire_engine.py"
+      ]
+    },
+    {
+      "audit_covered": true,
+      "critical": true,
+      "db_owns": [],
+      "interfaces": [],
+      "module_id": "multi_protocol_catalogs",
+      "owner": "clinical-platform",
+      "paths": [
+        "services/amd_protocol_catalog.py",
+        "services/amd_stats_poc.py"
+      ],
+      "test_paths": [
+        "tests/test_multi_protocol_amd_013.py"
+      ]
+    },
+    {
+      "audit_covered": true,
+      "critical": true,
+      "db_owns": [],
+      "interfaces": [],
+      "module_id": "alembic",
+      "owner": "clinical-platform",
+      "paths": [
+        "alembic/versions"
+      ],
+      "test_paths": [
+        "tests/test_clinical_import.py",
+        "tests/test_clinical_data_lock.py"
+      ]
+    }
+  ],
+  "schema": "eyecare-architecture-evidence/1"
+}

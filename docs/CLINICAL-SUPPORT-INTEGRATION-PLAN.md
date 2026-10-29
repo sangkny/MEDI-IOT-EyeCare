@@ -8,6 +8,40 @@
 
 ## 진행 기록
 
+### 2026-10-29T18:00:00+09:00 — PC1-EYECARE-PHASE012-013-STACKED-INTEGRATION-001 (Phase 013)
+
+```
+TASK_ID: PC1-EYECARE-PHASE012-013-STACKED-INTEGRATION-001
+PHASE: 013
+EXECUTION_HOST: MEDIIOT-SKLEE
+PC_ROLE: PC1
+START_TIME_KST: 2026-10-29T17:41:28+09:00
+WORKTREE: E:/Office_Automation/idea-collection/projects/_integration_eyecare_013
+BRANCH: integration/eyecare-multi-protocol-amd-013
+BASE_HEAD: f0db368b3afac36ddd9f68be66b2784816a01698
+SOURCE_BRANCH: feat/multi-protocol-amd-validation-013
+SOURCE_HEAD: 5886585bf7bd85dd6a32f4f33cd9147b09299cc0
+MERGE_COMMIT: b19fc36c42846dc08f3955ca45fb8aca2e98e1b6
+MERGE_PARENTS: f0db368b3afac36ddd9f68be66b2784816a01698 5886585bf7bd85dd6a32f4f33cd9147b09299cc0
+PORT_REGISTRY_SHA256: 5D97108C4BB335CFD3653EC32D9B7C91302B34F6947F38BEE0F4C9F822FED734
+DOCKER: eyecare-p013-align network, no host ports, Python 3.11.15, PostgreSQL 15 pgvector tmpfs
+MIGRATION_HEAD: medi012_questionnaire_engine
+SQLITE: 100 passed, 4 skipped, exit 0, workers 0
+POLICY: 8 passed, exit 0, workers 0
+POSTGRESQL: both orders 4 passed, exit 0, workers 0
+HTTP: /health 200. dashboard/eCRF/questionnaire 200. unauth 401 auth 200 outsider 403
+BROWSER: BROWSER_NOT_VERIFIED
+SECURITY: Phase 010 clearClinicalPanels retained. Privacy harness green
+AMD: CONFIRMED_CONFLICT retained for AMD-WAVE, AMD-SCHED-V6, AMD-DATA-RETENTION, AMD-DESIGN-RAND. rules_active false. No approval promotion
+SVG_ANALYZER_ADAPTER: 55f710569e89f0fee5b86a71da41230a1fcd661f
+SVG_CONTRACT: eyecare-architecture-evidence/1
+SVG_FINDINGS: 4 UNASSESSED (2 unversioned_interface, 1 data_loss_path heuristic on medi003, 1 schema_migration_gap). No audit_coverage_gap. No critical_test_gap. Clinical rules not auto-modified
+PR_BASE: integration/eyecare-protocol-ecrf-questionnaire-012
+PR_HEAD: integration/eyecare-multi-protocol-amd-013
+PRIOR_012_PR: https://github.com/sangkny/MEDI-IOT-EyeCare/pull/6
+JUDGMENT: PHASE013_READY_FOR_PUSH
+```
+
 ### 2026-10-29T17:55:00+09:00 — PC1-EYECARE-PHASE012-013-STACKED-INTEGRATION-001 (Phase 012)
 
 ```

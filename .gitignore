@@ -49,3 +49,6 @@ timeseries_analysis.json
 labels_modified.csv
 labels_origin.csv
 manifest_*.json
+
+local_analysis/
+

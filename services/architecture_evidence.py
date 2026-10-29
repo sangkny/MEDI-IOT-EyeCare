@@ -80,6 +80,10 @@ MODULES = (
      ["http:/api/v1/clinical-support/architecture-evidence",
       "http:/api/v1/clinical-support/improvement-findings"],
      ["improvement_findings"], True, ["tests/test_questionnaire_engine.py"]),
+    ("multi_protocol_catalogs", ["services/amd_protocol_catalog.py", "services/amd_stats_poc.py"],
+     "clinical-platform", True,
+     [], [], True,
+     ["tests/test_multi_protocol_amd_013.py"]),
     ("alembic", ["alembic/versions"], "clinical-platform", True, [], [], True,
      ["tests/test_clinical_import.py", "tests/test_clinical_data_lock.py"]),
 )
