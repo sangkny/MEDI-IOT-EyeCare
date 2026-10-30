@@ -1,0 +1,77 @@
+{
+  "suffix": "BC06D8",
+  "des": {
+    "study_id": "2d8dec13-0359-4586-aabd-8735a7f49327",
+    "study_code": "MEDI-DES-001-BC06D8",
+    "site_id": "b4c204b1-42a2-43c4-81f5-3c0e886884c1",
+    "subject_id": "d297892e-51d7-4b63-a022-d69ac85a141b",
+    "visit_id": "c93ef83a-75db-4a2d-a770-ff9d1b50468d",
+    "schema_id": "0e0ce14b-bd88-433c-891f-69541318b7fe",
+    "osdi_version_id": "42575008-83da-465c-906d-0d4604ba6c8c",
+    "tbut_observation_id": "72faf1eb-64d0-41cd-aea0-27c137400b99",
+    "schirmer_observation_id": "fb3ae59c-6aac-419d-90e2-e905958cfe46",
+    "query_id": "95e8c6ca-2607-4122-8efa-669c6970e703",
+    "has_osdi_form": true,
+    "forms": [
+      "SCREENING",
+      "OSDI",
+      "TBUT",
+      "SCHIRMER",
+      "VISIT_ASSESSMENTS",
+      "INCLUSION_EXCLUSION",
+      "MEDICAL_HISTORY",
+      "CM",
+      "CT",
+      "AE",
+      "DE",
+      "EX",
+      "DS"
+    ]
+  },
+  "amd": {
+    "study_id": "14460c96-a948-49b3-a0b4-7cceca28c59e",
+    "study_code": "MEDI-AMD-001-BC06D8",
+    "site_id": "ff31a81d-0256-45a7-b7ed-5bd1e8744f6b",
+    "other_site_id": "2e1ae08e-6c3d-40a7-b48c-68fe6f3f62dc",
+    "subject_id": "49375aa0-a19f-4ea2-802a-5e3ebe1d1e7a",
+    "visit_id": "c67e5c83-427d-4e3e-95bc-18beeb52b1a3",
+    "schema_id": "1e501df1-da1f-4ffa-98f3-d781526d500f",
+    "bcva_observation_id": "56cbe7ed-e5db-4da2-aff2-8b9f14511cbc",
+    "oct_observation_id": "2821aaa4-a179-40f5-99f4-65f59eb45b29",
+    "study_eye_observation_id": "6b448186-1af7-45da-9a28-97481225a15e",
+    "has_osdi_form": false,
+    "unresolved": [
+      "FORMAL_SIGNATURE",
+      "AMD-WAVE",
+      "AMD-SCHED-V6",
+      "AMD-EP-VISIT",
+      "AMD-N15-N16",
+      "AMD-DATA-RETENTION",
+      "AMD-DESIGN-RAND",
+      "AMD-TX-SETTINGS"
+    ],
+    "rules_active": false,
+    "forms": [
+      "SCREENING",
+      "CONSENT",
+      "ELIGIBILITY",
+      "DEMOG",
+      "MH",
+      "CM",
+      "STUDY_EYE",
+      "BCVA",
+      "OCT_DRUSEN",
+      "IOP",
+      "IMAGING",
+      "EXPOSURE",
+      "AE",
+      "DS",
+      "REVIEW_FINDINGS"
+    ]
+  },
+  "notes": {
+    "amd_status": "DRAFT",
+    "osdi_on_amd": false,
+    "synthetic_only": true
+  }
+}
