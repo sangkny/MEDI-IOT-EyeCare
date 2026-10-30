@@ -20,5 +20,13 @@
 | dashboard | services/clinical_case_dashboard.py | none | clinical_records | IMPLEMENTED |
 | import_reconciliation | services/clinical_import.py | import_* | clinical_records | IMPLEMENTED |
 | analyzer_integration | services/architecture_evidence.py | improvement_findings | questionnaire_definition | IMPLEMENTED |
+| auth_ui | static/clinical-ops/ops-session.js, api/clinical_ops.py | none | auth token | IMPLEMENTED |
+| clinical_shell | static/clinical-ops | none | auth_ui, study_scope | IMPLEMENTED |
+| audit_viewer | static/clinical-ops + ops/audits | none (read) | audit_trail | IMPLEMENTED |
+| query_workspace | static/clinical-ops | none | clinical_query | IMPLEMENTED |
+| lock_workspace | static/clinical-ops | none | clinical_records locks | IMPLEMENTED |
+| study_scope | static/clinical-ops + ops/session | none | clinical_records | IMPLEMENTED |
+| frontend_security | ops-session.js | none | auth_ui | IMPLEMENTED |
+| multi_protocol_catalogs | services/amd_protocol_catalog.py | none | protocol_registry | IMPLEMENTED |
 
-순환 의존은 없다. `audit_trail`은 공통 하위에 있다. 전자서명과 내보내기 생산자는 아직 없다.
+순환 의존은 없다. `audit_trail`은 공통 하위에 있다. 전자서명과 내보내기 생산자는 아직 없다. Clinical Operations UI는 마이크로서비스가 아니다.

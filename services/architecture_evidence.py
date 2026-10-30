@@ -27,7 +27,7 @@ SCHEMA_COMPATIBILITY = {
         "reason": "ADAPTER_SCHEMA",
     },
 }
-TOOL_VERSION = "012b.1"
+TOOL_VERSION = "014.1"
 _ROOT = Path(__file__).resolve().parents[1]
 
 # module_id, paths, owner, critical, interfaces, db_owns, audit_covered, test_paths
@@ -84,6 +84,26 @@ MODULES = (
      "clinical-platform", True,
      [], [], True,
      ["tests/test_multi_protocol_amd_013.py"]),
+    ("auth_ui", ["static/clinical-ops/ops-session.js", "api/clinical_ops.py"], "clinical-platform", True,
+     ["http:/api/v1/auth/token", "http:/api/v1/clinical-support/ops/session"], [], True,
+     ["tests/test_clinical_ops_ui.py", "tests/test_clinical_ops_page_js.py"]),
+    ("clinical_shell", ["static/clinical-ops/index.html", "static/clinical-ops/ops-app.js"],
+     "clinical-platform", False, ["http:/clinical-ops"], [], False,
+     ["tests/test_clinical_ops_ui.py", "tests/test_clinical_ops_page_js.py"]),
+    ("audit_viewer", ["static/clinical-ops/ops-app.js", "api/clinical_ops.py"], "clinical-platform", True,
+     ["http:/api/v1/clinical-support/ops/audits"], [], True,
+     ["tests/test_clinical_ops_ui.py"]),
+    ("query_workspace", ["static/clinical-ops/ops-app.js", "api/clinical_support.py"],
+     "clinical-platform", True, ["http:/api/v1/clinical-support/queries"],
+     [], True, ["tests/test_clinical_query_quality.py", "tests/test_clinical_ops_page_js.py"]),
+    ("lock_workspace", ["static/clinical-ops/ops-app.js", "api/clinical_support.py"],
+     "clinical-platform", True, ["http:/api/v1/clinical-support/locks/history"],
+     [], True, ["tests/test_clinical_data_lock.py", "tests/test_clinical_ops_page_js.py"]),
+    ("study_scope", ["static/clinical-ops/ops-app.js", "api/clinical_ops.py"], "clinical-platform", True,
+     ["http:/api/v1/clinical-support/ops/session"], [], True,
+     ["tests/test_clinical_ops_ui.py"]),
+    ("frontend_security", ["static/clinical-ops/ops-session.js"], "clinical-platform", True,
+     [], [], False, ["tests/test_clinical_ops_page_js.py"]),
     ("alembic", ["alembic/versions"], "clinical-platform", True, [], [], True,
      ["tests/test_clinical_import.py", "tests/test_clinical_data_lock.py"]),
 )
@@ -102,6 +122,15 @@ EDGES = (
     ("clinical_query", "audit_trail"),
     ("import_reconciliation", "data_quality"),
     ("analyzer_integration", "questionnaire_definition"),
+    ("auth_ui", "clinical_shell"),
+    ("clinical_shell", "study_scope"),
+    ("clinical_shell", "audit_viewer"),
+    ("clinical_shell", "query_workspace"),
+    ("clinical_shell", "lock_workspace"),
+    ("frontend_security", "auth_ui"),
+    ("audit_viewer", "audit_trail"),
+    ("query_workspace", "clinical_query"),
+    ("lock_workspace", "clinical_records"),
     ("alembic", "ecrf_schema"),
     ("alembic", "questionnaire_scoring"),
 )
