@@ -1,0 +1,50 @@
+:root {
+  --bg: #0f1419;
+  --card: #1a2332;
+  --text: #e7ecf3;
+  --muted: #94a3b8;
+  --line: #334155;
+  --accent: #2563eb;
+  --danger: #f87171;
+  --ok: #34d399;
+}
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  font-family: "Segoe UI", "Noto Sans KR", system-ui, sans-serif;
+  background: radial-gradient(1200px 600px at 10% -10%, #1e293b, var(--bg));
+  color: var(--text);
+  min-height: 100vh;
+}
+a { color: #93c5fd; text-decoration: none; }
+header.app-bar {
+  display: flex; flex-wrap: wrap; gap: .75rem; align-items: center;
+  padding: .85rem 1.1rem; border-bottom: 1px solid var(--line); background: rgba(15, 20, 25, .85);
+}
+header.app-bar h1 { font-size: 1.05rem; margin: 0; letter-spacing: .02em; }
+nav { display: flex; flex-wrap: wrap; gap: .4rem; }
+nav a, nav button, .btn {
+  border: 1px solid var(--line); background: #0f172a; color: var(--text);
+  padding: .4rem .7rem; border-radius: 8px; cursor: pointer; font-size: .85rem;
+}
+nav a.active, .btn.primary { background: var(--accent); border-color: transparent; }
+main { max-width: 1100px; margin: 0 auto; padding: 1rem; }
+section.card {
+  background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+  padding: 1rem; margin-bottom: .9rem;
+}
+.muted { color: var(--muted); font-size: .85rem; }
+.err { color: var(--danger); }
+.ok { color: var(--ok); }
+.grid { display: grid; gap: .5rem; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); }
+input, select, textarea, button {
+  padding: .5rem .65rem; border-radius: 8px; border: 1px solid var(--line);
+  background: #0f172a; color: var(--text); width: 100%;
+}
+button { cursor: pointer; }
+table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+th, td { text-align: left; padding: .35rem .4rem; border-bottom: 1px solid var(--line); vertical-align: top; }
+.hidden { display: none !important; }
+.pill { display: inline-block; border: 1px solid var(--line); border-radius: 999px; padding: .1rem .5rem; font-size: .75rem; }
+.login-wrap { max-width: 420px; margin: 8vh auto; }
+pre { white-space: pre-wrap; word-break: break-word; max-height: 420px; overflow: auto; }

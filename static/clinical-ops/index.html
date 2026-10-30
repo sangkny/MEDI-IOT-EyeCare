@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Clinical Operations</title>
+  <link rel="stylesheet" href="/clinical-ops/ops.css" />
+</head>
+<body>
+  <div id="login-view" class="login-wrap card section">
+    <section class="card">
+      <h1>Clinical Operations 로그인</h1>
+      <p class="muted">기존 JWT 인증만 사용합니다. 토큰은 메모리에만 둡니다.</p>
+      <div class="grid">
+        <input id="username" autocomplete="username" placeholder="사용자" />
+        <input id="password" type="password" autocomplete="current-password" placeholder="비밀번호" />
+      </div>
+      <p style="margin-top:.7rem"><button class="btn primary" id="login-btn" type="button">로그인</button></p>
+      <p id="login-msg" class="muted"></p>
+    </section>
+  </div>
+
+  <div id="app-view" class="hidden">
+    <header class="app-bar">
+      <h1>Clinical Operations</h1>
+      <nav id="nav">
+        <a href="#dashboard" data-panel="dashboard">Dashboard</a>
+        <a href="#subjects" data-panel="subjects">Subjects</a>
+        <a href="#ecrf" data-panel="ecrf">eCRF</a>
+        <a href="#questionnaires" data-panel="questionnaires">Questionnaires</a>
+        <a href="#queries" data-panel="queries">Clinical Queries</a>
+        <a href="#locks" data-panel="locks">Data Locks</a>
+        <a href="#audit" data-panel="audit">Audit Trail</a>
+        <a href="#protocol" data-panel="protocol">Protocol Information</a>
+      </nav>
+      <span class="pill" id="who"></span>
+      <button type="button" id="logout-btn">로그아웃</button>
+    </header>
+    <main>
+      <section class="card">
+        <h2>연구 / 사이트 범위</h2>
+        <div class="grid">
+          <select id="study"></select>
+          <select id="site"></select>
+          <select id="subject"><option value="">(대상자 선택)</option></select>
+          <button type="button" class="btn primary" id="apply-scope">범위 적용</button>
+        </div>
+        <p id="scope-msg" class="muted"></p>
+      </section>
+
+      <section class="card panel" id="panel-dashboard">
+        <h2>Dashboard</h2>
+        <p class="muted">기존 증례 대시보드 API를 재사용합니다. 레거시 페이지: <a href="/clinical-dashboard" target="_blank" rel="noopener">/clinical-dashboard</a></p>
+        <button type="button" id="load-dashboard">집계 불러오기</button>
+        <div id="dashboard-body" class="muted"></div>
+      </section>
+
+      <section class="card panel hidden" id="panel-subjects">
+        <h2>Subjects</h2>
+        <div id="subjects-body" class="muted"></div>
+      </section>
+
+      <section class="card panel hidden" id="panel-ecrf">
+        <h2>eCRF</h2>
+        <p class="muted">DES/AMD는 연구별 스키마를 따릅니다. 레거시: <a href="/protocol-ecrf" target="_blank" rel="noopener">/protocol-ecrf</a></p>
+        <input id="schema-id" placeholder="eCRF schema ID" />
+        <button type="button" id="load-schema">스키마 조회</button>
+        <pre id="ecrf-body" class="muted"></pre>
+      </section>
+
+      <section class="card panel hidden" id="panel-questionnaires">
+        <h2>Questionnaires</h2>
+        <p class="muted">OSDI는 DES에만 해당합니다. AMD는 자동 OSDI를 붙이지 않습니다. 레거시: <a href="/questionnaire" target="_blank" rel="noopener">/questionnaire</a></p>
+        <div class="grid">
+          <input id="q-version" placeholder="설문 버전 ID" />
+          <input id="q-visit" placeholder="방문 ID" />
+          <input id="q-item" placeholder="OSQ1" />
+          <input id="q-value" placeholder="0-4 또는 NA" />
+        </div>
+        <p>
+          <button type="button" id="q-start">응답 시작</button>
+          <button type="button" id="q-save">저장</button>
+          <button type="button" id="q-finalize">확정</button>
+          <button type="button" id="q-score">채점</button>
+        </p>
+        <div id="q-body" class="muted"></div>
+      </section>
+
+      <section class="card panel hidden" id="panel-queries">
+        <h2>Clinical Queries</h2>
+        <div class="grid">
+          <select id="q-status">
+            <option value="">(상태 전체)</option>
+            <option>open</option>
+            <option>answered</option>
+            <option>resolved</option>
+            <option>reopened</option>
+          </select>
+          <button type="button" id="load-queries">질의 목록</button>
+        </div>
+        <div class="grid" style="margin-top:.5rem">
+          <input id="new-query-text" placeholder="새 질의 내용" />
+          <input id="new-query-cat" placeholder="category (manual)" value="manual" />
+          <button type="button" id="create-query">질의 생성</button>
+        </div>
+        <div id="queries-body" class="muted"></div>
+        <div class="grid" style="margin-top:.5rem">
+          <input id="query-id" placeholder="Query ID" />
+          <input id="query-response" placeholder="응답 본문" />
+          <button type="button" id="respond-query">응답</button>
+          <button type="button" id="resolve-query">종료</button>
+          <button type="button" id="reopen-query">재개방</button>
+          <button type="button" id="query-history">이력</button>
+        </div>
+        <pre id="query-detail" class="muted"></pre>
+      </section>
+
+      <section class="card panel hidden" id="panel-locks">
+        <h2>Data Locks</h2>
+        <div class="grid">
+          <input id="lock-type" placeholder="target_type (visit|observation|...)" value="visit" />
+          <input id="lock-target" placeholder="target_id" />
+          <input id="lock-reason" placeholder="사유" />
+        </div>
+        <p>
+          <button type="button" id="lock-readiness">준비도</button>
+          <button type="button" id="lock-request">잠금 요청</button>
+          <button type="button" id="lock-apply">잠금 적용</button>
+          <button type="button" id="unlock-request">해제 요청</button>
+          <button type="button" id="lock-history">이력</button>
+        </p>
+        <div class="grid">
+          <input id="unlock-request-id" placeholder="unlock request id" />
+          <input id="unlock-decision-reason" placeholder="승인/거절 사유" value="ops014-e2e" />
+          <button type="button" id="unlock-approve">해제 승인</button>
+          <button type="button" id="unlock-reject">해제 거절</button>
+        </div>
+        <div class="grid" style="margin-top:.5rem">
+          <input id="obs-edit-id" placeholder="observation id (잠금 수정 시도)" />
+          <input id="obs-edit-value" placeholder="value_number" />
+          <button type="button" id="obs-edit-try">잠금 대상 수정 시도</button>
+        </div>
+        <pre id="locks-body" class="muted"></pre>
+      </section>
+
+      <section class="card panel hidden" id="panel-audit">
+        <h2>Audit Trail (읽기 전용)</h2>
+        <p class="muted">해시 체인 연결 여부는 사건별로 표시합니다. 전 사건 암호 검증을 주장하지 않습니다.</p>
+        <div class="grid">
+          <input id="audit-action" placeholder="action 필터" />
+          <input id="audit-target-type" placeholder="target_type" />
+          <input id="audit-from" type="date" />
+          <input id="audit-to" type="date" />
+          <button type="button" id="load-audit">감사 조회</button>
+        </div>
+        <div id="audit-body" class="muted"></div>
+      </section>
+
+      <section class="card panel hidden" id="panel-protocol">
+        <h2>Protocol Information</h2>
+        <p class="muted">MEDI-AMD-001은 DRAFT입니다. 미해결 충돌(AMD-WAVE 등)은 활성 규칙이 아닙니다.</p>
+        <button type="button" id="load-protocol-info">연구 정보</button>
+        <pre id="protocol-body" class="muted"></pre>
+      </section>
+    </main>
+  </div>
+
+  <script src="/clinical-ops/ops-session.js"></script>
+  <script src="/clinical-ops/ops-app.js"></script>
+</body>
+</html>

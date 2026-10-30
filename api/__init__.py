@@ -6,6 +6,7 @@ from .clinical import router as clinical_router
 from .clinical_dashboard import router as clinical_dashboard_router
 from .protocol_ecrf import router as protocol_ecrf_router
 from .questionnaire_engine import router as questionnaire_engine_router
+from .clinical_ops import router as clinical_ops_router
 from .clinical_support import router as clinical_support_router
 from .dashboard import router as dashboard_router
 from .diagnosis import router as diagnosis_router
@@ -33,6 +34,7 @@ api_router.include_router(clinical_support_router, prefix="/clinical-support", t
 api_router.include_router(clinical_dashboard_router, prefix="/clinical-support", tags=["clinical-dashboard"])
 api_router.include_router(protocol_ecrf_router, prefix="/clinical-support", tags=["protocol-ecrf"])
 api_router.include_router(questionnaire_engine_router, prefix="/clinical-support", tags=["questionnaire-engine"])
+api_router.include_router(clinical_ops_router, prefix="/clinical-support", tags=["clinical-ops"])
 api_router.include_router(billing_router, prefix="/billing", tags=["billing"])
 api_router.include_router(stripe_router, prefix="/billing/stripe", tags=["stripe"])
 api_router.include_router(lab_router, prefix="/lab", tags=["lab"])
